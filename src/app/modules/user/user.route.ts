@@ -7,12 +7,14 @@ import { UserController } from './user.controller';
 import { UserValidation } from './user.validation';
 const router = express.Router();
 
+//get user profile
 router.get(
   '/profile',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.ADMIN, USER_ROLES.USER, USER_ROLES.VENDOR),
   UserController.getUserProfile
 );
 
+//create and update user profile
 router
   .route('/')
   .post(
@@ -20,9 +22,18 @@ router
     UserController.createUser
   )
   .patch(
-    auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+    auth(USER_ROLES.ADMIN, USER_ROLES.USER, USER_ROLES.VENDOR),
     fileUploadHandler(),
     UserController.updateProfile
   );
+
+//get vendor with search and filter
+// router.get(
+//   '/vendor/',
+//   auth(USER_ROLES.ADMIN, USER_ROLES.USER, USER_ROLES.VENDOR),
+//   UserController.getAllVendors
+// );
+//get all user
+router.get('/', auth(USER_ROLES.ADMIN), UserController.getAllUser);
 
 export const UserRoutes = router;

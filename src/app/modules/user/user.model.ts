@@ -4,9 +4,9 @@ import { model, Schema } from 'mongoose';
 import config from '../../../config';
 import { USER_ROLES } from '../../../enums/user';
 import ApiError from '../../../errors/ApiError';
-import { IUser, UserModal } from './user.interface';
+import { IUser, UserModel } from './user.interface';
 
-const userSchema = new Schema<IUser, UserModal>(
+const userSchema = new Schema<IUser, UserModel>(
   {
     name: {
       type: String,
@@ -25,7 +25,6 @@ const userSchema = new Schema<IUser, UserModal>(
     },
     contact: {
       type: String,
-      required: true,
     },
     password: {
       type: String,
@@ -34,8 +33,8 @@ const userSchema = new Schema<IUser, UserModal>(
       minlength: 8,
     },
     location: {
-      type: String,
-      required: true,
+      lat: { type: Number },
+      lon: { type: Number },
     },
     profile: {
       type: String,
@@ -106,4 +105,4 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-export const User = model<IUser, UserModal>('User', userSchema);
+export const User = model<IUser, UserModel>('User', userSchema);

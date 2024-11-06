@@ -1,16 +1,42 @@
 import { z } from 'zod';
+import { USER_ROLES } from '../../../enums/user';
 
+// Create a Zod schema for user creation
 const createUserZodSchema = z.object({
   body: z.object({
-    name: z.string({ required_error: 'Name is required' }),
-    contact: z.string({ required_error: 'Contact is required' }),
-    email: z.string({ required_error: 'Email is required' }),
-    password: z.string({ required_error: 'Password is required' }),
-    location: z.string({ required_error: 'Location is required' }),
-    profile: z.string().optional(),
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().email('Invalid email format').toLowerCase(),
+    password: z.string().min(8, 'Password must be at least 8 characters long'),
+    role: z.string({
+      required_error: 'Role is required',
+    }),
   }),
+});
+
+// Create a Zod schema for updating a user
+const updateUserZodSchema = z.object({
+  name: z.string().min(1, 'Name is required').optional(),
+  email: z.string().email('Invalid email format').toLowerCase().optional(),
+  contact: z.string().optional(),
+  location: z
+    .object({
+      lat: z.number().optional(),
+      lon: z.number().optional(),
+    })
+    .optional(),
+  profile: z.string().url().optional(),
+  status: z.enum(['active', 'delete']).optional(),
+  verified: z.boolean().optional(),
+  authentication: z
+    .object({
+      isResetPassword: z.boolean().optional(),
+      oneTimeCode: z.number().nullable().optional(),
+      expireAt: z.date().nullable().optional(),
+    })
+    .optional(),
 });
 
 export const UserValidation = {
   createUserZodSchema,
+  updateUserZodSchema,
 };

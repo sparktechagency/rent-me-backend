@@ -1,0 +1,70 @@
+import { Request, Response } from 'express';
+import catchAsync from '../../../shared/catchAsync';
+import { ReviewService } from './review.service';
+import { IReview } from './review.interface';
+import sendResponse from '../../../shared/sendResponse';
+import { StatusCodes } from 'http-status-codes';
+
+const createReview = catchAsync(async (req: Request, res: Response) => {
+  const { ...reviewData } = req.body;
+  const result = await ReviewService.createReview(reviewData);
+  sendResponse<IReview | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Review created successfully',
+    data: result,
+  });
+});
+
+const getAllReviews = catchAsync(async (req: Request, res: Response) => {
+  //vendor id based reviews
+  const { id } = req.params;
+  const result = await ReviewService.getAllReviews(id);
+  sendResponse<IReview[] | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'All reviews retrieved successfully',
+    data: result,
+  });
+});
+
+const getSingleReview = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ReviewService.getSingleReview(id);
+  sendResponse<IReview | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Single review retrieved successfully',
+    data: result,
+  });
+});
+
+const updateReview = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const payload = req.body;
+  const result = await ReviewService.updateReview(id, payload);
+  sendResponse<IReview | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Review updated successfully',
+    data: result,
+  });
+});
+
+const deleteReview = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ReviewService.deleteReview(id);
+  sendResponse<IReview | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Review deleted successfully',
+    data: result,
+  });
+});
+export const ReviewController = {
+  createReview,
+  getAllReviews,
+  getSingleReview,
+  updateReview,
+  deleteReview,
+};

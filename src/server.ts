@@ -45,7 +45,7 @@ async function main() {
   process.on('unhandledRejection', error => {
     if (server) {
       server.close(() => {
-        errorLogger.error('UnhandleRejection Detected', error);
+        errorLogger.error('UnhandledRejection Detected', error);
         process.exit(1);
       });
     } else {
