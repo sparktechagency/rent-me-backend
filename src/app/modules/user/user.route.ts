@@ -9,30 +9,32 @@ const router = express.Router();
 
 //get user profile
 router.get(
-  '/profile',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER, USER_ROLES.VENDOR),
+  '/profile/:id',
+  auth(USER_ROLES.ADMIN),
   UserController.getUserProfile
 );
 
 //create and update user profile
-router
-  .route('/')
-  .post(
-    validateRequest(UserValidation.createUserZodSchema),
-    UserController.createUser
-  )
-  .patch(
-    auth(USER_ROLES.ADMIN, USER_ROLES.USER, USER_ROLES.VENDOR),
-    fileUploadHandler(),
-    UserController.updateProfile
-  );
+router.post(
+  '/',
+  validateRequest(UserValidation.createUserZodSchema),
+  UserController.createUser
+);
 
-//get vendor with search and filter
-// router.get(
-//   '/vendor/',
-//   auth(USER_ROLES.ADMIN, USER_ROLES.USER, USER_ROLES.VENDOR),
-//   UserController.getAllVendors
+//update user
+router.patch(
+  '/:id',
+  auth(USER_ROLES.ADMIN),
+  validateRequest(UserValidation.updateUserZodSchema),
+  UserController.updateUser
+);
+
+// .patch(
+//   auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+//   fileUploadHandler(),
+//   UserController.updateProfile
 // );
+
 //get all user
 router.get('/', auth(USER_ROLES.ADMIN), UserController.getAllUser);
 

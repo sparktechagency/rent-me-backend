@@ -15,17 +15,7 @@ const createUserZodSchema = z.object({
 
 // Create a Zod schema for updating a user
 const updateUserZodSchema = z.object({
-  name: z.string().min(1, 'Name is required').optional(),
-  email: z.string().email('Invalid email format').toLowerCase().optional(),
-  contact: z.string().optional(),
-  location: z
-    .object({
-      lat: z.number().optional(),
-      lon: z.number().optional(),
-    })
-    .optional(),
-  profile: z.string().url().optional(),
-  status: z.enum(['active', 'delete']).optional(),
+  status: z.enum(['active', 'restricted', 'delete']).optional(),
   verified: z.boolean().optional(),
   authentication: z
     .object({

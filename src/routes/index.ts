@@ -9,6 +9,7 @@ import { BookMarkRoutes } from '../app/modules/bookmark/bookmark.route';
 import { PaymentRoutes } from '../app/modules/payment/payment.route';
 import { CategoryRoutes } from '../app/modules/category/category.route';
 import { OthersRoutes } from '../app/modules/others/others.route';
+import { VendorRoutes } from '../app/modules/vendor/vendor.route';
 const router = express.Router();
 
 const apiRoutes = [
@@ -19,6 +20,10 @@ const apiRoutes = [
   {
     path: '/user',
     route: UserRoutes,
+  },
+  {
+    path: '/vendor',
+    route: VendorRoutes,
   },
   {
     path: '/service',
