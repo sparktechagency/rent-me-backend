@@ -3,6 +3,8 @@ import { StatusCodes } from 'http-status-codes';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { UserService } from './user.service';
+import { IUser } from './user.interface';
+import { userFilterableFields } from './user.constants';
 import pick from '../../../shared/pick';
 
 const createUser = catchAsync(
@@ -20,8 +22,8 @@ const createUser = catchAsync(
 );
 
 const getUserProfile = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user;
-  const result = await UserService.getUserProfileFromDB(user);
+  const { id } = req.params;
+  const result = await UserService.getUserProfileFromDB(id);
 
   sendResponse(res, {
     success: true,
@@ -31,32 +33,46 @@ const getUserProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateUser = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const data = req.body;
+  const result = await UserService.updateUser(id, data);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'User updated successfully',
+    data: result,
+  });
+});
+
 //update profile
-const updateProfile = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user;
-    let profile;
-    if (req.files && 'image' in req.files && req.files.image[0]) {
-      profile = `/images/${req.files.image[0].filename}`;
-    }
+// const updateProfile = catchAsync(
+//   async (req: Request, res: Response, next: NextFunction) => {
+//     const user = req.user;
+//     let profile;
+//     if (req.files && 'image' in req.files && req.files.image[0]) {
+//       profile = `/images/${req.files.image[0].filename}`;
+//     }
 
-    const data = {
-      profile,
-      ...req.body,
-    };
-    const result = await UserService.updateProfileToDB(user, data);
+//     const data = {
+//       profile,
+//       ...req.body,
+//     };
+//     const result = await UserService.updateProfileToDB(user, data);
 
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'Profile updated successfully',
-      data: result,
-    });
-  }
-);
+//     sendResponse(res, {
+//       success: true,
+//       statusCode: StatusCodes.OK,
+//       message: 'Profile updated successfully',
+//       data: result,
+//     });
+//   }
+// );
 
 const getAllUser = catchAsync(async (req: Request, res: Response) => {
-  const result = await UserService.getAllUserFromDB();
+  const filters = pick(req.query, userFilterableFields);
+  const result = await UserService.getAllUser(filters);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -68,6 +84,6 @@ const getAllUser = catchAsync(async (req: Request, res: Response) => {
 export const UserController = {
   createUser,
   getUserProfile,
-  updateProfile,
+  updateUser,
   getAllUser,
 };

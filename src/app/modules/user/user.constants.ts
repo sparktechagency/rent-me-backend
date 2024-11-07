@@ -1,2 +1,2 @@
-export const userSearchableFields = ['name', 'email'];
-export const userFilterableFields = ['profile', 'name', 'email', 'role'];
+export const userSearchableFields = ['id', 'name', 'role', 'email'];
+export const userFilterableFields = ['searchTerm', 'id', 'role', 'status'];

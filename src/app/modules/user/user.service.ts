@@ -4,24 +4,89 @@ import { USER_ROLES } from '../../../enums/user';
 import ApiError from '../../../errors/ApiError';
 import { emailHelper } from '../../../helpers/emailHelper';
 import { emailTemplate } from '../../../shared/emailTemplate';
-import unlinkFile from '../../../shared/unlinkFile';
 import generateOTP from '../../../util/generateOTP';
-import { IUser } from './user.interface';
+import { IUser, IUserFilters } from './user.interface';
 import { User } from './user.model';
+import mongoose from 'mongoose';
+import { generateCustomIdBasedOnRole } from './user.utils';
+import { Admin } from '../admin/admin.model';
+import { Customer } from '../customer/customer.model';
+import { Vendor } from '../vendor/vendor.model';
+import { userSearchableFields } from './user.constants';
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
-  const createUser = await User.create(payload);
-  if (!createUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create user');
+  const { ...user } = payload;
+
+  let newUserData = null;
+  let createdUser;
+
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    const id = await generateCustomIdBasedOnRole(user?.role!);
+    user.id = id as string;
+
+    if (user?.role === USER_ROLES.ADMIN) {
+      createdUser = await Admin.create([user], { session });
+      if (!createdUser?.length) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Admin');
+      }
+
+      //assign admin mongoDB id to user
+      user.admin = createdUser[0]._id;
+    } else if (user?.role === USER_ROLES.CUSTOMER) {
+      createdUser = await Customer.create([user], { session });
+      if (!createdUser?.length) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Failed to create Customer'
+        );
+      }
+
+      //assign customer mongoDB id to user
+      user.customer = createdUser[0]._id;
+    } else if (user?.role === USER_ROLES.VENDOR) {
+      createdUser = await Vendor.create([user], { session });
+      if (!createdUser?.length) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Vendor');
+      }
+
+      //assign vendor mongoDB id to user
+      user.vendor = createdUser[0]._id;
+    }
+
+    const newUser = await User.create([user], { session });
+    if (!newUser?.length) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create User');
+    }
+
+    newUserData = newUser[0];
+
+    await session.commitTransaction();
+    session.endSession();
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
+
+  if (newUserData) {
+    newUserData = await User.findOne({ _id: newUserData._id })
+      .populate('admin')
+      .populate('customer')
+      .populate('vendor');
   }
 
   //send email
   const otp = generateOTP();
   const values = {
-    name: createUser.name,
+    name: createdUser![0].name,
     otp: otp,
-    email: createUser.email!,
+    email: newUserData!.email!,
   };
+
   const createAccountTemplate = emailTemplate.createAccount(values);
   emailHelper.sendEmail(createAccountTemplate);
 
@@ -31,18 +96,19 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
     expireAt: new Date(Date.now() + 3 * 60000),
   };
   await User.findOneAndUpdate(
-    { _id: createUser._id },
+    { _id: newUserData!._id },
     { $set: { authentication } }
   );
 
-  return createUser;
+  return newUserData!;
 };
 
-const getUserProfileFromDB = async (
-  user: JwtPayload
-): Promise<Partial<IUser>> => {
-  const { id } = user;
-  const isExistUser = await User.isExistUserById(id);
+const getUserProfileFromDB = async (id: string): Promise<Partial<IUser>> => {
+  const isExistUser = await User.findOne({ id: id })
+    .populate('admin')
+    .populate('customer')
+    .populate('vendor')
+    .lean();
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -50,39 +116,60 @@ const getUserProfileFromDB = async (
   return isExistUser;
 };
 
-const updateProfileToDB = async (
-  user: JwtPayload,
+const updateUser = async (
+  id: string,
   payload: Partial<IUser>
-): Promise<Partial<IUser | null>> => {
-  const { id } = user;
-  const isExistUser = await User.isExistUserById(id);
+): Promise<IUser | null> => {
+  const isExistUser = await User.findOne({ id: id });
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  //unlink file here
-  if (payload.profile) {
-    unlinkFile(isExistUser.profile);
-  }
-
-  const updateDoc = await User.findOneAndUpdate({ _id: id }, payload, {
+  const updateDoc = await User.findOneAndUpdate({ id: id }, payload, {
     new: true,
   });
 
   return updateDoc;
 };
 
-const getAllUserFromDB = async (): Promise<Partial<IUser>[]> => {
-  const result = await User.find();
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+const getAllUser = async (filters: IUserFilters): Promise<Partial<IUser>[]> => {
+  const { searchTerm, ...filtersData } = filters;
+
+  const andCondition = [];
+
+  if (searchTerm) {
+    andCondition.push({
+      $or: userSearchableFields.map(field => ({
+        [field]: {
+          $regex: searchTerm,
+          $options: 'i',
+        },
+      })),
+    });
   }
+  if (Object.keys(filtersData).length) {
+    andCondition.push({
+      $and: Object.entries(filtersData).map(([field, value]) => {
+        const parsedValue = Number(value);
+        return {
+          [field]: !isNaN(parsedValue) ? parsedValue : value,
+        };
+      }),
+    });
+  }
+  const whereConditions = andCondition.length > 0 ? { $and: andCondition } : {};
+
+  const result = await User.find(whereConditions)
+    .populate('admin')
+    .populate('customer')
+    .populate('vendor');
+
   return result;
 };
 
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,
-  updateProfileToDB,
-  getAllUserFromDB,
+  updateUser,
+  getAllUser,
 };

@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { StatusCodes } from 'http-status-codes';
-import { model, Schema } from 'mongoose';
+import { model, Schema, Types } from 'mongoose';
 import config from '../../../config';
 import { USER_ROLES } from '../../../enums/user';
 import ApiError from '../../../errors/ApiError';
@@ -8,14 +8,10 @@ import { IUser, UserModel } from './user.interface';
 
 const userSchema = new Schema<IUser, UserModel>(
   {
-    name: {
+    id: {
       type: String,
       required: true,
-    },
-    role: {
-      type: String,
-      enum: Object.values(USER_ROLES),
-      required: true,
+      unique: true,
     },
     email: {
       type: String,
@@ -23,26 +19,32 @@ const userSchema = new Schema<IUser, UserModel>(
       unique: true,
       lowercase: true,
     },
-    contact: {
-      type: String,
-    },
     password: {
       type: String,
       required: true,
       select: 0,
       minlength: 8,
     },
-    location: {
-      lat: { type: Number },
-      lon: { type: Number },
-    },
-    profile: {
+    role: {
       type: String,
-      default: 'https://i.ibb.co/z5YHLV9/profile.png',
+      enum: Object.values(USER_ROLES),
+      required: true,
+    },
+    customer: {
+      type: Types.ObjectId,
+      ref: 'Customer',
+    },
+    vendor: {
+      type: Types.ObjectId,
+      ref: 'Vendor',
+    },
+    admin: {
+      type: Types.ObjectId,
+      ref: 'Admin',
     },
     status: {
       type: String,
-      enum: ['active', 'delete'],
+      enum: ['active', 'restricted', 'delete'],
       default: 'active',
     },
     verified: {
@@ -51,6 +53,9 @@ const userSchema = new Schema<IUser, UserModel>(
     },
     authentication: {
       type: {
+        passwordChangedAt: {
+          type: Date,
+        },
         isResetPassword: {
           type: Boolean,
           default: false,
@@ -67,7 +72,12 @@ const userSchema = new Schema<IUser, UserModel>(
       select: 0,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+    },
+  }
 );
 
 //exist user check
