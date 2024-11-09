@@ -1,6 +1,5 @@
 import zod, { z } from 'zod';
 const createServiceZodSchema = z.object({
-  vendorId: z.string({ required_error: 'Vendor ID is required' }),
   title: z.string({
     required_error: 'Title is required',
   }),
@@ -13,7 +12,6 @@ const createServiceZodSchema = z.object({
 });
 
 const updateServiceZodSchema = z.object({
-  vendorId: z.string().optional(),
   title: z.string().optional(),
   description: z.string().optional(),
   estBudget: z.number().optional(),

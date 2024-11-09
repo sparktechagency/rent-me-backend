@@ -1,8 +1,6 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import auth from '../../middlewares/auth';
 import { USER_ROLES } from '../../../enums/user';
-import { AuthValidation } from '../auth/auth.validation';
-import validateRequest from '../../middlewares/validateRequest';
 import { ServiceValidation } from './service.validation';
 import { ServiceController } from './service.controller';
 import fileUploadHandler from '../../middlewares/fileUploadHandler';
@@ -13,20 +11,39 @@ router.post(
   '/',
   auth(USER_ROLES.VENDOR),
   fileUploadHandler(),
-  // validateRequest(ServiceValidation.createServiceZodSchema),
-  ServiceController.createService
+  (req: Request, res: Response, next: NextFunction) => {
+    req.body = ServiceValidation.createServiceZodSchema.parse(
+      JSON.parse(req?.body?.data)
+    );
+
+    return ServiceController.createService(req, res, next);
+  }
 );
-router.get('/:id', ServiceController.getSingleService);
+
 router.patch(
   '/:id',
   auth(USER_ROLES.VENDOR),
   fileUploadHandler(),
-  validateRequest(ServiceValidation.updateServiceZodSchema),
-  ServiceController.updateService
+  (req: Request, res: Response, next: NextFunction) => {
+    req.body.data
+      ? (req.body = ServiceValidation.updateServiceZodSchema.parse(
+          JSON.parse(req.body.data)
+        ))
+      : {};
+    return ServiceController.updateService(req, res, next);
+  }
 );
 router.delete('/:id', auth(USER_ROLES.VENDOR), ServiceController.deleteService);
 
-//search Filter and pagination needed
+//get service
+router.get('/:id', ServiceController.getSingleService);
+
+//get packages by service Id
+router.get('/package/:id', ServiceController.getAllPackageByServiceId);
+
+//by Vendor Id
+router.get('/vendor/:id', ServiceController.getAllServiceByVendorId);
+
 router.get('/', ServiceController.getAllService);
 
 export const ServiceRoutes = router;

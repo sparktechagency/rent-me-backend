@@ -7,6 +7,9 @@ import { StatusCodes } from 'http-status-codes';
 
 const createReview = catchAsync(async (req: Request, res: Response) => {
   const { ...reviewData } = req.body;
+  const { userId } = req.user;
+  reviewData.customerId = userId;
+
   const result = await ReviewService.createReview(reviewData);
   sendResponse<IReview | null>(res, {
     success: true,
@@ -16,17 +19,33 @@ const createReview = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const getAllReviews = catchAsync(async (req: Request, res: Response) => {
-  //vendor id based reviews
+const updateReview = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await ReviewService.getAllReviews(id);
-  sendResponse<IReview[] | null>(res, {
+
+  const payload = req.body;
+  const result = await ReviewService.updateReview(id, payload);
+  sendResponse<IReview | null>(res, {
     success: true,
     statusCode: StatusCodes.OK,
-    message: 'All reviews retrieved successfully',
+    message: 'Review updated successfully',
     data: result,
   });
 });
+
+const getAllReviewsForVendorById = catchAsync(
+  async (req: Request, res: Response) => {
+    //vendor id based reviews
+    const { id } = req.params;
+    const result = await ReviewService.getAllReviewsForVendorById(id);
+
+    sendResponse<IReview[] | null>(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'All reviews retrieved successfully',
+      data: result,
+    });
+  }
+);
 
 const getSingleReview = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -35,18 +54,6 @@ const getSingleReview = catchAsync(async (req: Request, res: Response) => {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Single review retrieved successfully',
-    data: result,
-  });
-});
-
-const updateReview = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const payload = req.body;
-  const result = await ReviewService.updateReview(id, payload);
-  sendResponse<IReview | null>(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: 'Review updated successfully',
     data: result,
   });
 });
@@ -63,7 +70,7 @@ const deleteReview = catchAsync(async (req: Request, res: Response) => {
 });
 export const ReviewController = {
   createReview,
-  getAllReviews,
+  getAllReviewsForVendorById,
   getSingleReview,
   updateReview,
   deleteReview,

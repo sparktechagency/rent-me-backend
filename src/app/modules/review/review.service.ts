@@ -11,20 +11,21 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
   return createReview;
 };
 
-const getAllReviews = async (id: string): Promise<IReview[] | null> => {
+const getAllReviewsForVendorById = async (
+  id: string
+): Promise<IReview[] | null> => {
   const result = await Review.find({ vendorId: id })
-    .populate('userId')
-    .populate('serviceId')
+    .populate('customerId')
     .populate('vendorId');
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get all reviews');
   }
   return result;
 };
+
 const getSingleReview = async (id: string): Promise<IReview | null> => {
   const result = await Review.findById(id)
-    .populate('userId')
-    .populate('serviceId')
+    .populate('customerId')
     .populate('vendorId');
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get single review');
@@ -53,7 +54,7 @@ const deleteReview = async (id: string): Promise<IReview | null> => {
 
 export const ReviewService = {
   createReview,
-  getAllReviews,
+  getAllReviewsForVendorById,
   getSingleReview,
   updateReview,
   deleteReview,

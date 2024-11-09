@@ -3,14 +3,18 @@ import { IReview, IReviewModel } from './review.interface';
 
 const reviewSchema = new Schema<IReview, IReviewModel>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User' },
-    vendorId: { type: Schema.Types.ObjectId, ref: 'User' },
-    serviceId: { type: Schema.Types.ObjectId, ref: 'Service' },
+    customerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Customer',
+      required: true,
+    },
+    vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
     rating: { type: Number, required: true },
     comment: { type: String, required: true },
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
   }
 );
 

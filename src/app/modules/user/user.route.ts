@@ -29,6 +29,8 @@ router.patch(
   UserController.updateUser
 );
 
+router.patch('/delete/:id', auth(USER_ROLES.ADMIN), UserController.deleteUser);
+
 // .patch(
 //   auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
 //   fileUploadHandler(),

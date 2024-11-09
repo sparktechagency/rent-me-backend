@@ -3,12 +3,16 @@ import { IService, ServiceModel } from './service.interface';
 
 const serviceSchema = new Schema<IService, ServiceModel>(
   {
-    vendorId: { type: Schema.Types.ObjectId, ref: 'User' },
+    vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
     title: { type: String, required: true },
     description: { type: String, required: true },
     estBudget: { type: Number, required: true },
     productDimension: { type: String, required: true },
-    categoryId: { type: Schema.Types.ObjectId, ref: 'Category' },
+    categoryId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Category',
+      required: true,
+    },
     cover: { type: String, required: true },
   },
   { timestamps: true }
