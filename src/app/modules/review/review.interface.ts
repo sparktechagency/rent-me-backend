@@ -1,9 +1,8 @@
 import { Model, Types } from 'mongoose';
 
 export type IReview = {
-  userId: Types.ObjectId;
+  customerId: Types.ObjectId; //replace with customerId
   vendorId: Types.ObjectId;
-  serviceId: Types.ObjectId;
   rating: number;
   comment: string;
 };

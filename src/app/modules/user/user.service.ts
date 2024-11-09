@@ -103,19 +103,6 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   return newUserData!;
 };
 
-const getUserProfileFromDB = async (id: string): Promise<Partial<IUser>> => {
-  const isExistUser = await User.findOne({ id: id })
-    .populate('admin')
-    .populate('customer')
-    .populate('vendor')
-    .lean();
-  if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
-  }
-
-  return isExistUser;
-};
-
 const updateUser = async (
   id: string,
   payload: Partial<IUser>
@@ -130,6 +117,19 @@ const updateUser = async (
   });
 
   return updateDoc;
+};
+
+const getUserProfileFromDB = async (id: string): Promise<Partial<IUser>> => {
+  const isExistUser = await User.findOne({ id: id })
+    .populate('admin')
+    .populate('customer')
+    .populate('vendor')
+    .lean();
+  if (!isExistUser) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  return isExistUser;
 };
 
 const getAllUser = async (filters: IUserFilters): Promise<Partial<IUser>[]> => {
@@ -167,9 +167,25 @@ const getAllUser = async (filters: IUserFilters): Promise<Partial<IUser>[]> => {
   return result;
 };
 
+const deleteUser = async (id: string): Promise<IUser | null> => {
+  const isUserExists = await User.findOne({ id: id });
+  if (!isUserExists) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+  const updatedData = {
+    status: 'delete',
+  };
+
+  const result = await User.findOneAndUpdate({ id: id }, updatedData, {
+    new: true,
+  });
+  return result;
+};
+
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,
   updateUser,
   getAllUser,
+  deleteUser,
 };
