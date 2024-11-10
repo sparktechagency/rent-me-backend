@@ -11,6 +11,10 @@ const categorySchema = new Schema<ICategory>(
       type: String,
       default: '',
     },
+    image: {
+      type: String,
+      required: true,
+    },
   },
 
   {

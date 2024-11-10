@@ -4,6 +4,7 @@ import { Secret } from 'jsonwebtoken';
 import config from '../../config';
 import ApiError from '../../errors/ApiError';
 import { jwtHelper } from '../../helpers/jwtHelper';
+import { User } from '../modules/user/user.model';
 
 const auth =
   (...roles: string[]) =>
@@ -22,6 +23,22 @@ const auth =
           token,
           config.jwt.jwt_secret as Secret
         );
+
+        const isUserExist = await User.findById(verifyUser.id);
+        if (!isUserExist) {
+          throw new ApiError(StatusCodes.UNAUTHORIZED, 'User not found');
+        }
+
+        if (isUserExist.status === 'delete') {
+          throw new ApiError(StatusCodes.NOT_FOUND, 'User has been deleted');
+        }
+
+        if (!isUserExist) {
+          throw new ApiError(
+            StatusCodes.NOT_FOUND,
+            'User does not exist in database'
+          );
+        }
         //set user to header
         req.user = verifyUser;
 

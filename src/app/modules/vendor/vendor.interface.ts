@@ -8,13 +8,16 @@ export type IVendor = {
   profileImg?: string;
   address?: string;
   rating?: number;
+  totalReviews: number;
   location: {
     lat: number;
     lng: number;
   };
   orderCompleted?: number;
+  isAvailable?: boolean; // order < 10 ? true : false
   businessTitle?: string;
   description?: string;
+  shopVisited: number;
   businessImages?: string[];
 };
 

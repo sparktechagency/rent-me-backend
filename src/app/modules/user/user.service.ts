@@ -109,7 +109,7 @@ const updateUser = async (
 ): Promise<IUser | null> => {
   const isExistUser = await User.findOne({ id: id });
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
 
   const updateDoc = await User.findOneAndUpdate({ id: id }, payload, {
@@ -126,7 +126,7 @@ const getUserProfileFromDB = async (id: string): Promise<Partial<IUser>> => {
     .populate('vendor')
     .lean();
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
 
   return isExistUser;

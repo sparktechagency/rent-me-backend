@@ -35,6 +35,9 @@ const getAllService = catchAsync(async (req: Request, res: Response) => {
 const createService = catchAsync(async (req: Request, res: Response) => {
   const serviceData = req?.body;
   const { userId } = req.user;
+
+  console.log(req.user);
+
   serviceData.vendorId = userId;
 
   let cover;

@@ -19,18 +19,35 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
     },
     contact: {
       type: String,
+      default: '',
     },
     profileImg: {
       type: String,
+      default: '',
     },
     address: {
       type: String,
+      default: '',
     },
     rating: {
       type: Number,
       default: 0,
+      required: true,
+    },
+    totalReviews: {
+      type: Number,
+      default: 0,
+      required: true,
     },
     orderCompleted: {
+      type: Number,
+      default: 0,
+    },
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
+    shopVisited: {
       type: Number,
       default: 0,
     },

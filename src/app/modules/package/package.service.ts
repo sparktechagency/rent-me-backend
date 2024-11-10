@@ -4,12 +4,19 @@ import { Package } from './package.model';
 import { IPackage } from './package.interface';
 import { User } from '../user/user.model';
 import { Types } from 'mongoose';
+import { Service } from '../service/service.model';
 
 const createPackage = async (
   id: Types.ObjectId,
   payload: IPackage
 ): Promise<IPackage> => {
   payload.vendorId = id;
+
+  const isServiceExist = await Service.findById(payload.serviceId);
+  if (!isServiceExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Service does not exist');
+  }
+
   const createPackage = await Package.create(payload);
   if (!createPackage) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create package');
