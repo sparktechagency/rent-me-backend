@@ -11,6 +11,8 @@ import { CategoryRoutes } from '../app/modules/category/category.route';
 import { OthersRoutes } from '../app/modules/others/others.route';
 import { VendorRoutes } from '../app/modules/vendor/vendor.route';
 import { CustomerRoutes } from '../app/modules/customer/customer.route';
+import { ChatRoutes } from '../app/modules/chat/chat.route';
+import { MessageRoutes } from '../app/modules/message/message.route';
 const router = express.Router();
 
 const apiRoutes = [
@@ -61,6 +63,14 @@ const apiRoutes = [
   {
     path: '/notification',
     route: CategoryRoutes,
+  },
+  {
+    path: '/chat',
+    route: ChatRoutes,
+  },
+  {
+    path: '/message',
+    route: MessageRoutes,
   },
   {
     path: '/others',

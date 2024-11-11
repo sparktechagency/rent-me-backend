@@ -18,6 +18,7 @@ router.patch(
           JSON.parse(req.body.data)
         ))
       : req.body;
+    console.log(req.body);
     return VendorController.updateVendorProfile(req, res, next);
   }
 );
@@ -40,6 +41,12 @@ router.delete(
 router.get('/:id', VendorController.getSingleVendor);
 
 //get all vendor for home page search and filter
-router.get('/');
+router.get('/', VendorController.getAllVendor);
+
+router.get(
+  '/statistic/revenue/:range',
+  auth(USER_ROLES.VENDOR),
+  VendorController.getVendorRevenue
+);
 
 export const VendorRoutes = router;

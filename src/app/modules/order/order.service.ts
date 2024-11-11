@@ -15,9 +15,6 @@ const createOrder = async (payload: IOrder) => {
   const orderId = await generateCustomOrderId();
 
   payload.orderId = orderId;
-  //generate a random otp for delivery verification code
-  const deliveryCode = generateOTP();
-  payload.deliveryReceivingCode = deliveryCode.toString();
 
   const vendorExist = await Vendor.findById(payload.vendorId);
 
@@ -98,98 +95,51 @@ const getAllOrders = async () => {
   return result;
 };
 
-// const getAllOrderByUserId = async (
-//   user: JwtPayload,
-//   filterData: Partial<IOrderFilter>
-// ) => {
-//   const andCondition = [];
-
-//   if (filterData.status) {
-//     andCondition.push({
-//       status: filterData.status,
-//     });
-//   }
-
-//   if (filterData.serviceStartDateTime) {
-//     andCondition.push({
-//       serviceStartDateTime: {
-//         $gte: filterData.serviceStartDateTime,
-//         $lt: filterData.serviceEndDateTime,
-//       },
-//     });
-//   }
-
-//   if (filterData.serviceEndDateTime) {
-//     andCondition.push({
-//       serviceEndDateTime: {
-//         $gte: filterData.serviceStartDateTime,
-//         $lt: filterData.serviceEndDateTime,
-//       },
-//     });
-//   }
-
-//   const { role } = user;
-
-//   role === USER_ROLES.CUSTOMER
-//     ? andCondition.push({ customerId: user.userId })
-//     : andCondition.push({ vendorId: user.userId });
-
-//   const whereConditions = andCondition.length > 0 ? { $and: andCondition } : {};
-
-//   const result = await Order.find(whereConditions)
-//     .populate('vendorId', { name: 1, email: 1, phone: 1, address: 1 })
-//     .populate('packageId')
-//     .populate('serviceId', { title: 1, price: 1 })
-//     .populate('paymentId')
-//     .populate('customerId', { name: 1, email: 1, phone: 1, address: 1 })
-//     .lean();
-
-//   if (!result) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get orders');
-//   }
-//   return result;
-// };
-
 const getAllOrderByUserId = async (
   user: JwtPayload,
-  filterData: Partial<IOrderFilter>
+  filters: Partial<IOrderFilter>
 ) => {
-  const andCondition: any[] = [];
+  const { serviceDate, ...filterData } = filters;
 
-  // Add filter for status
-  if (filterData.status) {
+  const andCondition = [];
+
+  if (Object.keys(filterData).length > 0) {
     andCondition.push({
-      status: filterData.status,
+      $and: Object.entries(filterData).map(([field, value]) => {
+        return {
+          [field]: value,
+        };
+      }),
     });
   }
+  console.log(serviceDate);
+  if (serviceDate) {
+    // Add date range filter based on serviceDate
+    if (serviceDate) {
+      const startOfDay = new Date(`${serviceDate}T00:00:00.000Z`);
+      const endOfDay = new Date(`${serviceDate}T23:59:59.999Z`);
 
-  // Add filter for serviceStartDateTime
-  if (filterData.serviceStartDateTime) {
-    const startDate = new Date(filterData.serviceStartDateTime);
-    const endDate = filterData.serviceEndDateTime
-      ? new Date(filterData.serviceEndDateTime)
-      : new Date(startDate.setHours(23, 59, 59, 999)); // If serviceEndDateTime is not provided, set the end to midnight of that day.
-
-    andCondition.push({
-      serviceStartDateTime: {
-        $gte: startDate,
-        $lte: endDate,
-      },
-    });
+      andCondition.push({
+        $or: [
+          {
+            serviceStartDateTime: { $gte: startOfDay, $lt: endOfDay },
+          },
+          {
+            serviceEndDateTime: { $gte: startOfDay, $lt: endOfDay },
+          },
+        ],
+      });
+    }
   }
 
-  // Add customer or vendor filtering based on the user's role
   const { role } = user;
-  if (role === USER_ROLES.CUSTOMER) {
-    andCondition.push({ customerId: user.userId });
-  } else {
-    andCondition.push({ vendorId: user.userId });
-  }
 
-  // Apply the $and condition if there are any filters
+  role === USER_ROLES.CUSTOMER
+    ? andCondition.push({ customerId: user.userId })
+    : andCondition.push({ vendorId: user.userId });
+
   const whereConditions = andCondition.length > 0 ? { $and: andCondition } : {};
 
-  // Query to get orders
   const result = await Order.find(whereConditions)
     .populate('vendorId', { name: 1, email: 1, phone: 1, address: 1 })
     .populate('packageId')
@@ -198,11 +148,9 @@ const getAllOrderByUserId = async (
     .populate('customerId', { name: 1, email: 1, phone: 1, address: 1 })
     .lean();
 
-  // Handle if no orders are found
-  if (!result || result.length === 0) {
+  if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get orders');
   }
-
   return result;
 };
 

@@ -4,6 +4,8 @@ import { IVendor } from './vendor.interface';
 import sendResponse from '../../../shared/sendResponse';
 import { VendorService } from './vendor.service';
 import { Request, Response } from 'express';
+import { vendorFilterableFields } from './vendor.constants';
+import pick from '../../../shared/pick';
 
 const updateVendorProfile = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -62,9 +64,36 @@ const deleteVendorProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+//get all vendor
+const getAllVendor = catchAsync(async (req: Request, res: Response) => {
+  const filters = pick(req.query, vendorFilterableFields);
+  const result = await VendorService.getAllVendor(filters);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'All vendor retrieved successfully',
+    data: result,
+  });
+});
+
+const getVendorRevenue = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { range } = req.params;
+
+  const result = await VendorService.getVendorRevenue(user, range);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Vendor statistics retrieved successfully',
+    data: result,
+  });
+});
+
 export const VendorController = {
   updateVendorProfile,
   getVendorProfile,
   getSingleVendor,
   deleteVendorProfile,
+  getAllVendor,
+  getVendorRevenue,
 };

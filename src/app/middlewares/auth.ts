@@ -24,21 +24,6 @@ const auth =
           config.jwt.jwt_secret as Secret
         );
 
-        const isUserExist = await User.findById(verifyUser.id);
-        if (!isUserExist) {
-          throw new ApiError(StatusCodes.UNAUTHORIZED, 'User not found');
-        }
-
-        if (isUserExist.status === 'delete') {
-          throw new ApiError(StatusCodes.NOT_FOUND, 'User has been deleted');
-        }
-
-        if (!isUserExist) {
-          throw new ApiError(
-            StatusCodes.NOT_FOUND,
-            'User does not exist in database'
-          );
-        }
         //set user to header
         req.user = verifyUser;
 

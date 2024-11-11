@@ -30,6 +30,7 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
     },
     amount: {
       type: Number,
+      default: 0,
     },
     status: {
       type: String,
@@ -76,19 +77,13 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
     // serviceDate: { type: String, required: true },
     serviceStartDateTime: { type: Date, required: true },
     serviceEndDateTime: { type: Date, required: true },
-    deliveryFee: {
-      type: Number,
-    },
+
     isDeliveryDecline: {
       type: Boolean,
       default: false,
     },
     deliveryDeclineMessage: {
       type: String,
-    },
-    deliveryReceivingCode: {
-      type: String,
-      required: true,
     },
   },
   { timestamps: true, toJSON: { virtuals: true } }

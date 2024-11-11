@@ -44,7 +44,7 @@ const getSingleOrder = catchAsync(async (req: Request, res: Response) => {
 const getAllOrderByUserId = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
 
-  const filterData = pick(req.query, ['status', 'deliveryDate']);
+  const filterData = pick(req.query, ['status', 'serviceDate']);
   const result = await OrderService.getAllOrderByUserId(user, filterData);
   sendResponse(res, {
     success: true,

@@ -7,8 +7,8 @@ import { StatusCodes } from 'http-status-codes';
 
 const createPackage = catchAsync(async (req: Request, res: Response) => {
   const { ...packageData } = req.body;
-  const { userId } = req.user;
-  const result = await PackageService.createPackage(userId, packageData);
+  const user = req.user;
+  const result = await PackageService.createPackage(user, packageData);
   sendResponse<IPackage | null>(res, {
     success: true,
     statusCode: StatusCodes.OK,

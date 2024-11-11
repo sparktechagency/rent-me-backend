@@ -52,22 +52,14 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
       default: 0,
     },
     location: {
-      type: {
-        lat: {
-          type: Number,
-        },
-        lng: {
-          type: Number,
-        },
-      },
+      type: { type: String, default: 'Point', enum: ['Point'] },
+      coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
     },
   },
   {
     timestamps: true,
-    toJSON: {
-      virtuals: true,
-    },
   }
 );
+vendorSchema.index({ location: '2dsphere' });
 
 export const Vendor = model<IVendor, VendorModel>('Vendor', vendorSchema);

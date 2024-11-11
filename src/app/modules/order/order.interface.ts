@@ -30,12 +30,9 @@ export type IOrder = {
 
   deliveryDeclineMessage: string;
   deliveryAddress: string;
-  // serviceDate: string;
+
   serviceStartDateTime: Date;
   serviceEndDateTime: Date;
-  deliveryTime: string;
-  deliveryFee: number;
-  deliveryReceivingCode: string;
 };
 
 export type IOrderModel = Model<IOrder>;
@@ -48,7 +45,7 @@ export type IOrderFilter = {
     | 'cancelled'
     | 'rejected'
     | 'completed';
-  // serviceDate: string;
+  serviceDate?: string;
   serviceStartDateTime?: string;
   serviceEndDateTime?: string;
 };

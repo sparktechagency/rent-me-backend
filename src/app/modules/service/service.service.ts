@@ -7,6 +7,7 @@ import { serviceSearchableFields } from './service.constants';
 import { User } from '../user/user.model';
 import { Package } from '../package/package.model';
 import { IPackage } from '../package/package.interface';
+import mongoose from 'mongoose';
 
 //Filter and pagination needed
 const getAllService = async (
@@ -116,11 +117,35 @@ const getAllServiceByVendorId = async (id: string): Promise<IService[]> => {
 };
 
 const deleteService = async (id: string): Promise<IService | null> => {
-  const result = await Service.findByIdAndDelete(id);
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete service');
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+    const service = await Service.findById(id);
+    if (!service) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Service does not exists');
+    }
+    const result = await Service.findByIdAndDelete(id);
+    if (!result) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete service');
+    }
+
+    // Delete all packages associated with the service
+    const deletedPackages = await Package.deleteMany({ serviceId: id });
+    if (!deletedPackages) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to delete packages associated with the service'
+      );
+    }
+    await session.commitTransaction();
+    session.endSession();
+    return result;
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
-  return result;
 };
 
 export const ServiceServices = {

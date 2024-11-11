@@ -7,10 +7,13 @@ const updateCustomerProfileZodSchema = z.object({
   address: z.string().optional(),
   location: z
     .object({
-      lat: z.number().optional(),
-      lng: z.number().optional(),
+      type: z.literal('Point'), // Ensure the type is 'Point' (GeoJSON requirement)
+      coordinates: z
+        .array(z.number()) // Array of two numbers (longitude, latitude)
+        .length(2) // Ensure the array has exactly two numbers (longitude, latitude)
+        .optional(), // The coordinates are optional
     })
-    .optional(),
+    .optional(), // The location object itself is optional
 });
 
 export const CustomerValidation = {
