@@ -28,9 +28,6 @@ const packageSchema = new Schema<IPackage, IPackageModel>(
   },
   {
     timestamps: true,
-    toJSON: {
-      virtuals: true,
-    },
   }
 );
 

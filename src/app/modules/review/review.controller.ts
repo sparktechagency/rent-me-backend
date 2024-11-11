@@ -34,9 +34,13 @@ const updateReview = catchAsync(async (req: Request, res: Response) => {
 
 const getAllReviewsForVendorById = catchAsync(
   async (req: Request, res: Response) => {
-    //vendor id based reviews
     const { id } = req.params;
-    const result = await ReviewService.getAllReviewsForVendorById(id);
+    const { packageId } = req.query;
+
+    const result = await ReviewService.getAllReviewsForVendorById(
+      id,
+      packageId as string
+    );
 
     sendResponse<IReview[] | null>(res, {
       success: true,

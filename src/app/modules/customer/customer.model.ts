@@ -27,23 +27,16 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
       type: String,
     },
     location: {
-      type: {
-        lat: {
-          type: Number,
-        },
-        lng: {
-          type: Number,
-        },
-      },
+      type: { type: String, default: 'Point', enum: ['Point'] },
+      coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
     },
   },
   {
     timestamps: true,
-    toJSON: {
-      virtuals: true,
-    },
   }
 );
+
+customerSchema.index({ location: '2dsphere' });
 
 export const Customer = model<ICustomer, CustomerModel>(
   'Customer',

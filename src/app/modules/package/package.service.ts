@@ -4,12 +4,24 @@ import { Package } from './package.model';
 import { IPackage } from './package.interface';
 import { User } from '../user/user.model';
 import { Types } from 'mongoose';
+import { Service } from '../service/service.model';
+import { JwtPayload } from 'jsonwebtoken';
 
 const createPackage = async (
-  id: Types.ObjectId,
+  user: JwtPayload,
   payload: IPackage
 ): Promise<IPackage> => {
-  payload.vendorId = id;
+  console.log('INNN');
+
+  console.log(user);
+
+  payload.vendorId = user.userId;
+
+  const isServiceExist = await Service.findById(payload.serviceId);
+  if (!isServiceExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Service does not exist');
+  }
+
   const createPackage = await Package.create(payload);
   if (!createPackage) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create package');

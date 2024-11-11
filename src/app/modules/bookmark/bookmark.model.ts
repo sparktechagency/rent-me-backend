@@ -3,8 +3,12 @@ import { BookmarkModel, IBookmark } from './bookmark.interface';
 
 const bookmarkSchema = new Schema<IBookmark, BookmarkModel>(
   {
-    vendorId: { type: Schema.Types.ObjectId, ref: 'User' },
-    userId: { type: Schema.Types.ObjectId, ref: 'User' },
+    vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
+    customerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Customer',
+      required: true,
+    },
   },
   { timestamps: true }
 );

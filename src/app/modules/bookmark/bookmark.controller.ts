@@ -6,8 +6,9 @@ import { BookmarkService } from './bookmark.service';
 import { Request, Response } from 'express';
 
 const createBookmark = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
   const payload = req.body;
-  const result = await BookmarkService.createBookmark(payload);
+  const result = await BookmarkService.createBookmark(user, payload);
   sendResponse<IBookmark>(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -17,8 +18,8 @@ const createBookmark = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllBookmarks = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.user;
-  const result = await BookmarkService.getAllBookmarks(id);
+  const { userId } = req.user;
+  const result = await BookmarkService.getAllBookmarks(userId);
   sendResponse<IBookmark[] | null>(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -29,7 +30,8 @@ const getAllBookmarks = catchAsync(async (req: Request, res: Response) => {
 
 const removeBookmark = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await BookmarkService.removeBookmark(id);
+  const user = req.user;
+  const result = await BookmarkService.removeBookmark(id, user);
   sendResponse<IBookmark | null>(res, {
     success: true,
     statusCode: StatusCodes.OK,

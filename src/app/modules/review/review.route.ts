@@ -14,8 +14,6 @@ router.post(
   ReviewController.createReview
 );
 
-router.get('/:id', ReviewController.getSingleReview);
-
 //not necessary for now
 router.patch(
   '/:id',
@@ -25,6 +23,8 @@ router.patch(
 );
 
 router.get('/vendor/:id', ReviewController.getAllReviewsForVendorById);
+
+router.get('/:id', ReviewController.getSingleReview);
 
 router.delete('/:id', auth(USER_ROLES.CUSTOMER), ReviewController.deleteReview);
 

@@ -6,8 +6,18 @@ import { Request, Response } from 'express';
 import { ICategory } from './category.interface';
 
 const createCategory = catchAsync(async (req: Request, res: Response) => {
-  const { ...categoryData } = req.body;
-  const result = await CategoryService.createCategory(categoryData);
+  const categoryData = req?.body;
+
+  let image;
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    image = `/images/${req.files.image[0].filename}`;
+  }
+
+  const data: ICategory = {
+    ...categoryData,
+    image,
+  };
+  const result = await CategoryService.createCategory(data);
   sendResponse<ICategory>(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -39,8 +49,18 @@ const getAllCategory = catchAsync(async (req: Request, res: Response) => {
 
 const updateCategoryById = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { ...categoryData } = req.body;
-  const result = await CategoryService.updateCategory(id, categoryData);
+  const categoryData = req?.body;
+
+  let image;
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    image = `/images/${req.files.image[0].filename}`;
+  }
+
+  const data: ICategory = {
+    ...categoryData,
+    image,
+  };
+  const result = await CategoryService.updateCategory(id, data);
   sendResponse<ICategory | null>(res, {
     success: true,
     statusCode: StatusCodes.OK,

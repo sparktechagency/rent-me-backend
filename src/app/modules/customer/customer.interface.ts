@@ -1,4 +1,8 @@
 import { Model } from 'mongoose';
+interface Point {
+  type: 'Point';
+  coordinates: [number, number]; // [longitude, latitude]
+}
 
 export type ICustomer = {
   id: string;
@@ -7,10 +11,7 @@ export type ICustomer = {
   contact?: string;
   profileImg?: string;
   address?: string;
-  location: {
-    lat: number;
-    lng: number;
-  };
+  location: Point;
 };
 
 export type CustomerModel = Model<ICustomer>;
