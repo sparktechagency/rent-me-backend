@@ -18,7 +18,7 @@ router.patch(
           JSON.parse(req.body.data)
         ))
       : req.body;
-    console.log(req.body);
+
     return VendorController.updateVendorProfile(req, res, next);
   }
 );
