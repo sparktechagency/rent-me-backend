@@ -8,6 +8,7 @@ export type IMessage = {
   isRead: boolean;
   chatId: Types.ObjectId | IChat;
   image: string;
+  type: 'text' | 'image' | 'both';
 };
 
 export type MessageModel = Model<IChat>;

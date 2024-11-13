@@ -42,10 +42,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
   }
 
   //check match password
-  if (
-    password &&
-    !(await User.isMatchPassword(password, isExistUser.password))
-  ) {
+  if (password && !User.isMatchPassword(password, isExistUser.password)) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }
 
@@ -67,7 +64,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
     config.jwt.jwt_expire_in as string
   );
 
-  return { createToken };
+  return { createToken, isExistUser };
 };
 
 //forget password

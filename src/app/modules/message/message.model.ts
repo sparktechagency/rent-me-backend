@@ -8,6 +8,7 @@ const messageSchema = new Schema<IMessage, MessageModel>({
   isRead: { type: Boolean, default: false },
   chatId: { type: Schema.Types.ObjectId, ref: 'Chat', required: true },
   image: { type: String },
+  type: { type: String, enum: ['text', 'image', 'both'], required: true },
 });
 
 export const Message = model<IMessage, MessageModel>('Message', messageSchema);
