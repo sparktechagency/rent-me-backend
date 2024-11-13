@@ -11,14 +11,12 @@ const accessChat = async (
   user: JwtPayload,
   payload: { participantId: string }
 ) => {
-  console.log(payload);
-
   const participant1 = new Types.ObjectId(user.id);
 
   const queryCondition =
     user.role === USER_ROLES.CUSTOMER
-      ? { vendor: payload.participantId }
-      : { customer: payload.participantId };
+      ? { vendor: new Types.ObjectId(payload.participantId) }
+      : { customer: new Types.ObjectId(payload.participantId) };
 
   const isUserExist = await User.findOne(queryCondition);
 
@@ -26,7 +24,11 @@ const accessChat = async (
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
   }
 
-  const participantIds = [participant1, isUserExist?._id];
+  // Ensure customer is at index 0 and vendor at index 1
+  const participantIds =
+    user.role === USER_ROLES.CUSTOMER
+      ? [participant1, isUserExist._id] // customer at index 0, vendor at index 1
+      : [isUserExist._id, participant1]; // vendor at index 1
 
   const isChatExist = await Chat.findOne({
     participants: { $all: [...participantIds] },
@@ -56,6 +58,11 @@ const getChatListByUserId = async (user: JwtPayload) => {
   })
     .populate({
       path: 'participants',
+      select: { vendor: 1, customer: 1 },
+      populate: [
+        { path: 'customer', select: 'name email' },
+        { path: 'vendor', select: 'name email' },
+      ],
     })
     .lean();
   if (!chat) {

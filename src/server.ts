@@ -38,26 +38,6 @@ async function main() {
     socketHelper.socket(io);
     //@ts-ignore
     global.io = io;
-
-    //new code start here
-    io.use((socket, next) => {
-      const token = socket.handshake.auth.token;
-      if (token) {
-        try {
-          const decoded = jwtHelper.verifyToken(
-            token,
-            process.env.JWT_SECRET as string
-          );
-          socket.data.user = decoded;
-          console.log(socket.data.user);
-          next();
-        } catch (err) {
-          next();
-        }
-      } else {
-        next();
-      }
-    });
   } catch (error) {
     errorLogger.error(colors.red('🤢 Failed to connect Database'));
   }

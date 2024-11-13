@@ -9,41 +9,50 @@ import { Types } from 'mongoose';
 import { Message } from './message.model';
 
 const sendMessage = async (user: JwtPayload, payload: IMessage) => {
-  const senderId = user.id;
+  const senderId = new Types.ObjectId(user.id);
 
-  const isChatExist = await Chat.findById(payload.chatId);
-
-  if (!isChatExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Chat does not exists.');
+  const chat = await Chat.findById(payload.chatId);
+  if (!chat) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Chat does not exist.');
   }
+  console.log(user, payload);
   const queryCondition =
     user.role === USER_ROLES.CUSTOMER
       ? { vendor: payload.receiverId }
       : { customer: payload.receiverId };
 
-  const isUserExist = await User.findOne(queryCondition);
-
-  if (!isUserExist) {
+  const receiver = await User.findOne(queryCondition);
+  if (!receiver) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found!');
   }
 
-  payload.senderId = new Types.ObjectId(senderId);
-  payload.receiverId = isUserExist._id;
+  payload.senderId = senderId;
+  payload.receiverId = receiver._id;
+
+  payload.type =
+    payload.image && payload.message
+      ? 'both'
+      : payload.image
+      ? 'image'
+      : 'text';
 
   const result = await Message.create(payload);
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to send message.');
   }
 
+  const populatedResult = await Message.findById(result._id)
+    .populate('senderId')
+    .populate('receiverId');
+
+  //@ts-ignore
+  global.io?.emit('messageReceived', populatedResult);
+
   const updatedChat = await Chat.findByIdAndUpdate(
     payload.chatId,
-    {
-      latestMessage: result._id, // Set the latest message ID
-      latestMessageTime: new Date(), // Set the current timestamp
-    },
-    { new: true } // Return the updated chat document
+    { latestMessage: result._id, latestMessageTime: new Date() },
+    { new: true }
   );
-
   if (!updatedChat) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -53,6 +62,7 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
 
   return result;
 };
+
 const getMessagesByChatId = async (chatId: string) => {
   const result = await Message.find({ chatId })
     .populate({
