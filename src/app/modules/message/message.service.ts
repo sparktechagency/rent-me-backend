@@ -10,25 +10,21 @@ import { Message } from './message.model';
 
 const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   const senderId = new Types.ObjectId(user.id);
-
   const chat = await Chat.findById(payload.chatId);
-  if (!chat) {
+
+  if (!chat)
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Chat does not exist.');
-  }
-  console.log(user, payload);
-  const queryCondition =
-    user.role === USER_ROLES.CUSTOMER
-      ? { vendor: payload.receiverId }
-      : { customer: payload.receiverId };
 
-  const receiver = await User.findOne(queryCondition);
-  if (!receiver) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found!');
-  }
+  const receiver = await User.findOne({
+    [user.role === USER_ROLES.CUSTOMER ? 'vendor' : 'customer']:
+      payload.receiverId,
+  });
 
+  if (!receiver) throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found!');
+
+  // Determine message type
   payload.senderId = senderId;
   payload.receiverId = receiver._id;
-
   payload.type =
     payload.image && payload.message
       ? 'both'
@@ -37,28 +33,21 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
       : 'text';
 
   const result = await Message.create(payload);
-  if (!result) {
+  if (!result)
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to send message.');
-  }
 
-  const populatedResult = await Message.findById(result._id)
-    .populate('senderId')
-    .populate('receiverId');
+  const populatedResult = await (
+    await result.populate('senderId', { name: 1, email: 1 })
+  ).populate('receiverId', { name: 1, email: 1 });
 
-  //@ts-ignore
-  global.io?.emit('messageReceived', populatedResult);
+  // @ts-ignore
+  global.io?.emit(`messageReceived::${payload.chatId}`, populatedResult);
 
-  const updatedChat = await Chat.findByIdAndUpdate(
+  await Chat.findByIdAndUpdate(
     payload.chatId,
     { latestMessage: result._id, latestMessageTime: new Date() },
     { new: true }
   );
-  if (!updatedChat) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Failed to update chat with latest message.'
-    );
-  }
 
   return result;
 };
@@ -77,8 +66,8 @@ const getMessagesByChatId = async (chatId: string) => {
       path: 'receiverId',
       select: 'email',
       populate: {
-        path: 'customer vendor', // populate customer or vendor based on the role
-        select: 'name', // select only the name field in customer or vendor
+        path: 'customer vendor',
+        select: 'name',
       },
     });
 

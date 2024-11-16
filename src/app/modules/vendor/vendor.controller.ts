@@ -76,19 +76,47 @@ const getAllVendor = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+//Statistics part begins here
+
 const getVendorRevenue = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
-  const { range } = req.params;
+  const { range } = req.query;
 
   const result = await VendorService.getVendorRevenue(user, range);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
-    message: 'Vendor statistics retrieved successfully',
+    message: 'Vendor revenue statistics retrieved successfully',
     data: result,
   });
 });
 
+const getVendorOrders = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { range } = req.query;
+
+  const result = await VendorService.getVendorOrders(user, range);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Vendor orders statistics retrieved successfully',
+    data: result,
+  });
+});
+
+const getCustomerRetentionData = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user;
+    const { range } = req.query;
+    const result = await VendorService.getCustomerRetentionData(user, range);
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Customer retention data retrieved successfully',
+      data: result,
+    });
+  }
+);
 export const VendorController = {
   updateVendorProfile,
   getVendorProfile,
@@ -96,4 +124,6 @@ export const VendorController = {
   deleteVendorProfile,
   getAllVendor,
   getVendorRevenue,
+  getVendorOrders,
+  getCustomerRetentionData,
 };

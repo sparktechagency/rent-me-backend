@@ -223,13 +223,79 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
 
 //Analytics
 
-const getVendorRevenue = async (user: JwtPayload, range: string) => {
-  const startDate = getStartDate(range);
-  const endDate = new Date(); // Current date
+// const getVendorRevenue = async (
+//   user: JwtPayload,
+//   range: '1' | '2' | '3' = '1' // Default to 1 month
+// ) => {
+//   try {
+//     const months = parseInt(range) || 1;
+//     const endDate = new Date();
+//     const startDate = new Date();
+//     startDate.setMonth(endDate.getMonth() - months);
 
-  console.log(startDate, endDate);
+//     // Get the total number of days in the range
+//     const totalDays = Math.ceil(
+//       (endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)
+//     );
+//     const intervalDays = Math.ceil(totalDays / 10); // Calculate the number of days per interval (rounded)
+//     console.log(intervalDays);
+//     const revenueData = await Order.aggregate([
+//       {
+//         $match: {
+//           vendorId: new Types.ObjectId(user.userId),
+//           status: 'completed',
+//           serviceStartDateTime: { $gte: startDate, $lte: endDate },
+//         },
+//       },
+//       {
+//         $project: {
+//           _id: 0,
+//           serviceStartDateTime: 1,
+//           offeredAmount: 1,
+//           intervalStart: {
+//             $floor: {
+//               $divide: [
+//                 { $subtract: ['$serviceStartDateTime', startDate] },
+//                 intervalDays * 24 * 60 * 60 * 1000, // Convert intervalDays to milliseconds
+//               ],
+//             },
+//           },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: '$intervalStart', // Group by the calculated interval start
+//           totalRevenue: { $sum: '$offeredAmount' },
+//         },
+//       },
+//       {
+//         $sort: { _id: 1 },
+//       },
+//     ]);
 
+//     // Now, `revenueData` should contain 10 intervals with summed revenue for each
+//     console.log(revenueData);
+
+//     return revenueData;
+//   } catch (error) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get vendor revenue');
+//   }
+// };
+
+const getVendorRevenue = async (
+  user: JwtPayload,
+  range: '1' | '2' | '3' = '1' // Default to 1 month
+) => {
   try {
+    const months = parseInt(range) || 1;
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(endDate.getMonth() - months);
+
+    // Calculate interval days based on the number of months selected
+    const intervalDays = (months * 10) / 10; // This will give you the correct interval days
+    console.log(intervalDays);
+
     const revenueData = await Order.aggregate([
       {
         $match: {
@@ -239,34 +305,161 @@ const getVendorRevenue = async (user: JwtPayload, range: string) => {
         },
       },
       {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: '%Y-%m-%d',
-              date: '$serviceStartDateTime',
+        $project: {
+          _id: 0,
+          serviceStartDateTime: 1,
+          offeredAmount: 1,
+          intervalStart: {
+            $floor: {
+              $divide: [
+                { $subtract: ['$createdAt', startDate] },
+                intervalDays * 24 * 60 * 60 * 1000, // Convert intervalDays to milliseconds
+              ],
             },
-          }, // Group by day
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$intervalStart', // Group by the calculated interval start
           totalRevenue: { $sum: '$offeredAmount' },
         },
       },
       {
-        $sort: { _id: 1 }, // Sort by date in ascending order
+        $sort: { _id: 1 },
       },
     ]);
+
+    // Now, `revenueData` should contain the summed revenue for each interval
     console.log(revenueData);
 
-    // Select 10 evenly distributed data points for chart visualization
-    const evenlyDistributedData = getEvenlyDistributedData(revenueData, 10);
-
-    // Format the response data for the chart
-    const chartData = evenlyDistributedData.map((data: any) => ({
-      date: data._id,
-      revenue: data.totalRevenue,
-    }));
-
-    return chartData;
+    return revenueData;
   } catch (error) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get vendor revenue');
+  }
+};
+
+const getVendorOrders = async (
+  user: JwtPayload,
+  range: '1' | '2' | '3' = '1' // Default to 1 month
+) => {
+  try {
+    const months = parseInt(range) || 1;
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(endDate.getMonth() - months);
+
+    // Get the total number of days in the date range
+    const totalDays = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)
+    );
+    const intervalDays = Math.ceil(totalDays / 10); // Calculate number of days per interval (rounded)
+    console.log(intervalDays);
+    // Aggregate orders data grouped by the calculated intervals
+    const orders = await Order.aggregate([
+      {
+        $match: {
+          vendorId: new Types.ObjectId(user.userId),
+          createdAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          createdAt: 1,
+          orderInterval: {
+            $floor: {
+              $divide: [
+                { $subtract: ['$createdAt', startDate] },
+                intervalDays * 24 * 60 * 60 * 1000, // Convert intervalDays to milliseconds
+              ],
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$orderInterval', // Group by calculated interval
+          count: { $sum: 1 }, // Count the number of orders per interval
+        },
+      },
+      {
+        $sort: { _id: 1 }, // Sort intervals in ascending order
+      },
+    ]);
+
+    // Now, `orders` contains the data for 10 intervals with order counts
+    console.log(orders);
+
+    return orders;
+  } catch (error) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to get vendor orders over time'
+    );
+  }
+};
+
+//customer Retention
+
+export const getCustomerRetentionData = async (
+  user: JwtPayload,
+  range: '1' | '2' | '3' = '1' // Default to 1 month
+) => {
+  try {
+    // Step 1: Calculate start and end dates based on the selected range
+    const months = parseInt(range) || 1;
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(endDate.getMonth() - months);
+
+    // Step 2: Calculate the total number of days in the date range
+    const totalDays = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)
+    );
+    const intervalDays = Math.ceil(totalDays / 10); // Calculate the number of days per interval (rounded)
+    console.log('Interval days:', intervalDays);
+
+    // Step 3: Aggregate orders data grouped by the calculated intervals
+    const orders = await Order.aggregate([
+      {
+        $match: {
+          vendorId: new Types.ObjectId(user.userId),
+          createdAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          createdAt: 1,
+          orderInterval: {
+            $floor: {
+              $divide: [
+                { $subtract: ['$createdAt', startDate] },
+                intervalDays * 24 * 60 * 60 * 1000, // Convert intervalDays to milliseconds
+              ],
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$orderInterval', // Group by the calculated interval
+          count: { $sum: 1 }, // Count the number of orders per interval
+        },
+      },
+      {
+        $sort: { _id: 1 }, // Sort intervals in ascending order
+      },
+    ]);
+
+    // Step 5: Return the grouped retention data
+
+    return orders;
+  } catch (error) {
+    console.error(error);
+    throw new Error('Failed to calculate customer retention');
   }
 };
 
@@ -277,4 +470,6 @@ export const VendorService = {
   deleteVendorProfile,
   getAllVendor,
   getVendorRevenue,
+  getVendorOrders,
+  getCustomerRetentionData,
 };
