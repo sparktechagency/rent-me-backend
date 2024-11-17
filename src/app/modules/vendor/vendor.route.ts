@@ -44,9 +44,20 @@ router.get('/:id', VendorController.getSingleVendor);
 router.get('/', VendorController.getAllVendor);
 
 router.get(
-  '/statistic/revenue/:range',
+  '/statistic/revenue/',
   auth(USER_ROLES.VENDOR),
   VendorController.getVendorRevenue
 );
 
+router.get(
+  '/statistic/order/',
+  auth(USER_ROLES.VENDOR),
+  VendorController.getVendorOrders
+);
+
+router.get(
+  '/statistic/retention/',
+  auth(USER_ROLES.VENDOR),
+  VendorController.getCustomerRetentionData
+);
 export const VendorRoutes = router;

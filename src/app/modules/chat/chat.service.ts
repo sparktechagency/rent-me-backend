@@ -18,36 +18,41 @@ const accessChat = async (
       ? { vendor: new Types.ObjectId(payload.participantId) }
       : { customer: new Types.ObjectId(payload.participantId) };
 
-  const isUserExist = await User.findOne(queryCondition);
+  // Run both the user existence check and the chat existence check concurrently
+  const [isUserExist, isChatExist] = await Promise.all([
+    User.findOne(queryCondition), // Check if the user exists
+    Chat.findOne({
+      participants: {
+        $all: [participant1, new Types.ObjectId(payload.participantId)],
+      },
+    }) // Check if the chat exists
+      .populate({
+        path: 'participants',
+        select: { vendor: 1, customer: 1 },
+        populate: [
+          { path: 'customer', select: 'name email' },
+          { path: 'vendor', select: 'name email' },
+        ],
+      })
+      .populate({
+        path: 'latestMessage',
+        select: { message: 1, image: 1 },
+      })
+      .lean(),
+  ]);
 
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
   }
 
-  // Ensure customer is at index 0 and vendor at index 1
   const participantIds =
     user.role === USER_ROLES.CUSTOMER
-      ? [participant1, isUserExist._id] // customer at index 0, vendor at index 1
+      ? [participant1, isUserExist._id]
       : [isUserExist._id, participant1]; // vendor at index 1
 
-  const isChatExist = await Chat.findOne({
-    participants: { $all: [...participantIds] },
-  })
-    .populate({
-      path: 'participants',
-      select: { vendor: 1, customer: 1 },
-      populate: [
-        { path: 'customer', select: 'name email' },
-        { path: 'vendor', select: 'name email' },
-      ],
-    })
-    .populate({
-      path: 'latestMessage',
-      select: { message: 1, image: 1 },
-    })
-    .lean();
   if (isChatExist) return isChatExist;
 
+  // Create new chat if no existing chat
   const result = await Chat.create({ participants: participantIds });
   return result;
 };

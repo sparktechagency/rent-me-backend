@@ -15,6 +15,8 @@ const createOrder = async (payload: IOrder) => {
   const orderId = await generateCustomOrderId();
 
   payload.orderId = orderId;
+  console.log(orderId);
+  console.log(payload);
 
   const vendorExist = await Vendor.findById(payload.vendorId);
 
@@ -112,7 +114,7 @@ const getAllOrderByUserId = async (
       }),
     });
   }
-  console.log(serviceDate);
+
   if (serviceDate) {
     // Add date range filter based on serviceDate
     if (serviceDate) {

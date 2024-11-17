@@ -14,6 +14,7 @@ router.post(
   OrderController.createOrder
 );
 
+//get order by user
 router.get(
   '/user/',
   auth(USER_ROLES.VENDOR, USER_ROLES.CUSTOMER),

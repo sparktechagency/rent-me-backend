@@ -1,16 +1,16 @@
-// Helper function to select evenly distributed data points
 export const getEvenlyDistributedData = (data: any, numPoints: number) => {
   // If there are fewer data points than the requested points, return all
   if (data.length <= numPoints) {
     return data;
   }
 
-  // Calculate the interval for evenly distributing data points
-  const interval = Math.floor(data.length / numPoints);
   const selectedData = [];
+  const step = data.length / numPoints;
 
+  // Loop through the range of points and select data points at the interval 'step'
   for (let i = 0; i < numPoints; i++) {
-    const index = i * interval;
+    // Calculate the index to pick from the data array based on the step
+    const index = Math.round(i * step);
     selectedData.push(data[index]);
   }
 

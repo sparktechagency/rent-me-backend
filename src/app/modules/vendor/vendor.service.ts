@@ -10,6 +10,7 @@ import {
   buildDateTimeFilter,
   buildRangeFilter,
   findVendorsByBudget,
+  getIntervals,
 } from './vendor.utils';
 import { Service } from '../service/service.model';
 import { Order } from '../order/order.model';
@@ -221,15 +222,28 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
   return result;
 };
 
-//Analytics
-
-const getVendorRevenue = async (user: JwtPayload, range: string) => {
-  const startDate = getStartDate(range);
-  const endDate = new Date(); // Current date
-
-  console.log(startDate, endDate);
-
+const getVendorRevenue = async (
+  user: JwtPayload,
+  range: string = '1'
+): Promise<{ key: string; value: number }[]> => {
   try {
+    const months = parseInt(range, 10) || 1;
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(endDate.getMonth() - months);
+
+    const intervalDays = (months * 30) / 10;
+    const intervalMilliseconds = intervalDays * 24 * 60 * 60 * 1000;
+
+    const totalIntervals = Math.floor(
+      (endDate.getTime() - startDate.getTime()) / intervalMilliseconds
+    );
+
+    const intervals = Array.from({ length: totalIntervals }, (_, i) => ({
+      key: `${i * intervalDays + 1}-${(i + 1) * intervalDays}`,
+      value: 0,
+    }));
+
     const revenueData = await Order.aggregate([
       {
         $match: {
@@ -239,34 +253,250 @@ const getVendorRevenue = async (user: JwtPayload, range: string) => {
         },
       },
       {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: '%Y-%m-%d',
-              date: '$serviceStartDateTime',
+        $project: {
+          offeredAmount: 1,
+          intervalStart: {
+            $floor: {
+              $divide: [
+                { $subtract: ['$serviceStartDateTime', startDate] },
+                intervalMilliseconds,
+              ],
             },
-          }, // Group by day
-          totalRevenue: { $sum: '$offeredAmount' },
+          },
         },
       },
       {
-        $sort: { _id: 1 }, // Sort by date in ascending order
+        $group: {
+          _id: '$intervalStart',
+          totalRevenue: { $sum: '$offeredAmount' },
+        },
       },
     ]);
-    console.log(revenueData);
 
-    // Select 10 evenly distributed data points for chart visualization
-    const evenlyDistributedData = getEvenlyDistributedData(revenueData, 10);
+    revenueData.forEach(({ _id, totalRevenue }) => {
+      if (_id === intervals.length)
+        intervals[intervals.length - 1].value += totalRevenue;
 
-    // Format the response data for the chart
-    const chartData = evenlyDistributedData.map((data: any) => ({
-      date: data._id,
-      revenue: data.totalRevenue,
-    }));
+      if (_id < intervals.length) {
+        intervals[_id].value = totalRevenue;
+      }
+    });
 
-    return chartData;
+    return intervals;
   } catch (error) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get vendor revenue');
+  }
+};
+
+const getVendorOrders = async (
+  user: JwtPayload,
+  range: string = '1' // Default to 1 month
+): Promise<{ key: string; value: number }[]> => {
+  try {
+    const months = parseInt(range, 10) || 1;
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(endDate.getMonth() - months);
+
+    const intervalDays = (months * 30) / 10; // 3, 6, or 9 days based on months
+    const intervalMilliseconds = intervalDays * 24 * 60 * 60 * 1000;
+
+    const totalIntervals = Math.floor(
+      (endDate.getTime() - startDate.getTime()) / intervalMilliseconds
+    );
+
+    // Generate the intervals with a default value of 0
+    const intervals = Array.from({ length: totalIntervals }, (_, i) => ({
+      key: `${i * intervalDays + 1}-${(i + 1) * intervalDays}`,
+      value: 0,
+    }));
+
+    const orders = await Order.aggregate([
+      {
+        $match: {
+          vendorId: new Types.ObjectId(user.userId),
+          createdAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $project: {
+          createdAt: 1,
+          orderInterval: {
+            $floor: {
+              $divide: [
+                { $subtract: ['$createdAt', startDate] },
+                intervalMilliseconds, // Convert intervalDays to milliseconds
+              ],
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$orderInterval', // Group by calculated interval
+          count: { $sum: 1 }, // Count the number of orders per interval
+        },
+      },
+    ]);
+
+    // console.log(orders);
+
+    // Map the results to the intervals, filling in missing intervals with default value 0
+    orders.forEach(({ _id, count }) => {
+      if (_id === intervals.length)
+        intervals[intervals.length - 1].value += count;
+      if (_id < intervals.length) {
+        intervals[_id].value = count;
+      }
+    });
+
+    return intervals;
+  } catch (error) {
+    console.log(error);
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to get vendor orders over time'
+    );
+  }
+};
+
+//customer Retention
+
+export const getCustomerRetentionData = async (
+  user: JwtPayload,
+  range: string | '1' = '1' // Default to 1 month
+): Promise<
+  {
+    key: string;
+    value: number;
+    totalOrders: number;
+    completedOrders: number;
+    failedOrders: number;
+  }[]
+> => {
+  try {
+    const months = parseInt(range, 10) || 1;
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(endDate.getMonth() - months);
+
+    const intervalDays = (months * 30) / 10;
+    const intervalMilliseconds = intervalDays * 24 * 60 * 60 * 1000;
+    const totalIntervals = Math.floor(
+      (endDate.getTime() - startDate.getTime()) / intervalMilliseconds
+    );
+
+    // Initialize intervals with value property
+    const intervals: {
+      key: string;
+      value: number;
+      totalOrders: number;
+      completedOrders: number;
+      failedOrders: number;
+    }[] = Array.from({ length: totalIntervals }, (_, i) => ({
+      key: `${i * intervalDays + 1}-${(i + 1) * intervalDays}`,
+      value: 0, // Initial value is 0 for retention rate
+      totalOrders: 0,
+      completedOrders: 0,
+      failedOrders: 0,
+    }));
+
+    // Fetch placed, completed, and failed orders in parallel
+    const [placedOrders, completedOrders, failedOrders] = await Promise.all([
+      Order.aggregate([
+        {
+          $match: {
+            vendorId: new Types.ObjectId(user.userId),
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $project: {
+            createdAt: 1,
+            orderInterval: {
+              $floor: {
+                $divide: [
+                  { $subtract: ['$createdAt', startDate] },
+                  intervalMilliseconds,
+                ],
+              },
+            },
+          },
+        },
+        { $group: { _id: '$orderInterval', totalOrders: { $sum: 1 } } },
+      ]),
+      Order.aggregate([
+        {
+          $match: {
+            vendorId: new Types.ObjectId(user.userId),
+            status: { $in: ['completed', 'accepted'] },
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $project: {
+            createdAt: 1,
+            orderInterval: {
+              $floor: {
+                $divide: [
+                  { $subtract: ['$createdAt', startDate] },
+                  intervalMilliseconds,
+                ],
+              },
+            },
+          },
+        },
+        { $group: { _id: '$orderInterval', completedOrders: { $sum: 1 } } },
+      ]),
+      Order.aggregate([
+        {
+          $match: {
+            vendorId: new Types.ObjectId(user.userId),
+            status: { $in: ['cancelled', 'rejected', 'decline'] },
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $project: {
+            createdAt: 1,
+            orderInterval: {
+              $floor: {
+                $divide: [
+                  { $subtract: ['$createdAt', startDate] },
+                  intervalMilliseconds,
+                ],
+              },
+            },
+          },
+        },
+        { $group: { _id: '$orderInterval', failedOrders: { $sum: 1 } } },
+      ]),
+    ]);
+
+    // Fill intervals with data
+    placedOrders.forEach(({ _id, totalOrders }) => {
+      if (_id < intervals.length) intervals[_id].totalOrders = totalOrders;
+    });
+    completedOrders.forEach(({ _id, completedOrders }) => {
+      if (_id < intervals.length)
+        intervals[_id].completedOrders = completedOrders;
+    });
+    failedOrders.forEach(({ _id, failedOrders }) => {
+      if (_id < intervals.length) intervals[_id].failedOrders = failedOrders;
+    });
+
+    // Calculate retention rate and update each interval
+    intervals.forEach(interval => {
+      const { totalOrders, completedOrders, failedOrders } = interval;
+      interval.value =
+        totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
+    });
+
+    return intervals;
+  } catch (error) {
+    console.error(error);
+    throw new Error('Failed to calculate customer retention');
   }
 };
 
@@ -277,4 +507,6 @@ export const VendorService = {
   deleteVendorProfile,
   getAllVendor,
   getVendorRevenue,
+  getVendorOrders,
+  getCustomerRetentionData,
 };

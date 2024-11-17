@@ -23,9 +23,7 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.11",
     "@types/nodemailer": "^6.4.15",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
-    "eslint": "^9.14.0",
     "eslint-config-prettier": "^9.1.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.3"
@@ -33,11 +31,13 @@
   "dependencies": {
     "@eslint/config-array": "^0.19.0",
     "@eslint/object-schema": "^2.1.4",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
     "bcrypt": "^5.1.1",
     "colors": "^1.4.0",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.5",
+    "eslint": "^8.56.0",
     "express": "^4.19.2",
     "http-status-codes": "^2.3.0",
     "i": "^0.3.7",
@@ -49,6 +49,7 @@
     "npm": "^10.8.1",
     "rimraf": "^4.4.1",
     "socket.io": "^4.7.5",
+    "square": "^38.2.0",
     "winston": "^3.13.0",
     "winston-daily-rotate-file": "^5.0.0",
     "zod": "^3.23.8"
