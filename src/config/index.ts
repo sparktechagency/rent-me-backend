@@ -12,6 +12,7 @@ export default {
     jwt_secret: process.env.JWT_SECRET,
     jwt_expire_in: process.env.JWT_EXPIRE_IN,
   },
+  openAi_api_key: process.env.OPENAI_API_KEY,
   email: {
     from: process.env.EMAIL_FROM,
     user: process.env.EMAIL_USER,

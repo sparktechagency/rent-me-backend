@@ -13,6 +13,7 @@ import { VendorRoutes } from '../app/modules/vendor/vendor.route';
 import { CustomerRoutes } from '../app/modules/customer/customer.route';
 import { ChatRoutes } from '../app/modules/chat/chat.route';
 import { MessageRoutes } from '../app/modules/message/message.route';
+import { ChatBotRoutes } from '../app/modules/chat-bot/chatbot.route';
 const router = express.Router();
 
 const apiRoutes = [
@@ -71,6 +72,10 @@ const apiRoutes = [
   {
     path: '/message',
     route: MessageRoutes,
+  },
+  {
+    path: '/chat-bot',
+    route: ChatBotRoutes,
   },
   {
     path: '/others',

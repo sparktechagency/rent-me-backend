@@ -7,8 +7,6 @@ import { User } from '../user/user.model';
 const getCustomerProfile = async (id: Types.ObjectId) => {
   const customerId = new Types.ObjectId(id);
 
-  console.log('INN', customerId);
-
   const isUserExist = await User.findOne({ customer: customerId });
 
   if (!isUserExist) {
@@ -68,8 +66,6 @@ const getAllCustomer = async () => {
 };
 
 const getSingleCustomer = async (id: string) => {
-  console.log('INNN2');
-
   const isDeleted = await User.findOne({ id: id });
   if (!isDeleted) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User has been deleted');

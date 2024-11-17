@@ -11,41 +11,36 @@ import { JwtPayload } from 'jsonwebtoken';
 import { USER_ROLES } from '../../../enums/user';
 
 const createOrder = async (payload: IOrder) => {
-  //generate a unique order id
+  // Generate a unique order id
   const orderId = await generateCustomOrderId();
-
   payload.orderId = orderId;
-  console.log(orderId);
-  console.log(payload);
 
-  const vendorExist = await Vendor.findById(payload.vendorId);
+  // Ensure all initial checks are done concurrently
+  const [vendorExist, serviceExist, packageExist, existingOrder] =
+    await Promise.all([
+      Vendor.findById(payload.vendorId),
+      Service.findById(payload.serviceId),
+      Package.findById(payload.packageId),
+      Order.findOne({
+        vendorId: payload.vendorId,
+        $or: [
+          {
+            serviceStartDateTime: { $lt: payload.serviceEndDateTime },
+            serviceEndDateTime: { $gt: payload.serviceStartDateTime },
+          },
+        ],
+      }),
+    ]);
 
   if (!vendorExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor does not exist');
   }
-
-  const serviceExist = await Service.findById(payload.serviceId);
-
   if (!serviceExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Service does not exist');
   }
-
-  const packageExist = await Package.findById(payload.packageId);
-
   if (!packageExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Package does not exist');
   }
-
-  const existingOrder = await Order.findOne({
-    vendorId: payload.vendorId, // Ensure it's the same vendor
-    $or: [
-      {
-        serviceStartDateTime: { $lt: payload.serviceEndDateTime },
-        serviceEndDateTime: { $gt: payload.serviceStartDateTime },
-      },
-    ],
-  });
-
   if (existingOrder) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -55,6 +50,7 @@ const createOrder = async (payload: IOrder) => {
 
   const date = payload.serviceStartDateTime.toString().split('T')[0];
 
+  // Aggregate vendor orders for the given date in parallel
   const vendorOrders = await Order.aggregate([
     {
       $project: {
@@ -82,10 +78,12 @@ const createOrder = async (payload: IOrder) => {
     );
   }
 
+  // Create the new order
   const result = await Order.create(payload);
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order');
   }
+
   return result;
 };
 
