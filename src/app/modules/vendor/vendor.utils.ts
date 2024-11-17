@@ -60,3 +60,28 @@ export const buildRangeFilter = (field: string, min?: number, max?: number) => {
   if (max !== undefined) rangeFilter.$lte = max;
   return Object.keys(rangeFilter).length > 0 ? { [field]: rangeFilter } : null;
 };
+
+//statistics
+export const getIntervals = (
+  months: number,
+  startDate: Date,
+  endDate: Date,
+  intervalDays: number,
+  fullStructure = false
+) => {
+  const intervalMilliseconds = intervalDays * 24 * 60 * 60 * 1000;
+  const totalIntervals = Math.floor(
+    (endDate.getTime() - startDate.getTime()) / intervalMilliseconds
+  );
+
+  // Return a simplified structure or full structure based on the flag
+  return Array.from({ length: totalIntervals }, (_, i) => ({
+    key: `${i * intervalDays + 1}-${(i + 1) * intervalDays}`,
+    value: 0,
+    ...(fullStructure && {
+      totalOrders: 0,
+      completedOrders: 0,
+      failedOrders: 0,
+    }),
+  }));
+};
