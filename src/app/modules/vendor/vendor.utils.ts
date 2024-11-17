@@ -2,6 +2,7 @@ import { parse, format } from 'date-fns';
 import { Order } from '../order/order.model';
 import { Service } from '../service/service.model';
 import { convertTo24Hour } from '../../../helpers/dateFormatHelper';
+import { Types } from 'mongoose';
 
 // Helper function to convert 12-hour time format to 24-hour format
 export const buildDateTimeFilter = async (
@@ -62,26 +63,41 @@ export const buildRangeFilter = (field: string, min?: number, max?: number) => {
 };
 
 //statistics
-export const getIntervals = (
-  months: number,
-  startDate: Date,
-  endDate: Date,
-  intervalDays: number,
-  fullStructure = false
-) => {
+export const getDateRangeAndIntervals = (range: string) => {
+  const months = parseInt(range, 10) || 1;
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setMonth(endDate.getMonth() - months);
+
+  const intervalDays = (months * 30) / 10; // 3, 6, or 9 days based on months
   const intervalMilliseconds = intervalDays * 24 * 60 * 60 * 1000;
+
   const totalIntervals = Math.floor(
     (endDate.getTime() - startDate.getTime()) / intervalMilliseconds
   );
 
-  // Return a simplified structure or full structure based on the flag
-  return Array.from({ length: totalIntervals }, (_, i) => ({
+  // Generate intervals with default value of 0
+  const intervals = Array.from({ length: totalIntervals }, (_, i) => ({
     key: `${i * intervalDays + 1}-${(i + 1) * intervalDays}`,
     value: 0,
-    ...(fullStructure && {
-      totalOrders: 0,
-      completedOrders: 0,
-      failedOrders: 0,
-    }),
   }));
+
+  return { startDate, endDate, intervals, intervalMilliseconds };
+};
+
+// Generic function to map aggregated data to intervals
+export const mapDataToIntervals = (
+  intervals: { key: string; value: number }[],
+  data: { _id: number; totalRevenue: number | number; count: number }[],
+  field: 'totalRevenue' | 'count'
+) => {
+  data.forEach(({ _id, [field]: value }) => {
+    console.log(_id, value);
+
+    if (_id === intervals.length) {
+      intervals[intervals.length - 1].value += value;
+    } else if (_id < intervals.length) {
+      intervals[_id].value = value;
+    }
+  });
 };
