@@ -19,7 +19,7 @@ const updateVendorProfile = catchAsync(async (req: Request, res: Response) => {
     profileImg,
     ...req.body,
   };
-  console.log(data);
+
   const result = await VendorService.updateVendorProfile(user, data);
 
   sendResponse(res, {
@@ -80,7 +80,7 @@ const getAllVendor = catchAsync(async (req: Request, res: Response) => {
 
 const getVendorRevenue = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
-  const { range } = req.query;
+  const { range } = req.query as { range: string };
 
   const result = await VendorService.getVendorRevenue(user, range);
   sendResponse(res, {
@@ -93,7 +93,7 @@ const getVendorRevenue = catchAsync(async (req: Request, res: Response) => {
 
 const getVendorOrders = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
-  const { range } = req.query;
+  const { range } = req.query as { range: string };
 
   const result = await VendorService.getVendorOrders(user, range);
   sendResponse(res, {
@@ -107,7 +107,7 @@ const getVendorOrders = catchAsync(async (req: Request, res: Response) => {
 const getCustomerRetentionData = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
-    const { range } = req.query;
+    const { range } = req.query as { range: string };
     const result = await VendorService.getCustomerRetentionData(user, range);
     sendResponse(res, {
       success: true,

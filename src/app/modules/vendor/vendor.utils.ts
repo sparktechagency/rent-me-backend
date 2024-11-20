@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { parse, format } from 'date-fns';
 import { Order } from '../order/order.model';
 import { Service } from '../service/service.model';
@@ -90,8 +91,6 @@ export const mapDataToIntervals = (
   field: 'totalRevenue' | 'count'
 ) => {
   data.forEach(({ _id, [field]: value }) => {
-    console.log(_id, value);
-
     if (_id === intervals.length) {
       intervals[intervals.length - 1].value += value;
     } else if (_id < intervals.length) {
