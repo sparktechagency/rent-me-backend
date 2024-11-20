@@ -13,11 +13,11 @@ router.patch(
   auth(USER_ROLES.VENDOR),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
-    req.body.data
-      ? (req.body = VendorValidation.updateVendorZodSchema.parse(
-          JSON.parse(req.body.data)
-        ))
-      : req.body;
+    if (req.body.data) {
+      req.body = VendorValidation.updateVendorZodSchema.parse(
+        JSON.parse(req.body.data)
+      );
+    }
 
     return VendorController.updateVendorProfile(req, res, next);
   }

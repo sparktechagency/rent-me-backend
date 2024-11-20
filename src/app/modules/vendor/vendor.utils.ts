@@ -2,7 +2,6 @@ import { parse, format } from 'date-fns';
 import { Order } from '../order/order.model';
 import { Service } from '../service/service.model';
 import { convertTo24Hour } from '../../../helpers/dateFormatHelper';
-import { Types } from 'mongoose';
 
 // Helper function to convert 12-hour time format to 24-hour format
 export const buildDateTimeFilter = async (
@@ -18,7 +17,6 @@ export const buildDateTimeFilter = async (
   const serviceEndDateTime = new Date(
     `${format(parsedDate, 'yyyy-MM-dd')}T${convertTo24Hour(endTimeStr)}:00Z`
   );
-  console.log(serviceStartDateTime, serviceEndDateTime);
 
   const busyVendorIds = await Order.find({
     status: 'accepted',

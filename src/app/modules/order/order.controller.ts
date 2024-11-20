@@ -72,7 +72,7 @@ const declineOrConfirmOrder = catchAsync(
 const rejectOrAcceptOrder = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { ...updatedData } = req.body;
-  const result = await OrderService.declineOrConfirmOrder(id, updatedData);
+  const result = await OrderService.rejectOrAcceptOrder(id, updatedData);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

@@ -1,6 +1,5 @@
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
-import generateOTP from '../../../util/generateOTP';
 import { Package } from '../package/package.model';
 import { Service } from '../service/service.model';
 import { Vendor } from '../vendor/vendor.model';
@@ -23,12 +22,9 @@ const createOrder = async (payload: IOrder) => {
       Package.findById(payload.packageId),
       Order.findOne({
         vendorId: payload.vendorId,
-        $or: [
-          {
-            serviceStartDateTime: { $lt: payload.serviceEndDateTime },
-            serviceEndDateTime: { $gt: payload.serviceStartDateTime },
-          },
-        ],
+        serviceStartDateTime: { $lt: payload.serviceEndDateTime },
+        serviceEndDateTime: { $gt: payload.serviceStartDateTime },
+        status: { $in: ['accepted', 'ongoing'] }, // Match 'accepted' or 'ongoing' status
       }),
     ]);
 
@@ -186,14 +182,41 @@ const declineOrConfirmOrder = async (id: string, payload: Partial<IOrder>) => {
 };
 
 const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
+  const order = await Order.findById(id);
+  if (!order) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
+  }
+
+  if (payload.status === 'accepted') {
+    const conflictingOrder = await Order.findOne({
+      vendorId: order.vendorId,
+      serviceStartDateTime: { $lt: order.serviceEndDateTime },
+      serviceEndDateTime: { $gt: order.serviceStartDateTime },
+      status: { $in: ['accepted', 'ongoing'] },
+      _id: { $ne: id }, // Exclude the current order
+    });
+
+    // console.log(conflictingOrder);
+
+    if (conflictingOrder) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'The vendor already has an order during this time slot'
+      );
+    }
+  }
+
+  // Update the order status
   const result = await Order.findByIdAndUpdate(
     id,
     { status: payload.status },
     { new: true }
   );
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
+
   return result;
 };
 

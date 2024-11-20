@@ -27,8 +27,6 @@ const updateVendorProfile = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
 
-  console.log(payload);
-
   const result = await Vendor.findOneAndUpdate({ _id: userId }, payload, {
     new: true,
   });
@@ -74,7 +72,7 @@ const getVendorProfile = async (user: JwtPayload) => {
       },
     },
   ]);
-  console.log(revenueResult);
+
   const totalRevenue = revenueResult[0]?.totalRevenue || 0;
 
   return {
@@ -93,7 +91,7 @@ const getSingleVendor = async (id: string) => {
 };
 
 const deleteVendorProfile = async (user: JwtPayload) => {
-  const { id, userId } = user;
+  const { id } = user;
 
   const isExistUser = await User.isExistUserById(id);
   if (!isExistUser) {
@@ -162,7 +160,6 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
     andCondition.push({
       _id: { $in: budgetVendorIds },
     });
-    console.log(budgetVendorIds);
   }
 
   // Add range filters
@@ -184,7 +181,7 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
   if (reviewsFilter) andCondition.push(reviewsFilter);
 
   // Radius filter based on customer location
-  console.log(customerLat, customerLng, radius);
+
   if (customerLat && customerLng && radius) {
     andCondition.push({
       location: {
@@ -302,13 +299,10 @@ const getVendorOrders = async (
       },
     ]);
 
-    // console.log(orders);
-
     mapDataToIntervals(intervals, orders, 'count');
 
     return intervals;
   } catch (error) {
-    console.log(error);
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Failed to get vendor orders over time'
@@ -443,15 +437,17 @@ export const getCustomerRetentionData = async (
 
     // Calculate retention rate and update each interval
     intervals.forEach(interval => {
-      const { totalOrders, completedOrders, failedOrders } = interval;
+      const { totalOrders, completedOrders } = interval;
       interval.value =
         totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
     });
 
     return intervals;
   } catch (error) {
-    console.error(error);
-    throw new Error('Failed to calculate customer retention');
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to calculate customer retention'
+    );
   }
 };
 

@@ -14,7 +14,7 @@ export type IOrder = {
   status:
     | 'pending'
     | 'accepted'
-    | 'cancelled'
+    | 'ongoing'
     | 'rejected'
     | 'completed'
     | 'decline';
@@ -38,14 +38,8 @@ export type IOrder = {
 export type IOrderModel = Model<IOrder>;
 
 export type IOrderFilter = {
-  status?:
-    | 'pending'
-    | 'accepted'
-    | 'ongoing'
-    | 'cancelled'
-    | 'rejected'
-    | 'completed';
-  serviceDate?: string;
+  status?: 'pending' | 'accepted' | 'ongoing' | 'rejected' | 'completed';
+  paymentStatus?: 'pending' | 'half' | 'full';
   serviceStartDateTime?: string;
   serviceEndDateTime?: string;
 };
