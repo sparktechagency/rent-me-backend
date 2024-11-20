@@ -4,7 +4,7 @@ export type INotification = {
   userId: Types.ObjectId;
   title: string;
   message: string;
-  isRead: boolean;
+  isRead?: boolean;
   type: string;
 };
 

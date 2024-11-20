@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import { JwtPayload } from 'jsonwebtoken';
 import { IMessage } from './message.interface';
 import { USER_ROLES } from '../../../enums/user';
@@ -50,8 +51,8 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
     await result.populate('senderId', { name: 1, email: 1 })
   ).populate('receiverId', { name: 1, email: 1 });
 
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  // Emit the message using Socket.io
   global.io?.emit(`messageReceived::${payload.chatId}`, populatedResult);
 
   // Update the chat with latest message details

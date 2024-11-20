@@ -42,4 +42,5 @@ export type IOrderFilter = {
   paymentStatus?: 'pending' | 'half' | 'full';
   serviceStartDateTime?: string;
   serviceEndDateTime?: string;
+  serviceDate?: string;
 };

@@ -1,13 +1,18 @@
+/* eslint-disable no-unused-expressions */
+/* eslint-disable no-undef */
+
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
 import { Package } from '../package/package.model';
 import { Service } from '../service/service.model';
-import { Vendor } from '../vendor/vendor.model';
 import { IOrder, IOrderFilter } from './order.interface';
 import { Order } from './order.model';
 import { generateCustomOrderId } from './order.utils';
 import { JwtPayload } from 'jsonwebtoken';
 import { USER_ROLES } from '../../../enums/user';
+import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import { User } from '../user/user.model';
+import { Types } from 'mongoose';
 
 const createOrder = async (payload: IOrder) => {
   // Generate a unique order id
@@ -15,18 +20,27 @@ const createOrder = async (payload: IOrder) => {
   payload.orderId = orderId;
 
   // Ensure all initial checks are done concurrently
-  const [vendorExist, serviceExist, packageExist, existingOrder] =
-    await Promise.all([
-      Vendor.findById(payload.vendorId),
-      Service.findById(payload.serviceId),
-      Package.findById(payload.packageId),
-      Order.findOne({
-        vendorId: payload.vendorId,
-        serviceStartDateTime: { $lt: payload.serviceEndDateTime },
-        serviceEndDateTime: { $gt: payload.serviceStartDateTime },
-        status: { $in: ['accepted', 'ongoing'] }, // Match 'accepted' or 'ongoing' status
-      }),
-    ]);
+  const [
+    vendorExist,
+    customerExist,
+    serviceExist,
+    packageExist,
+    existingOrder,
+  ] = await Promise.all([
+    User.findOne({ vendor: payload.vendorId }, { status: 'active' }),
+    User.findOne(
+      { customer: payload.customerId },
+      { status: 'active' }
+    ).populate('customer', { name: 1 }),
+    Service.findById(payload.serviceId),
+    Package.findById(payload.packageId),
+    Order.findOne({
+      vendorId: payload.vendorId,
+      serviceStartDateTime: { $lt: payload.serviceEndDateTime },
+      serviceEndDateTime: { $gt: payload.serviceStartDateTime },
+      status: { $in: ['accepted', 'ongoing'] }, // Match 'accepted' or 'ongoing' status
+    }),
+  ]);
 
   if (!vendorExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor does not exist');
@@ -79,6 +93,19 @@ const createOrder = async (payload: IOrder) => {
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order');
   }
+
+  const notificationData = {
+    userId: vendorExist?._id,
+    title: `Order request from ${customerExist?.customer?.name}`,
+    message: 'You have a new order request. Please check your order dashboard.',
+    type: USER_ROLES.VENDOR,
+  };
+
+  await sendNotification(
+    'newOrder',
+    payload.vendorId as Types.ObjectId,
+    notificationData
+  );
 
   return result;
 };
