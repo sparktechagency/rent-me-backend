@@ -1,9 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
 import { IReview } from './review.interface';
 import { Review } from './review.model';
 import mongoose from 'mongoose';
 import { Vendor } from '../vendor/vendor.model';
+import { IPaginationOptions } from '../../../types/pagination';
+import { paginationHelper } from '../../../helpers/paginationHelper';
+import { IGenericResponse } from '../../../types/response';
 
 const createReview = async (payload: IReview): Promise<IReview | null> => {
   const session = await mongoose.startSession();
@@ -55,9 +59,12 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
 
 const getAllReviewsForVendorById = async (
   id: string,
+  paginationOptions: IPaginationOptions,
   packageId?: string
-): Promise<IReview[] | null> => {
+): Promise<IGenericResponse<IReview[]> | null> => {
   const filter: any = { vendorId: id };
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOptions);
 
   if (packageId) {
     filter.packageId = packageId;
@@ -65,13 +72,25 @@ const getAllReviewsForVendorById = async (
 
   // Find reviews based on the constructed filter
   const result = await Review.find(filter)
+    .sort({ [sortBy]: sortOrder })
+    .skip(skip)
+    .limit(limit)
     .populate('customerId')
     .populate('vendorId');
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get all reviews');
   }
-  return result;
+  const total = await Review.countDocuments(filter);
+  return {
+    meta: {
+      page,
+      limit,
+      total: total,
+      totalPage: Math.ceil(result.length / limit),
+    },
+    data: result,
+  };
 };
 
 const getSingleReview = async (id: string): Promise<IReview | null> => {

@@ -4,6 +4,7 @@ import { USER_ROLES } from '../../../enums/user';
 import { VendorController } from './vendor.controller';
 import { VendorValidation } from './vendor.validation';
 import fileUploadHandler from '../../middlewares/fileUploadHandler';
+import validateRequest from '../../middlewares/validateRequest';
 
 const router = express.Router();
 
@@ -21,6 +22,12 @@ router.patch(
 
     return VendorController.updateVendorProfile(req, res, next);
   }
+);
+
+router.patch(
+  '/business-information',
+  auth(USER_ROLES.VENDOR),
+  validateRequest(VendorValidation.getBusinessInformationFromVendor)
 );
 
 //get single vendor by custom Id

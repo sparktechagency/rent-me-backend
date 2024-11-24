@@ -1,9 +1,33 @@
 import { Model } from 'mongoose';
 
-interface Point {
+type Point = {
   type: 'Point';
   coordinates: [number, number]; // [longitude, latitude]
-}
+};
+
+type IAddress = {
+  street: string;
+  apartmentOrSuite: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+};
+
+type IBusinessType =
+  | 'Party Rentals'
+  | 'Event Planning'
+  | 'Catering'
+  | 'Entertainment'
+  | 'Other';
+
+type ISocialLink = {
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  linkedin?: string;
+  website?: string;
+};
 
 export type IVendor = {
   id: string;
@@ -11,17 +35,42 @@ export type IVendor = {
   email: string;
   contact?: string;
   profileImg?: string;
-  address?: string;
+  address?: IAddress;
   rating?: number;
   totalReviews: number;
   location: Point; // [longitude, latitude]
 
   orderCompleted?: number;
   isAvailable?: boolean; // order < 10 ? true : false
+
+  //business information
+
   businessTitle?: string;
+  businessType?: IBusinessType;
+  businessAddress?: IAddress;
+  businessContact?: string;
+  businessEmail?: string;
+  socialLinks: ISocialLink;
+  yearsInBusiness?: number;
+  servicesOffered?: string[];
+  isLicensed?: boolean;
+  license?: string;
   description?: string;
-  shopVisited: number;
+
   businessImages?: string[];
+  availableDays?: string[];
+  operationStartTime?: string;
+  operationEndTime?: string;
+
+  //bank information
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankAccountType?: string;
+  bankRoutingNumber?: string;
+
+  signatureType?: 'Typed' | 'Digital';
+  signature?: string;
 };
 
 export type VendorModel = Model<IVendor>;

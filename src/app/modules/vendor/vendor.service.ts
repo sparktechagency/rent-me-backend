@@ -11,32 +11,120 @@ import {
   buildRangeFilter,
   findVendorsByBudget,
   getDateRangeAndIntervals,
+  handleObjectUpdate,
   mapDataToIntervals,
 } from './vendor.utils';
 import { Service } from '../service/service.model';
 import { Order } from '../order/order.model';
+import { IPaginationOptions } from '../../../types/pagination';
+import { paginationHelper } from '../../../helpers/paginationHelper';
 
 const updateVendorProfile = async (
   user: JwtPayload,
   payload: Partial<IVendor>
 ) => {
   const { id, userId } = user;
+  const { address, socialLinks, businessAddress, ...restData } = payload;
+
+  let updatedVendorData = { ...restData }; // Create a mutable object
 
   const isExistUser = await User.isExistUserById(id);
   if (!isExistUser) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
 
-  const result = await Vendor.findOneAndUpdate({ _id: userId }, payload, {
-    new: true,
-  });
+  // Update nested objects dynamically
+  if (address && Object.keys(address).length > 0) {
+    updatedVendorData = handleObjectUpdate(
+      address,
+      updatedVendorData,
+      'address'
+    );
+  }
 
-  //need to be fixed!!!
+  if (businessAddress && Object.keys(businessAddress).length > 0) {
+    updatedVendorData = handleObjectUpdate(
+      businessAddress,
+      updatedVendorData,
+      'businessAddress'
+    );
+  }
+
+  if (socialLinks && Object.keys(socialLinks).length > 0) {
+    updatedVendorData = handleObjectUpdate(
+      socialLinks,
+      updatedVendorData,
+      'socialLinks'
+    );
+  }
+
+  // Perform the database update
+  const result = await Vendor.findOneAndUpdate(
+    { _id: userId },
+    updatedVendorData,
+    {
+      new: true,
+    }
+  );
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update vendor');
   }
 
   return result;
+};
+
+const getBusinessInformationFromVendor = async (
+  user: JwtPayload,
+  payload: Partial<IVendor>
+) => {
+  const session = await Vendor.startSession(); // Start a session
+  session.startTransaction();
+
+  try {
+    const { id, userId } = user;
+
+    const isExistUser = await User.isExistUserById(id);
+    if (!isExistUser) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
+    }
+
+    // Update Vendor
+    const result = await Vendor.findOneAndUpdate(
+      { _id: userId },
+      payload,
+      { new: true, session } // Pass session here
+    );
+
+    if (!result) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update vendor');
+    }
+
+    // Update User
+    const changeStatus = await User.findOneAndUpdate(
+      { vendor: userId },
+      { needInformation: false },
+      { new: true, session } // Pass session here
+    );
+
+    if (!changeStatus) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to update information need status'
+      );
+    }
+
+    // Commit the transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    return result;
+  } catch (error) {
+    // Rollback the transaction in case of any error
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
 };
 
 const getVendorProfile = async (user: JwtPayload) => {
@@ -129,11 +217,12 @@ const deleteVendorProfile = async (user: JwtPayload) => {
   return { message: 'Vendor profile deleted successfully.' };
 };
 
-const getAllVendor = async (filters: IVendorFilterableFields) => {
+const getAllVendor = async (
+  filters: IVendorFilterableFields,
+  paginationOptions: IPaginationOptions
+) => {
   const {
     searchTerm,
-    sortBy,
-    sortOrder,
     minOrderCompleted,
     maxOrderCompleted,
     minReviews,
@@ -149,6 +238,10 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
     radius,
     ...filterData
   } = filters;
+
+  const { page, limit, skip, sortOrder, sortBy } =
+    paginationHelper.calculatePagination(paginationOptions);
+
   const andCondition = [];
 
   if (searchTerm) {
@@ -253,9 +346,21 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
     }
   )
     .sort(sortConditions) // Apply sorting
+    .skip(skip)
+    .limit(limit)
     .lean();
 
-  return vendors;
+  const total = await Vendor.countDocuments(whereConditions);
+
+  return {
+    meta: {
+      page,
+      limit,
+      totalPage: Math.ceil(total / limit),
+      total: total,
+    },
+    data: vendors,
+  };
 };
 
 const getVendorRevenue = async (
@@ -500,4 +605,5 @@ export const VendorService = {
   getVendorRevenue,
   getVendorOrders,
   getCustomerRetentionData,
+  getBusinessInformationFromVendor,
 };

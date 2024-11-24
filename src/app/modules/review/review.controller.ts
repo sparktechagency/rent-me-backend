@@ -4,6 +4,8 @@ import { ReviewService } from './review.service';
 import { IReview } from './review.interface';
 import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
+import { paginationFields } from '../../../types/pagination';
+import pick from '../../../shared/pick';
 
 const createReview = catchAsync(async (req: Request, res: Response) => {
   const { ...reviewData } = req.body;
@@ -36,9 +38,11 @@ const getAllReviewsForVendorById = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
     const { packageId } = req.query;
+    const paginationOptions = pick(req.query, paginationFields);
 
     const result = await ReviewService.getAllReviewsForVendorById(
       id,
+      paginationOptions,
       packageId as string
     );
 
@@ -46,7 +50,8 @@ const getAllReviewsForVendorById = catchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'All reviews retrieved successfully',
-      data: result,
+      meta: result?.meta,
+      data: result?.data,
     });
   }
 );
