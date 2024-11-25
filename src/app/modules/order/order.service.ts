@@ -7,44 +7,93 @@ import { Package } from '../package/package.model';
 import { Service } from '../service/service.model';
 import { IOrder, IOrderFilter } from './order.interface';
 import { Order } from './order.model';
-import { generateCustomOrderId } from './order.utils';
+import { generateCustomOrderId, validateOrderTime } from './order.utils';
 import { JwtPayload } from 'jsonwebtoken';
 import { USER_ROLES } from '../../../enums/user';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
 import { User } from '../user/user.model';
 import { Types } from 'mongoose';
+import { Vendor } from '../vendor/vendor.model';
 
 const createOrder = async (payload: IOrder) => {
-  // Generate a unique order id
   const orderId = await generateCustomOrderId();
   payload.orderId = orderId;
 
-  // Ensure all initial checks are done concurrently
+  // Check if the customer already has an active order at the same time
+  const existingCustomerOrder = await Order.findOne({
+    customerId: payload.customerId,
+    serviceStartDateTime: { $lt: payload.serviceEndDateTime },
+    serviceEndDateTime: { $gt: payload.serviceStartDateTime },
+    status: { $nin: ['rejected', 'declined'] }, // Exclude rejected and declined orders
+  });
+
+  if (existingCustomerOrder) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You already have an order request for the same time and date.'
+    );
+  }
+
   const [
     vendorExist,
     customerExist,
+    vendor,
     serviceExist,
     packageExist,
     existingOrder,
   ] = await Promise.all([
-    User.findOne({ vendor: payload.vendorId }, { status: 'active' }),
     User.findOne(
-      { customer: payload.customerId },
-      { status: 'active' }
-    ).populate('customer', { name: 1 }),
+      { vendor: payload.vendorId, status: 'active' },
+      { status: 1, needInformation: 1, approvedByAdmin: 1 }
+    ),
+    User.findOne({ customer: payload.customerId, status: 'active' }).populate(
+      'customer',
+      { name: 1 }
+    ),
+    Vendor.findOne(
+      { _id: payload.vendorId },
+      { availableDays: 1, operationStartTime: 1, operationEndTime: 1 }
+    ),
     Service.findById(payload.serviceId),
     Package.findById(payload.packageId),
     Order.findOne({
       vendorId: payload.vendorId,
       serviceStartDateTime: { $lt: payload.serviceEndDateTime },
       serviceEndDateTime: { $gt: payload.serviceStartDateTime },
-      status: { $in: ['accepted', 'ongoing'] }, // Match 'accepted' or 'ongoing' status
+      status: { $in: ['accepted', 'ongoing'] },
     }),
   ]);
 
   if (!vendorExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor does not exist');
   }
+
+  if (vendorExist.needInformation) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      'Vendor information is incomplete'
+    );
+  }
+
+  const requestedDate = new Date(payload.serviceStartDateTime);
+  const requestedDay = requestedDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+  });
+
+  if (!vendor!.availableDays!.includes(requestedDay)) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Vendor is not available on the requested day'
+    );
+  }
+
+  if (!vendorExist.approvedByAdmin) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      'Vendor is not approved by admin'
+    );
+  }
+
   if (!serviceExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Service does not exist');
   }
@@ -60,14 +109,19 @@ const createOrder = async (payload: IOrder) => {
 
   const date = payload.serviceStartDateTime.toString().split('T')[0];
 
-  // Aggregate vendor orders for the given date in parallel
+  validateOrderTime(
+    new Date(payload.serviceStartDateTime),
+    new Date(payload.serviceEndDateTime),
+    vendor!.operationStartTime!,
+    vendor!.operationEndTime!
+  );
+
   const vendorOrders = await Order.aggregate([
     {
       $project: {
         orderId: 1,
         status: 1,
         serviceStartDateTime: 1,
-        // Extract only the date part (YYYY-MM-DD)
         serviceStartDate: {
           $dateToString: { format: '%Y-%m-%d', date: '$serviceStartDateTime' },
         },
@@ -75,7 +129,7 @@ const createOrder = async (payload: IOrder) => {
     },
     {
       $match: {
-        serviceStartDate: date, // Desired date to filter
+        serviceStartDate: date,
         status: 'accepted',
       },
     },
@@ -88,7 +142,6 @@ const createOrder = async (payload: IOrder) => {
     );
   }
 
-  // Create the new order
   const result = await Order.create(payload);
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order');

@@ -23,11 +23,12 @@ router.patch(
     return VendorController.updateVendorProfile(req, res, next);
   }
 );
-
+// router.patch('/bs', (req, res) => res.send('Route works!'));
 router.patch(
   '/business-information',
   auth(USER_ROLES.VENDOR),
-  validateRequest(VendorValidation.getBusinessInformationFromVendor)
+  validateRequest(VendorValidation.getBusinessInformationFromVendor),
+  VendorController.getBusinessInformationFromVendor
 );
 
 //get single vendor by custom Id

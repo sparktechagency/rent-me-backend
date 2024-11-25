@@ -321,7 +321,7 @@ const getAllVendor = async (
 
   // Step 1: Get vendor IDs of active users
   const activeUserVendors = await User.find(
-    { status: 'active' }, // Filter for active users
+    { status: 'active', needInformation: false, approvedByAdmin: true }, // Filter for active users
     'vendor' // Only select the `vendor` field
   ).lean();
 
