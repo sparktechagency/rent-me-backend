@@ -2,7 +2,6 @@ import express, { NextFunction, Request, Response } from 'express';
 import auth from '../../middlewares/auth';
 import { USER_ROLES } from '../../../enums/user';
 import { CustomerController } from './customer.controller';
-import validateRequest from '../../middlewares/validateRequest';
 import { CustomerValidation } from './customer.validation';
 import fileUploadHandler from '../../middlewares/fileUploadHandler';
 
@@ -13,11 +12,11 @@ router.patch(
   auth(USER_ROLES.CUSTOMER),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
-    req.body.data
-      ? (req.body = CustomerValidation.updateCustomerProfileZodSchema.parse(
-          JSON.parse(req?.body?.data)
-        ))
-      : req.body;
+    if (req.body?.data) {
+      req.body = CustomerValidation.updateCustomerProfileZodSchema.parse(
+        JSON.parse(req.body.data)
+      );
+    }
 
     return CustomerController.updateCustomerProfile(req, res, next);
   }

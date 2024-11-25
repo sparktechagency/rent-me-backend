@@ -13,6 +13,10 @@ import { VendorRoutes } from '../app/modules/vendor/vendor.route';
 import { CustomerRoutes } from '../app/modules/customer/customer.route';
 import { ChatRoutes } from '../app/modules/chat/chat.route';
 import { MessageRoutes } from '../app/modules/message/message.route';
+import { ChatBotRoutes } from '../app/modules/chat-bot/chatbot.route';
+import { DashboardRoutes } from '../app/dashboard/dashboard.route';
+import { NotificationRoutes } from '../app/modules/notification/notification.route';
+import { AdminRoutes } from '../app/modules/admin/admin.route';
 const router = express.Router();
 
 const apiRoutes = [
@@ -31,6 +35,10 @@ const apiRoutes = [
   {
     path: '/customer',
     route: CustomerRoutes,
+  },
+  {
+    path: '/admin',
+    route: AdminRoutes,
   },
   {
     path: '/service',
@@ -62,7 +70,7 @@ const apiRoutes = [
   },
   {
     path: '/notification',
-    route: CategoryRoutes,
+    route: NotificationRoutes,
   },
   {
     path: '/chat',
@@ -71,6 +79,14 @@ const apiRoutes = [
   {
     path: '/message',
     route: MessageRoutes,
+  },
+  {
+    path: '/chat-bot',
+    route: ChatBotRoutes,
+  },
+  {
+    path: '/dashboard',
+    route: DashboardRoutes,
   },
   {
     path: '/others',

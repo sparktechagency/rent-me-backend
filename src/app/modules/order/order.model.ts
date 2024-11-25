@@ -37,7 +37,7 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
       enum: [
         'pending',
         'accepted',
-        'cancelled',
+        'ongoing',
         'rejected',
         'completed',
         'decline',

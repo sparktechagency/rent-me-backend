@@ -47,9 +47,25 @@ const userSchema = new Schema<IUser, UserModel>(
       enum: ['active', 'restricted', 'delete'],
       default: 'active',
     },
+    appId: {
+      type: String,
+      select: 0,
+    },
+    needInformation: {
+      type: Boolean,
+      default: true,
+    },
+    approvedByAdmin: {
+      type: Boolean,
+      default: false,
+    },
     verified: {
       type: Boolean,
       default: false,
+    },
+    termsAndCondition: {
+      type: Boolean,
+      required: true,
     },
     authentication: {
       type: {

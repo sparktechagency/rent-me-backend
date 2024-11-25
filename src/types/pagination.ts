@@ -4,3 +4,11 @@ export type IPaginationOptions = {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 };
+
+export const paginationFields = [
+  'page',
+  'limit',
+  'sortBy',
+  'sortOrder',
+  'skip',
+];

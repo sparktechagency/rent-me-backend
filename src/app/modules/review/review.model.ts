@@ -15,7 +15,6 @@ const reviewSchema = new Schema<IReview, IReviewModel>(
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
   }
 );
 

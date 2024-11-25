@@ -11,34 +11,120 @@ import {
   buildRangeFilter,
   findVendorsByBudget,
   getDateRangeAndIntervals,
+  handleObjectUpdate,
   mapDataToIntervals,
 } from './vendor.utils';
 import { Service } from '../service/service.model';
 import { Order } from '../order/order.model';
+import { IPaginationOptions } from '../../../types/pagination';
+import { paginationHelper } from '../../../helpers/paginationHelper';
 
 const updateVendorProfile = async (
   user: JwtPayload,
   payload: Partial<IVendor>
 ) => {
   const { id, userId } = user;
+  const { address, socialLinks, businessAddress, ...restData } = payload;
+
+  let updatedVendorData = { ...restData }; // Create a mutable object
 
   const isExistUser = await User.isExistUserById(id);
   if (!isExistUser) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
 
-  console.log(payload);
+  // Update nested objects dynamically
+  if (address && Object.keys(address).length > 0) {
+    updatedVendorData = handleObjectUpdate(
+      address,
+      updatedVendorData,
+      'address'
+    );
+  }
 
-  const result = await Vendor.findOneAndUpdate({ _id: userId }, payload, {
-    new: true,
-  });
+  if (businessAddress && Object.keys(businessAddress).length > 0) {
+    updatedVendorData = handleObjectUpdate(
+      businessAddress,
+      updatedVendorData,
+      'businessAddress'
+    );
+  }
 
-  //need to be fixed!!!
+  if (socialLinks && Object.keys(socialLinks).length > 0) {
+    updatedVendorData = handleObjectUpdate(
+      socialLinks,
+      updatedVendorData,
+      'socialLinks'
+    );
+  }
+
+  // Perform the database update
+  const result = await Vendor.findOneAndUpdate(
+    { _id: userId },
+    updatedVendorData,
+    {
+      new: true,
+    }
+  );
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update vendor');
   }
 
   return result;
+};
+
+const getBusinessInformationFromVendor = async (
+  user: JwtPayload,
+  payload: Partial<IVendor>
+) => {
+  const session = await Vendor.startSession(); // Start a session
+  session.startTransaction();
+
+  try {
+    const { id, userId } = user;
+
+    const isExistUser = await User.isExistUserById(id);
+    if (!isExistUser) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
+    }
+
+    // Update Vendor
+    const result = await Vendor.findOneAndUpdate(
+      { _id: userId },
+      payload,
+      { new: true, session } // Pass session here
+    );
+
+    if (!result) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update vendor');
+    }
+
+    // Update User
+    const changeStatus = await User.findOneAndUpdate(
+      { vendor: userId },
+      { needInformation: false },
+      { new: true, session } // Pass session here
+    );
+
+    if (!changeStatus) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to update information need status'
+      );
+    }
+
+    // Commit the transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    return result;
+  } catch (error) {
+    // Rollback the transaction in case of any error
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
 };
 
 const getVendorProfile = async (user: JwtPayload) => {
@@ -74,7 +160,7 @@ const getVendorProfile = async (user: JwtPayload) => {
       },
     },
   ]);
-  console.log(revenueResult);
+
   const totalRevenue = revenueResult[0]?.totalRevenue || 0;
 
   return {
@@ -93,25 +179,50 @@ const getSingleVendor = async (id: string) => {
 };
 
 const deleteVendorProfile = async (user: JwtPayload) => {
-  const { id, userId } = user;
+  const { id } = user;
 
+  // Check if the user exists
   const isExistUser = await User.isExistUserById(id);
   if (!isExistUser) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
 
-  const result = await User.findOneAndUpdate({ _id: id }, { status: 'delete' });
+  // Check for running orders
+  const hasRunningOrder = await Order.exists({
+    vendorId: id,
+    status: { $in: ['ongoing', 'accepted'] },
+  });
+
+  if (hasRunningOrder) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You have ongoing orders. Please complete them before deleting your profile.'
+    );
+  }
+
+  // Mark user as deleted
+  const result = await User.findByIdAndUpdate(
+    id,
+    { status: 'deleted' },
+    { new: true } // Return the updated document
+  );
 
   if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete vendor');
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to delete vendor profile.'
+    );
   }
+
+  return { message: 'Vendor profile deleted successfully.' };
 };
 
-const getAllVendor = async (filters: IVendorFilterableFields) => {
+const getAllVendor = async (
+  filters: IVendorFilterableFields,
+  paginationOptions: IPaginationOptions
+) => {
   const {
     searchTerm,
-    sortBy,
-    sortOrder,
     minOrderCompleted,
     maxOrderCompleted,
     minReviews,
@@ -127,6 +238,10 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
     radius,
     ...filterData
   } = filters;
+
+  const { page, limit, skip, sortOrder, sortBy } =
+    paginationHelper.calculatePagination(paginationOptions);
+
   const andCondition = [];
 
   if (searchTerm) {
@@ -159,10 +274,10 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
   // Budget range filtering based on service data
   if (minBudget !== undefined || maxBudget !== undefined) {
     const budgetVendorIds = await findVendorsByBudget(minBudget, maxBudget);
+
     andCondition.push({
       _id: { $in: budgetVendorIds },
     });
-    console.log(budgetVendorIds);
   }
 
   // Add range filters
@@ -183,8 +298,6 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
   );
   if (reviewsFilter) andCondition.push(reviewsFilter);
 
-  // Radius filter based on customer location
-  console.log(customerLat, customerLng, radius);
   if (customerLat && customerLng && radius) {
     andCondition.push({
       location: {
@@ -206,19 +319,48 @@ const getAllVendor = async (filters: IVendorFilterableFields) => {
 
   const whereConditions = andCondition.length > 0 ? { $and: andCondition } : {};
 
-  const result = await Vendor.find(whereConditions, {
-    id: 1,
-    name: 1,
-    email: 1,
-    rating: 1,
-    totalReviews: 1,
-    orderCompleted: 1,
-    isAvailable: 1,
-    contact: 1,
-    address: 1,
-  }).lean();
+  // Step 1: Get vendor IDs of active users
+  const activeUserVendors = await User.find(
+    { status: 'active', needInformation: false, approvedByAdmin: true }, // Filter for active users
+    'vendor' // Only select the `vendor` field
+  ).lean();
 
-  return result;
+  const activeVendorIds = activeUserVendors.map(user => user.vendor);
+
+  // Step 2: Query the Vendor collection using these vendor IDs
+  const vendors = await Vendor.find(
+    {
+      ...whereConditions,
+      _id: { $in: activeVendorIds }, // Filter by vendor IDs
+    },
+    {
+      id: 1,
+      name: 1,
+      email: 1,
+      rating: 1,
+      totalReviews: 1,
+      orderCompleted: 1,
+      isAvailable: 1,
+      contact: 1,
+      address: 1,
+    }
+  )
+    .sort(sortConditions) // Apply sorting
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const total = await Vendor.countDocuments(whereConditions);
+
+  return {
+    meta: {
+      page,
+      limit,
+      totalPage: Math.ceil(total / limit),
+      total: total,
+    },
+    data: vendors,
+  };
 };
 
 const getVendorRevenue = async (
@@ -302,13 +444,10 @@ const getVendorOrders = async (
       },
     ]);
 
-    // console.log(orders);
-
     mapDataToIntervals(intervals, orders, 'count');
 
     return intervals;
   } catch (error) {
-    console.log(error);
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Failed to get vendor orders over time'
@@ -443,15 +582,17 @@ export const getCustomerRetentionData = async (
 
     // Calculate retention rate and update each interval
     intervals.forEach(interval => {
-      const { totalOrders, completedOrders, failedOrders } = interval;
+      const { totalOrders, completedOrders } = interval;
       interval.value =
         totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
     });
 
     return intervals;
   } catch (error) {
-    console.error(error);
-    throw new Error('Failed to calculate customer retention');
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to calculate customer retention'
+    );
   }
 };
 
@@ -464,4 +605,5 @@ export const VendorService = {
   getVendorRevenue,
   getVendorOrders,
   getCustomerRetentionData,
+  getBusinessInformationFromVendor,
 };

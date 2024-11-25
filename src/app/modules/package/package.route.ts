@@ -22,5 +22,6 @@ router.patch(
 );
 
 router.get('/:id', PackageController.getSinglePackage);
+router.delete('/:id', PackageController.deletePackage);
 
 export const PackageRoutes = router;

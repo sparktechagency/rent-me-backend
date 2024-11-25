@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable no-unused-vars */
 import { Model, Types } from 'mongoose';
 import { ICustomer } from '../customer/customer.interface';
 import { IVendor } from '../vendor/vendor.interface';
@@ -13,7 +15,11 @@ export type IUser = {
   admin?: Types.ObjectId | IAdmin;
   role: USER_ROLES;
   status: 'active' | 'restricted' | 'delete';
+  needInformation: boolean;
+  approvedByAdmin: boolean;
   verified: boolean;
+  termsAndCondition: boolean;
+  appId: string;
   authentication?: {
     passwordChangedAt: Date;
     isResetPassword: boolean;

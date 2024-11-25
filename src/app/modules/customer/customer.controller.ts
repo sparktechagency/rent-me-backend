@@ -4,15 +4,18 @@ import { CustomerService } from './customer.service';
 import { ICustomer } from './customer.interface';
 import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
+import { paginationFields } from '../../../types/pagination';
+import pick from '../../../shared/pick';
 
 const getCustomerProfile = catchAsync(async (req: Request, res: Response) => {
   const { userId } = req.user;
-  console.log(userId);
+
   const result = await CustomerService.getCustomerProfile(userId);
   sendResponse<ICustomer | null>(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Profile retrieved successfully',
+
     data: result,
   });
 });
@@ -57,12 +60,14 @@ const deleteCustomerProfile = catchAsync(
 );
 
 const getAllCustomer = catchAsync(async (req: Request, res: Response) => {
-  const result = await CustomerService.getAllCustomer();
+  const paginationOptions = pick(req.query, paginationFields);
+  const result = await CustomerService.getAllCustomer(paginationOptions);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'All customer retrieved successfully',
-    data: result,
+    meta: result.meta,
+    data: result.data,
   });
 });
 

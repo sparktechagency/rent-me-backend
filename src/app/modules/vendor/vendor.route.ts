@@ -4,6 +4,7 @@ import { USER_ROLES } from '../../../enums/user';
 import { VendorController } from './vendor.controller';
 import { VendorValidation } from './vendor.validation';
 import fileUploadHandler from '../../middlewares/fileUploadHandler';
+import validateRequest from '../../middlewares/validateRequest';
 
 const router = express.Router();
 
@@ -13,14 +14,21 @@ router.patch(
   auth(USER_ROLES.VENDOR),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
-    req.body.data
-      ? (req.body = VendorValidation.updateVendorZodSchema.parse(
-          JSON.parse(req.body.data)
-        ))
-      : req.body;
+    if (req.body.data) {
+      req.body = VendorValidation.updateVendorZodSchema.parse(
+        JSON.parse(req.body.data)
+      );
+    }
 
     return VendorController.updateVendorProfile(req, res, next);
   }
+);
+// router.patch('/bs', (req, res) => res.send('Route works!'));
+router.patch(
+  '/business-information',
+  auth(USER_ROLES.VENDOR),
+  validateRequest(VendorValidation.getBusinessInformationFromVendor),
+  VendorController.getBusinessInformationFromVendor
 );
 
 //get single vendor by custom Id

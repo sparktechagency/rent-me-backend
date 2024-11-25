@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { parse, format } from 'date-fns';
 import { Order } from '../order/order.model';
 import { Service } from '../service/service.model';
 import { convertTo24Hour } from '../../../helpers/dateFormatHelper';
-import { Types } from 'mongoose';
 
 // Helper function to convert 12-hour time format to 24-hour format
 export const buildDateTimeFilter = async (
@@ -18,7 +18,6 @@ export const buildDateTimeFilter = async (
   const serviceEndDateTime = new Date(
     `${format(parsedDate, 'yyyy-MM-dd')}T${convertTo24Hour(endTimeStr)}:00Z`
   );
-  console.log(serviceStartDateTime, serviceEndDateTime);
 
   const busyVendorIds = await Order.find({
     status: 'accepted',
@@ -92,12 +91,28 @@ export const mapDataToIntervals = (
   field: 'totalRevenue' | 'count'
 ) => {
   data.forEach(({ _id, [field]: value }) => {
-    console.log(_id, value);
-
     if (_id === intervals.length) {
       intervals[intervals.length - 1].value += value;
     } else if (_id < intervals.length) {
       intervals[_id].value = value;
     }
   });
+};
+
+export const handleObjectUpdate = (
+  payload: Record<string, any>,
+  updatedData: Record<string, any>,
+  prefix: string
+) => {
+  if (payload && Object.keys(payload).length > 0) {
+    Object.keys(payload).forEach(key => {
+      // Construct the dynamic key with the prefix
+      const updatedKey = `${prefix}.${key}`;
+
+      // Assign the value from payload to updatedData with the new key
+      updatedData[updatedKey] = payload[key];
+    });
+  }
+
+  return updatedData;
 };

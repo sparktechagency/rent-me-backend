@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable no-undef */
 import colors from 'colors';
 import mongoose from 'mongoose';
 import { Server } from 'socket.io';
@@ -5,9 +8,7 @@ import app from './app';
 import config from './config';
 import { socketHelper } from './helpers/socketHelper';
 import { errorLogger, logger } from './shared/logger';
-import { jwtHelper } from './helpers/jwtHelper';
 
-//uncaught exception
 process.on('uncaughtException', error => {
   errorLogger.error('UnhandleException Detected', error);
   process.exit(1);

@@ -24,7 +24,23 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
       type: String,
     },
     address: {
+      _id: false,
+      type: {
+        street: { type: String, required: true },
+        apartmentOrSuite: { type: String },
+        city: { type: String, required: true },
+        state: { type: String, required: true },
+        zip: { type: String, required: true },
+        country: { type: String, required: true, default: 'United States' },
+      },
+    },
+    deliveryOption: {
       type: String,
+      enum: ['Leave at the front door', 'Call upon arrival'],
+    },
+    receivePromotionalNotification: {
+      type: Boolean,
+      default: false,
     },
     location: {
       type: { type: String, default: 'Point', enum: ['Point'] },

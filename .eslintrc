@@ -8,8 +8,8 @@
   "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
 
   "rules": {
-    "no-console": "error",
-    "no-unused-vars": "error",
+    "no-console": "warn",
+    "no-unused-vars": "warn",
     "no-undef": "error",
     "no-unused-expressions": "error",
     "no-unreachable": "error",

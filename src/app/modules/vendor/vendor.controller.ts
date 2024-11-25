@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { paginationFields } from './../../../types/pagination';
 import { StatusCodes } from 'http-status-codes';
 import catchAsync from '../../../shared/catchAsync';
 import { IVendor } from './vendor.interface';
@@ -19,7 +21,7 @@ const updateVendorProfile = catchAsync(async (req: Request, res: Response) => {
     profileImg,
     ...req.body,
   };
-  console.log(data);
+
   const result = await VendorService.updateVendorProfile(user, data);
 
   sendResponse(res, {
@@ -29,6 +31,25 @@ const updateVendorProfile = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+
+const getBusinessInformationFromVendor = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user;
+    const { ...vendorData } = req.body;
+
+    const result = await VendorService.getBusinessInformationFromVendor(
+      user,
+      vendorData
+    );
+
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Business information updated successfully',
+      data: result,
+    });
+  }
+);
 
 const getVendorProfile = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -67,12 +88,14 @@ const deleteVendorProfile = catchAsync(async (req: Request, res: Response) => {
 //get all vendor
 const getAllVendor = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, vendorFilterableFields);
-  const result = await VendorService.getAllVendor(filters);
+  const paginationOptions = pick(req.query, paginationFields);
+  const result = await VendorService.getAllVendor(filters, paginationOptions);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'All vendor retrieved successfully',
-    data: result,
+    meta: result.meta,
+    data: result.data,
   });
 });
 
@@ -80,7 +103,7 @@ const getAllVendor = catchAsync(async (req: Request, res: Response) => {
 
 const getVendorRevenue = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
-  const { range } = req.query;
+  const { range } = req.query as { range: string };
 
   const result = await VendorService.getVendorRevenue(user, range);
   sendResponse(res, {
@@ -93,7 +116,7 @@ const getVendorRevenue = catchAsync(async (req: Request, res: Response) => {
 
 const getVendorOrders = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
-  const { range } = req.query;
+  const { range } = req.query as { range: string };
 
   const result = await VendorService.getVendorOrders(user, range);
   sendResponse(res, {
@@ -107,7 +130,7 @@ const getVendorOrders = catchAsync(async (req: Request, res: Response) => {
 const getCustomerRetentionData = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
-    const { range } = req.query;
+    const { range } = req.query as { range: string };
     const result = await VendorService.getCustomerRetentionData(user, range);
     sendResponse(res, {
       success: true,
@@ -126,4 +149,5 @@ export const VendorController = {
   getVendorRevenue,
   getVendorOrders,
   getCustomerRetentionData,
+  getBusinessInformationFromVendor,
 };

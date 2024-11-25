@@ -3,11 +3,14 @@ import { Customer } from './customer.model';
 import ApiError from '../../../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 import { User } from '../user/user.model';
+import { handleObjectUpdate } from '../vendor/vendor.utils';
+import { IPaginationOptions } from '../../../types/pagination';
+import { paginationHelper } from '../../../helpers/paginationHelper';
+import { IGenericResponse } from '../../../types/response';
+import { ICustomer } from './customer.interface';
 
 const getCustomerProfile = async (id: Types.ObjectId) => {
   const customerId = new Types.ObjectId(id);
-
-  console.log('INN', customerId);
 
   const isUserExist = await User.findOne({ customer: customerId });
 
@@ -28,12 +31,19 @@ const getCustomerProfile = async (id: Types.ObjectId) => {
   return result;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const updateCustomerProfile = async (id: Types.ObjectId, payload: any) => {
+  const { address, ...restData } = payload;
+  let updatedData = { ...restData };
+  if (address && Object.keys(address).length > 0) {
+    updatedData = handleObjectUpdate(address, restData, 'address');
+  }
+
   const isUserExist = await Customer.findById(id);
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
-  const result = await Customer.findOneAndUpdate({ _id: id }, payload, {
+  const result = await Customer.findOneAndUpdate({ _id: id }, updatedData, {
     new: true,
   });
   if (!result) {
@@ -59,17 +69,32 @@ const deleteCustomerProfile = async (id: Types.ObjectId) => {
 };
 
 //Not needed for now
-const getAllCustomer = async () => {
-  const result = await Customer.find({});
+const getAllCustomer = async (
+  paginationOption: IPaginationOptions
+): Promise<IGenericResponse<ICustomer[]>> => {
+  const { limit, page, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOption);
+
+  const result = await Customer.find({})
+    .skip(skip)
+    .limit(limit)
+    .sort({ [sortBy]: sortOrder });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get all customer');
   }
-  return result;
+  const total = await Customer.countDocuments();
+  return {
+    meta: {
+      total: total,
+      page,
+      totalPage: Math.ceil(total / limit),
+      limit,
+    },
+    data: result,
+  };
 };
 
 const getSingleCustomer = async (id: string) => {
-  console.log('INNN2');
-
   const isDeleted = await User.findOne({ id: id });
   if (!isDeleted) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User has been deleted');

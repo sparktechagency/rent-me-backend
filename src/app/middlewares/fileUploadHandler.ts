@@ -7,6 +7,7 @@ import ApiError from '../../errors/ApiError';
 
 const fileUploadHandler = () => {
   //create upload folder
+  // eslint-disable-next-line no-undef
   const baseUploadDir = path.join(process.cwd(), 'uploads');
   if (!fs.existsSync(baseUploadDir)) {
     fs.mkdirSync(baseUploadDir);

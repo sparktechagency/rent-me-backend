@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-non-null-asserted-optional-chain */
 import { StatusCodes } from 'http-status-codes';
-import { JwtPayload } from 'jsonwebtoken';
 import { USER_ROLES } from '../../../enums/user';
 import ApiError from '../../../errors/ApiError';
 import { emailHelper } from '../../../helpers/emailHelper';
@@ -7,12 +7,15 @@ import { emailTemplate } from '../../../shared/emailTemplate';
 import generateOTP from '../../../util/generateOTP';
 import { IUser, IUserFilters } from './user.interface';
 import { User } from './user.model';
-import mongoose from 'mongoose';
+import mongoose, { SortOrder } from 'mongoose';
 import { generateCustomIdBasedOnRole } from './user.utils';
 import { Admin } from '../admin/admin.model';
 import { Customer } from '../customer/customer.model';
 import { Vendor } from '../vendor/vendor.model';
 import { userSearchableFields } from './user.constants';
+import { IPaginationOptions } from '../../../types/pagination';
+import { paginationHelper } from '../../../helpers/paginationHelper';
+import { IGenericResponse } from '../../../types/response';
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   const { ...user } = payload;
@@ -132,9 +135,13 @@ const getUserProfileFromDB = async (id: string): Promise<Partial<IUser>> => {
   return isExistUser;
 };
 
-const getAllUser = async (filters: IUserFilters): Promise<Partial<IUser>[]> => {
+const getAllUser = async (
+  filters: IUserFilters,
+  paginationOptions: IPaginationOptions
+): Promise<IGenericResponse<IUser[]>> => {
   const { searchTerm, ...filtersData } = filters;
-
+  const { page, limit, skip, sortOrder, sortBy } =
+    paginationHelper.calculatePagination(paginationOptions);
   const andCondition = [];
 
   if (searchTerm) {
@@ -157,14 +164,33 @@ const getAllUser = async (filters: IUserFilters): Promise<Partial<IUser>[]> => {
       }),
     });
   }
+
+  const sortConditions: { [key: string]: SortOrder } = {};
+  if (sortBy && sortOrder) {
+    sortConditions[sortBy] = sortOrder;
+  }
+
   const whereConditions = andCondition.length > 0 ? { $and: andCondition } : {};
 
   const result = await User.find(whereConditions)
+    .sort(sortConditions)
+    .skip(skip)
+    .limit(limit)
     .populate('admin')
     .populate('customer')
     .populate('vendor');
 
-  return result;
+  const total = await User.countDocuments(whereConditions);
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data: result,
+  };
 };
 
 const deleteUser = async (id: string): Promise<IUser | null> => {
