@@ -9,3 +9,12 @@ export type IGenericResponse<T> = {
   };
   data: T;
 };
+
+export type IRefreshTokenResponse = {
+  accessToken: string;
+};
+
+export type ILoginResponse = {
+  accessToken: string;
+  refreshToken: string;
+};

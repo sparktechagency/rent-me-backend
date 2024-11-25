@@ -112,10 +112,6 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
     description: {
       type: String,
     },
-
-    businessImages: {
-      type: [String],
-    },
     availableDays: {
       type: [String],
     },
