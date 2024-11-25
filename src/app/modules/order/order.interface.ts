@@ -4,6 +4,11 @@ import { IVendor } from '../vendor/vendor.interface';
 import { IService } from '../service/service.interface';
 import { IPackage } from '../package/package.interface';
 
+type Point = {
+  type: 'Point';
+  coordinates: [number, number]; // [longitude, latitude]
+};
+
 export type IOrder = {
   orderId: string; // custom order id
   customerId: Types.ObjectId | ICustomer;
@@ -22,14 +27,11 @@ export type IOrder = {
   paymentId: Types.ObjectId;
   paymentStatus: 'pending' | 'half' | 'full';
   offeredAmount: number; //offer by customer
-  deliveryLocation: {
-    lat: number;
-    lng: number;
-  };
   isDeliveryDecline: boolean;
 
   deliveryDeclineMessage: string;
   deliveryAddress: string;
+  deliveryLocation: Point;
 
   serviceStartDateTime: Date;
   serviceEndDateTime: Date;

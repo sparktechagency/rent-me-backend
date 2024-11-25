@@ -50,7 +50,7 @@ const loginUserFromDB = async (
   }
 
   //create accessToken token
-  const createAccessToken = jwtHelper.createToken(
+  const accessToken = jwtHelper.createToken(
     {
       id: isExistUser._id, //user collection id
       userCustomId: isExistUser.id, // user custom id
@@ -67,7 +67,7 @@ const loginUserFromDB = async (
     config.jwt.jwt_expire_in as string
   );
 
-  const createRefreshToken = jwtHelper.createToken(
+  const refreshToken = jwtHelper.createToken(
     {
       id: isExistUser._id, //user collection id
       userCustomId: isExistUser.id, // user custom id
@@ -84,7 +84,7 @@ const loginUserFromDB = async (
     config.jwt.jwt_refresh_expire_in as string
   );
 
-  return { createAccessToken, createRefreshToken };
+  return { accessToken, refreshToken };
 };
 
 const refreshToken = async (
