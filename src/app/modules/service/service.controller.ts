@@ -34,11 +34,11 @@ const getAllService = catchAsync(async (req: Request, res: Response) => {
 
 const createService = catchAsync(async (req: Request, res: Response) => {
   const serviceData = req?.body;
-  const { userId } = req.user;
+  const user = req.user;
 
   console.log(req.user);
 
-  serviceData.vendorId = userId;
+  serviceData.vendorId = user?.userId;
 
   let cover;
   if (req.files && 'image' in req.files && req.files.image[0]) {
@@ -50,7 +50,7 @@ const createService = catchAsync(async (req: Request, res: Response) => {
     cover,
   };
 
-  const result = await ServiceServices.createService(data);
+  const result = await ServiceServices.createService(data, user);
   sendResponse<IService>(res, {
     success: true,
     statusCode: StatusCodes.OK,

@@ -57,7 +57,6 @@ export type IVendor = {
   license?: string;
   description?: string;
 
-  businessImages?: string[];
   availableDays?: string[];
   operationStartTime?: string;
   operationEndTime?: string;

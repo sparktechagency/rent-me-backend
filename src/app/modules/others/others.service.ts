@@ -2,8 +2,41 @@
 
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
-import { FaQs, PrivacyPolicy, TermsAndCondition } from './others.model';
-import { IFaQs, IPrivacyPolicy, ITermsAndConditions } from './others.interface';
+import { Banner, FaQs, PrivacyPolicy, TermsAndCondition } from './others.model';
+import {
+  IBanner,
+  IFaQs,
+  IPrivacyPolicy,
+  ITermsAndConditions,
+} from './others.interface';
+import { JwtPayload } from 'jsonwebtoken';
+
+const addBanner = async (payload: IBanner, user: JwtPayload) => {
+  payload.createdBy = user.userId;
+  const result = await Banner.create(payload);
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to add banner');
+  }
+  return result;
+};
+
+const getBanners = async (): Promise<IBanner[] | null> => {
+  const result = await Banner.find({ isActive: true }).sort({ createdAt: -1 });
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get banner');
+  }
+  return result;
+};
+
+const updateBanner = async (id: string, payload: Partial<IBanner>) => {
+  const result = await Banner.findOneAndUpdate({ _id: id }, payload, {
+    new: true,
+  });
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update banner');
+  }
+  return result;
+};
 
 const createPrivacyPolicy = async (
   payload: IPrivacyPolicy
@@ -38,6 +71,7 @@ const createFaQs = async (payload: IFaQs): Promise<IFaQs | null> => {
   }
   return result;
 };
+
 //need to update
 const getPrivacyPolicy = async (
   type: string
@@ -110,4 +144,7 @@ export const OthersService = {
   createFaQs,
   getFaQs,
   deleteFaQs,
+  addBanner,
+  getBanners,
+  updateBanner,
 };

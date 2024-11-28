@@ -19,6 +19,7 @@ export type IUser = {
   approvedByAdmin: boolean;
   verified: boolean;
   termsAndCondition: boolean;
+  stripeId: string;
   appId: string;
   authentication?: {
     passwordChangedAt: Date;

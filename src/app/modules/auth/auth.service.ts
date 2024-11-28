@@ -16,9 +16,12 @@ import cryptoToken from '../../../util/cryptoToken';
 import generateOTP from '../../../util/generateOTP';
 import { ResetToken } from '../resetToken/resetToken.model';
 import { User } from '../user/user.model';
+import { ILoginResponse, IRefreshTokenResponse } from '../../../types/response';
 
 //login
-const loginUserFromDB = async (payload: ILoginData) => {
+const loginUserFromDB = async (
+  payload: ILoginData
+): Promise<ILoginResponse> => {
   const { email, password } = payload;
   const isExistUser = await User.findOne({ email }).select('+password');
   if (!isExistUser) {
@@ -46,8 +49,8 @@ const loginUserFromDB = async (payload: ILoginData) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }
 
-  //create token
-  const createToken = jwtHelper.createToken(
+  //create accessToken token
+  const accessToken = jwtHelper.createToken(
     {
       id: isExistUser._id, //user collection id
       userCustomId: isExistUser.id, // user custom id
@@ -64,7 +67,60 @@ const loginUserFromDB = async (payload: ILoginData) => {
     config.jwt.jwt_expire_in as string
   );
 
-  return { createToken, isExistUser };
+  const refreshToken = jwtHelper.createToken(
+    {
+      id: isExistUser._id, //user collection id
+      userCustomId: isExistUser.id, // user custom id
+      userId:
+        isExistUser.role === 'CUSTOMER' || isExistUser.role === 'VENDOR'
+          ? isExistUser?.role === 'CUSTOMER'
+            ? isExistUser.customer
+            : isExistUser.vendor
+          : isExistUser.admin,
+      role: isExistUser.role,
+      email: isExistUser.email,
+    },
+    config.jwt.jwt_refresh_secret as Secret,
+    config.jwt.jwt_refresh_expire_in as string
+  );
+
+  return { accessToken, refreshToken };
+};
+
+const refreshToken = async (
+  token: string
+): Promise<IRefreshTokenResponse | null> => {
+  let verifiedToken = null;
+  try {
+    verifiedToken = jwtHelper.verifyToken(
+      token,
+      config.jwt.jwt_secret as Secret
+    );
+  } catch (error) {
+    throw new ApiError(StatusCodes.FORBIDDEN, 'Invalid Refresh Token');
+  }
+
+  const { email } = verifiedToken;
+
+  const isUserExist = await User.isExistUserByEmail(email);
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found!');
+  }
+
+  const newAccessToken = jwtHelper.createToken(
+    {
+      id: isUserExist._id,
+      email: isUserExist.email,
+      role: isUserExist.role,
+      isSubscribe: isUserExist.isSubscribe,
+    },
+    config.jwt.jwt_secret as Secret,
+    config.jwt.jwt_expire_in as string
+  );
+
+  return {
+    accessToken: newAccessToken,
+  };
 };
 
 //forget password
@@ -261,4 +317,5 @@ export const AuthService = {
   forgetPasswordToDB,
   resetPasswordToDB,
   changePasswordToDB,
+  refreshToken,
 };

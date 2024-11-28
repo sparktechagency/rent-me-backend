@@ -1,12 +1,41 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import { OthersController } from './others.controller';
 import validateRequest from '../../middlewares/validateRequest';
 import { othersValidation } from './others.validation';
 import auth from '../../middlewares/auth';
 import { USER_ROLES } from '../../../enums/user';
+import fileUploadHandler from '../../middlewares/fileUploadHandler';
 
 const router = express.Router();
 
+router.post(
+  '/add-banner',
+  auth(USER_ROLES.ADMIN),
+  fileUploadHandler(),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.data) {
+      req.body = othersValidation.createBannerSchema.parse(
+        JSON.parse(req.body.data)
+      );
+    }
+
+    return OthersController.addBanner(req, res, next);
+  }
+);
+router.get('/banner', OthersController.getBanners);
+router.patch(
+  '/update-banner/:id',
+  auth(USER_ROLES.ADMIN),
+  fileUploadHandler(),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.data) {
+      req.body = othersValidation.updateBannerSchema.parse(
+        JSON.parse(req.body.data)
+      );
+    }
+    return OthersController.updateBanner(req, res, next);
+  }
+);
 router.post(
   '/privacy-policy',
   auth(USER_ROLES.ADMIN),

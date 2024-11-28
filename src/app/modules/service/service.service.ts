@@ -8,6 +8,7 @@ import { User } from '../user/user.model';
 import { Package } from '../package/package.model';
 import { IPackage } from '../package/package.interface';
 import mongoose from 'mongoose';
+import { JwtPayload } from 'jsonwebtoken';
 
 //Filter and pagination needed
 const getAllService = async (
@@ -78,7 +79,22 @@ const getSingleService = async (id: string): Promise<IService | null> => {
   return result;
 };
 
-const createService = async (data: IService): Promise<IService> => {
+const createService = async (
+  data: IService,
+  user: JwtPayload
+): Promise<IService> => {
+  //check if the vendor exist and vendor is approved by admin
+  const vendor = await User.findById({ vendor: user?.userId });
+  if (!vendor) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
+  }
+  if (!vendor?.approvedByAdmin) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You are not approved by admin yet'
+    );
+  }
+
   const result = await Service.create(data);
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create service');

@@ -16,6 +16,7 @@ import { userSearchableFields } from './user.constants';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
+import StripeService from '../payment/payment.stripe';
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   const { ...user } = payload;
@@ -51,6 +52,8 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
       //assign customer mongoDB id to user
       user.customer = createdUser[0]._id;
     } else if (user?.role === USER_ROLES.VENDOR) {
+      const account = await StripeService.createConnectedAccount(user.email!); //create stripe connect account for vendor
+      user.stripeId = account.id!;
       createdUser = await Vendor.create([user], { session });
       if (!createdUser?.length) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Vendor');

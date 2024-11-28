@@ -1,6 +1,8 @@
 import { model, Schema } from 'mongoose';
 import {
+  BannerModel,
   FaQsModel,
+  IBanner,
   IFaQs,
   IPrivacyPolicy,
   ITermsAndConditions,
@@ -56,6 +58,39 @@ const faqsSchema = new Schema<IFaQs, FaQsModel>(
   { timestamps: true }
 );
 
+const bannerSchema = new Schema<IBanner, BannerModel>(
+  {
+    title: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+      required: true,
+    },
+    link: {
+      type: String,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    btnText: {
+      type: String,
+    },
+    imgUrl: {
+      type: String,
+      required: true,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Admin',
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
 export const PrivacyPolicy = model<IPrivacyPolicy, PrivacyPolicyModel>(
   'PrivacyPolicy',
   privacyPolicySchema
@@ -67,3 +102,5 @@ export const TermsAndCondition = model<
 >('TermsAndCondition', termsAndConditionSchema);
 
 export const FaQs = model<IFaQs, FaQsModel>('FaQs', faqsSchema);
+
+export const Banner = model<IBanner, BannerModel>('Banner', bannerSchema);

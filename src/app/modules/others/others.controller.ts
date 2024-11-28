@@ -1,9 +1,57 @@
 import { Request, Response } from 'express';
 import catchAsync from '../../../shared/catchAsync';
 import { OthersService } from './others.service';
-import { IFaQs, IPrivacyPolicy, ITermsAndConditions } from './others.interface';
+import {
+  IBanner,
+  IFaQs,
+  IPrivacyPolicy,
+  ITermsAndConditions,
+} from './others.interface';
 import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
+
+const addBanner = catchAsync(async (req: Request, res: Response) => {
+  const payload = req.body;
+  const user = req.user;
+
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    payload.imgUrl = `/images/${req.files.image[0].filename}`;
+  }
+
+  const result = await OthersService.addBanner(payload, user);
+  sendResponse<IBanner | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Banner added successfully',
+    data: result,
+  });
+});
+
+const getBanners = catchAsync(async (req: Request, res: Response) => {
+  const result = await OthersService.getBanners();
+  sendResponse<IBanner[] | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Banner retrieved successfully',
+    data: result,
+  });
+});
+
+const updateBanner = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const payload = req.body;
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    payload.imgUrl = `/images/${req.files.image[0].filename}`;
+  }
+
+  const result = await OthersService.updateBanner(id, payload);
+  sendResponse<IBanner | null>(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Banner updated successfully',
+    data: result,
+  });
+});
 
 const createPrivacyPolicy = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
@@ -120,4 +168,7 @@ export const OthersController = {
   deletePrivacyPolicy,
   deleteTermsAndConditions,
   deleteFaQs,
+  addBanner,
+  getBanners,
+  updateBanner,
 };

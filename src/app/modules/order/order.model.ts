@@ -1,4 +1,4 @@
-import { model, Schema, Types } from 'mongoose';
+import { model, Schema } from 'mongoose';
 import { IOrder, IOrderModel } from './order.interface';
 
 const orderSchema = new Schema<IOrder, IOrderModel>(
@@ -61,14 +61,8 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
       required: true,
     },
     deliveryLocation: {
-      lat: {
-        type: Number,
-        // required: true,
-      },
-      lng: {
-        type: Number,
-        // required: true,
-      },
+      type: { type: String, default: 'Point', enum: ['Point'] },
+      coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
     },
     deliveryAddress: {
       type: String,
