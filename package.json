@@ -31,6 +31,7 @@
   "dependencies": {
     "@eslint/config-array": "^0.19.0",
     "@eslint/object-schema": "^2.1.4",
+    "@types/stripe": "^8.0.416",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "bcrypt": "^5.1.1",
     "colors": "^1.4.0",
