@@ -46,7 +46,10 @@ const getNotifications = async (
 };
 
 const getSingleNotification = async (id: string) => {
+  await Notification.findByIdAndUpdate(id, { isRead: true }, { new: true });
+
   const result = await Notification.findById(id);
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get notification');
   }
