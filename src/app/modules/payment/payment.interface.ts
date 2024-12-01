@@ -12,7 +12,6 @@ export type IPayment = {
   stripeTransferId: string;
   applicationFee: number;
   isInstantTransfer: boolean;
-  instantTransferFee: number;
 };
 
 export type PaymentModel = Model<IPayment>;

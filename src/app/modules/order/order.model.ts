@@ -71,7 +71,10 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
     // serviceDate: { type: String, required: true },
     serviceStartDateTime: { type: Date, required: true },
     serviceEndDateTime: { type: Date, required: true },
-
+    isInstantTransfer: {
+      type: Boolean,
+      default: false,
+    },
     isDeliveryDecline: {
       type: Boolean,
       default: false,

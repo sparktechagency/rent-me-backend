@@ -28,7 +28,7 @@ export type IOrder = {
   paymentStatus: 'pending' | 'half' | 'full';
   offeredAmount: number; //offer by customer
   isDeliveryDecline: boolean;
-
+  isInstantTransfer: boolean;
   deliveryDeclineMessage: string;
   deliveryAddress: string;
   deliveryLocation: Point;

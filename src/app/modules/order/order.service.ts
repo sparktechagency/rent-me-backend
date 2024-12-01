@@ -76,6 +76,17 @@ const createOrder = async (payload: IOrder) => {
   }
 
   const requestedDate = new Date(payload.serviceStartDateTime);
+
+  //check whether  customer is trying to order for past time
+  const currentDate = new Date();
+
+  if (new Date(payload.serviceStartDateTime) < currentDate) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Cannot create an order for a past time'
+    );
+  }
+
   const requestedDay = requestedDate.toLocaleDateString('en-US', {
     weekday: 'long',
   });
@@ -244,7 +255,10 @@ const getSingleOrder = async (id: string) => {
   return result;
 };
 
-const declineOrConfirmOrder = async (id: string, payload: Partial<IOrder>) => {
+const declineOrConfirmOrder = async (
+  id: string,
+  payload: Pick<IOrder, 'status' | 'deliveryDeclineMessage'>
+) => {
   if (payload?.status === 'decline') {
     if (!payload.deliveryDeclineMessage) {
       throw new ApiError(
@@ -254,29 +268,96 @@ const declineOrConfirmOrder = async (id: string, payload: Partial<IOrder>) => {
     }
   }
 
+  const orderExists = await Order.findById({
+    _id: id,
+    status: 'accepted',
+  })
+    .populate('vendorId', { name: 1 })
+    .populate('customerId', { name: 1 });
+  if (!orderExists) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
+  }
+
+  const [vendorExist, customerExist] = await Promise.all([
+    User.findOne(
+      { vendor: orderExists?.vendorId, status: 'active' },
+      { status: 1, needInformation: 1, approvedByAdmin: 1 }
+    ).populate('vendor', { name: 1 }),
+    User.findOne({
+      customer: orderExists?.customerId,
+      status: 'active',
+    }).populate('customer', { name: 1 }),
+  ]);
+
+  if (!vendorExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor not found');
+  }
+  if (!customerExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
+  }
+
   const result = await Order.findByIdAndUpdate(id, payload, { new: true });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
+
+  const notificationData = {
+    userId: vendorExist._id,
+    title: `Order ${payload?.status} by ${customerExist?.customer?.name}`,
+    message: `${customerExist?.customer?.name} has ${payload?.status} the order.`,
+    type: USER_ROLES.VENDOR,
+  };
+
+  await sendNotification(
+    payload?.status === 'decline' ? 'declinedOrder' : 'confirmedOrder',
+    result.vendorId as Types.ObjectId,
+    notificationData
+  );
+
   return result;
 };
 
 const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
-  const order = await Order.findById(id);
-  if (!order) {
+  const orderExists = await Order.findById({ _id: id, status: 'pending' })
+    .populate('vendorId', { name: 1 })
+    .populate('customerId', { name: 1 });
+  if (!orderExists) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
   }
 
+  const [vendorExist, customerExist] = await Promise.all([
+    User.findOne(
+      { vendor: orderExists?.vendorId, status: 'active' },
+      { status: 1, needInformation: 1, approvedByAdmin: 1 }
+    ).populate('vendor', { name: 1 }),
+    User.findOne({
+      customer: orderExists?.customerId,
+      status: 'active',
+    }).populate('customer', { name: 1 }),
+  ]);
+
+  if (!vendorExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor not found');
+  }
+  if (!customerExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
+  }
+
+  const notificationData = {
+    userId: customerExist._id,
+    title: `Order ${payload?.status} by ${vendorExist?.vendor?.name}`,
+    message: `Order request for ID:${orderExists?.orderId} is ${payload?.status} by ${vendorExist?.vendor?.name}.`,
+    type: USER_ROLES.CUSTOMER,
+  };
+
   if (payload.status === 'accepted') {
     const conflictingOrder = await Order.findOne({
-      vendorId: order.vendorId,
-      serviceStartDateTime: { $lt: order.serviceEndDateTime },
-      serviceEndDateTime: { $gt: order.serviceStartDateTime },
+      vendorId: orderExists.vendorId,
+      serviceStartDateTime: { $lt: orderExists.serviceEndDateTime },
+      serviceEndDateTime: { $gt: orderExists.serviceStartDateTime },
       status: { $in: ['accepted', 'ongoing'] },
-      _id: { $ne: id }, // Exclude the current order
+      _id: { $ne: id },
     });
-
-    // console.log(conflictingOrder);
 
     if (conflictingOrder) {
       throw new ApiError(
@@ -296,6 +377,12 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
+
+  await sendNotification(
+    payload?.status === 'rejected' ? 'rejectedOrder' : 'acceptedOrder',
+    result.customerId as Types.ObjectId,
+    notificationData
+  );
 
   return result;
 };

@@ -18,7 +18,6 @@ const paymentSchema = new Schema<IPayment, PaymentModel>(
     stripeTransferId: { type: String },
     applicationFee: { type: Number, default: 0 },
     isInstantTransfer: { type: Boolean, default: false },
-    instantTransferFee: { type: Number },
   },
   { timestamps: true }
 );

@@ -6,6 +6,9 @@ import { PaymentService } from './payment.service';
 import Stripe from 'stripe';
 import config from '../../../config';
 import { Payment } from './payment.model';
+import { stripe } from './payment.stripe';
+import StripeService from './payment.stripe';
+import { Order } from '../order/order.model';
 
 const onboardVendor = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -34,6 +37,37 @@ const createCheckoutSession = catchAsync(
   }
 );
 
+const transferToVendor = catchAsync(async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const user = req.user;
+
+  const result = await PaymentService.transferToVendor(user, orderId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Money transferred to vendor account successful.',
+    data: result,
+  });
+});
+
+const addFundToAccount = catchAsync(async (req: Request, res: Response) => {
+  // Create a test charge to simulate funds
+  const charge = await stripe.charges.create({
+    amount: 90000000, // Amount in cents, i.e.
+    currency: 'usd',
+    source: 'tok_visa', // Test card token
+    description: 'Test charge to add funds to platform balance',
+  });
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Money transferred to vendor account successful.',
+    data: charge,
+  });
+});
+
 const webhooks = catchAsync(async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'] as string;
   const endpointSecret = config.webhook_secret!; // Your webhook secret
@@ -53,8 +87,18 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
       const session = event.data.object as Stripe.Checkout.Session;
 
       await Payment.findOneAndUpdate(
-        { orderId: session?.metadata?.orderId },
+        {
+          orderId: session?.metadata?.orderId,
+          status: 'initiated',
+          stripePaymentSessionId: session.id,
+        },
         { status: 'succeeded', stripePaymentIntentId: session.payment_intent },
+        { new: true }
+      );
+
+      await Order.findOneAndUpdate(
+        { orderId: session?.metadata?.orderId, status: 'confirmed' },
+        { status: 'ongoing' },
         { new: true }
       );
 
@@ -64,14 +108,11 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
     case 'payment_intent.payment_failed': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-      const metadata = paymentIntent.metadata;
-
       await Payment.findOneAndUpdate(
-        { orderId: metadata.orderId },
+        { orderId: paymentIntent.metadata.orderId },
         { status: 'failed' },
         { new: true }
       );
-
       break;
     }
 
@@ -82,23 +123,10 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
   res.status(200).send('Received');
 });
 
-const transferToVendor = catchAsync(async (req: Request, res: Response) => {
-  const { orderId } = req.params;
-  const user = req.user;
-
-  const result = await PaymentService.transferToVendor(user, orderId);
-
-  sendResponse(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: 'Money transferred to vendor account successful.',
-    data: result,
-  });
-});
-
 export const PaymentController = {
   onboardVendor,
   createCheckoutSession,
   webhooks,
   transferToVendor,
+  addFundToAccount,
 };

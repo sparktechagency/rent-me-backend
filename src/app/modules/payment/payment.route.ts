@@ -23,6 +23,7 @@ router.post(
   PaymentController.transferToVendor
 );
 
+router.post('/add-fund', PaymentController.addFundToAccount);
 // router.post('/webhook', PaymentController.webhooks);
 
 router.get('/callback', (req, res) => {
