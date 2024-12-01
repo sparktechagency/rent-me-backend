@@ -37,6 +37,12 @@ router.post(
 );
 
 router.post(
+  '/resend-otp',
+  validateRequest(AuthValidation.resendOtpZodSchema),
+  AuthController.resendOtp
+);
+
+router.post(
   '/change-password',
   auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
   validateRequest(AuthValidation.createChangePasswordZodSchema),
