@@ -9,6 +9,8 @@ import { Payment } from './payment.model';
 import { stripe } from './payment.stripe';
 import StripeService from './payment.stripe';
 import { Order } from '../order/order.model';
+import { logger } from '../../../shared/logger';
+import ApiError from '../../../errors/ApiError';
 
 const onboardVendor = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -71,52 +73,89 @@ const addFundToAccount = catchAsync(async (req: Request, res: Response) => {
 const webhooks = catchAsync(async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'] as string;
   const endpointSecret = config.webhook_secret!; // Your webhook secret
-
   let event: Stripe.Event;
 
   // Verify the webhook signature
   try {
     event = Stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
+    logger.error(`Webhook signature verification failed: ${err.message}`); // Add detailed logging
     return res.status(400).send(`Webhook error: ${err.message}`);
   }
 
   // Handle the event
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
 
-      await Payment.findOneAndUpdate(
-        {
-          orderId: session?.metadata?.orderId,
-          status: 'initiated',
-          stripePaymentSessionId: session.id,
-        },
-        { status: 'succeeded', stripePaymentIntentId: session.payment_intent },
-        { new: true }
-      );
+        // Update the Payment status and related Order status
+        const payment = await Payment.findOneAndUpdate(
+          {
+            orderId: session?.metadata?.orderId,
+            status: 'initiated',
+            stripePaymentSessionId: session.id,
+          },
+          {
+            status: 'succeeded',
+            stripePaymentIntentId: session.payment_intent,
+          },
+          { new: true }
+        );
 
-      await Order.findOneAndUpdate(
-        { orderId: session?.metadata?.orderId, status: 'confirmed' },
-        { status: 'ongoing' },
-        { new: true }
-      );
+        if (!payment) {
+          throw new ApiError(StatusCodes.BAD_REQUEST, 'Payment update failed');
+        }
 
-      break;
+        const order = await Order.findOneAndUpdate(
+          { orderId: session?.metadata?.orderId, status: 'confirmed' },
+          { status: 'ongoing' },
+          { new: true }
+        );
+
+        if (!order) {
+          throw new ApiError(400, 'Order status update failed');
+        }
+
+        logger.info(
+          `Payment and Order updated successfully for orderId: ${session.metadata?.orderId}`
+        );
+
+        break;
+      }
+
+      case 'payment_intent.payment_failed': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+        const payment = await Payment.findOneAndUpdate(
+          { orderId: paymentIntent.metadata.orderId },
+          { status: 'failed' },
+          { new: true }
+        );
+
+        if (!payment) {
+          throw new ApiError(
+            StatusCodes.BAD_REQUEST,
+            'Payment status update failed for failed payment'
+          );
+        }
+
+        logger.info(
+          `Payment failed for orderId: ${paymentIntent.metadata.orderId}`
+        );
+        break;
+      }
+
+      default:
+        // Handle unexpected event types
+        logger.warn(`Received unexpected event type: ${event.type}`);
     }
-
-    case 'payment_intent.payment_failed': {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-
-      await Payment.findOneAndUpdate(
-        { orderId: paymentIntent.metadata.orderId },
-        { status: 'failed' },
-        { new: true }
-      );
-      break;
-    }
-
-    default:
+  } catch (error) {
+    // Log error and respond with generic message
+    logger.error(`Webhook event processing failed: ${error.message}`);
+    return res
+      .status(500)
+      .send(`Error processing webhook event: ${error.message}`);
   }
 
   // Acknowledge receipt of the event

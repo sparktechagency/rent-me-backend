@@ -30,24 +30,28 @@ const onboardVendor = async (user: JwtPayload) => {
 
 const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
   try {
-    const isOrderExists = await Order.findById(
-      { _id: orderId, status: 'confirmed' },
-      {
-        vendorId: 1,
-        amount: 1,
-        isInstantTransfer: 1,
-      }
-    );
+    // Fetch order and vendor details in parallel
+    const [isOrderExists, vendor] = await Promise.all([
+      Order.findById(
+        { _id: orderId, status: 'confirmed' },
+        { vendorId: 1, amount: 1, isInstantTransfer: 1 }
+      ),
+      User.findOne({ vendor: orderId }, { stripeId: 1, _id: 1 }),
+    ]);
 
     if (!isOrderExists) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Order does not exist');
     }
 
+    if (!vendor) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
+    }
+
+    // Check if payment already exists for this order
     const isPaymentExists = await Payment.findOne(
       { orderId: orderId, status: 'succeeded' },
       { amount: 1, stripePaymentIntentId: 1 }
     );
-
     if (isPaymentExists) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
@@ -55,32 +59,24 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
       );
     }
 
-    const vendor = await User.findOne(
-      { vendor: isOrderExists.vendorId },
-      { stripeId: 1, _id: 1 }
-    );
-    if (!vendor) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
-    }
-
+    // Create payment record
     const paymentData = {
       orderId: orderId,
       customerId: user.id,
       vendorId: vendor._id,
-      amount: isOrderExists?.amount,
+      amount: isOrderExists.amount,
       status: 'initiated',
     };
 
     const payment = await Payment.create(paymentData);
-
     if (!payment) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create payment.');
     }
 
-    // Create a checkout session
+    // Create Stripe checkout session
     const paymentIntent = await StripeService.createCheckoutSession(
       user?.email,
-      isOrderExists?.amount,
+      isOrderExists.amount,
       orderId
     );
 
@@ -89,90 +85,82 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
 
     return paymentIntent.url;
   } catch (error) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, error?.message);
+    // Handle errors
+    throw new ApiError(
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      error?.message || 'An error occurred while creating the checkout session'
+    );
   }
 };
 
 const transferToVendor = async (user: JwtPayload, orderId: string) => {
-  const isAlreadyTransfered = await Transfer.findOne({ orderId: orderId });
-  if (isAlreadyTransfered) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Transfer already initiated for this order'
-    );
-  }
-
-  const isOrderExists = await Order.findById(orderId, {
-    vendorId: 1,
-    amount: 1,
-    isInstantTransfer: 1,
-  });
-
-  if (!isOrderExists) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Order does not exist');
-  }
-
-  const isUserExists = await User.findOne(
-    { vendor: isOrderExists.vendorId },
-    { stripeId: 1 }
-  );
-
-  if (!isUserExists) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
-  }
-
-  const isPaymentExists = await Payment.findOne(
-    { orderId: orderId, status: 'succeeded' },
-    { amount: 1, stripePaymentIntentId: 1 }
-  );
-
-  if (!isPaymentExists) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Payment does not exist');
-  }
-
-  const applicationFeePercentage = isOrderExists.isInstantTransfer
-    ? Number(config.instant_transfer_fee)
-    : Number(config.application_fee);
-
-  const applicationFee = Math.floor(
-    isPaymentExists.amount * applicationFeePercentage
-  );
-  const remainingAmount = isPaymentExists.amount - applicationFee;
-
   try {
-    // 1. Transfer the amount from platform account to vendor's Stripe account
-    const transfer = await stripe.transfers.create({
-      amount: Math.floor(remainingAmount * 100),
-      currency: 'usd',
-      destination: isUserExists.stripeId,
-    });
+    const isAlreadyTransfered = await Transfer.findOne({ orderId });
+    if (isAlreadyTransfered) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Transfer already initiated for this order'
+      );
+    }
 
-    //update the payment collection
+    const [isOrderExists, isPaymentExists] = await Promise.all([
+      Order.findById(orderId, { vendorId: 1, amount: 1, isInstantTransfer: 1 }),
+      Payment.findOne(
+        { orderId, status: 'succeeded' },
+        { amount: 1, stripePaymentIntentId: 1 }
+      ),
+    ]);
+
+    if (!isOrderExists)
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Order does not exist');
+    if (!isPaymentExists)
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Payment does not exist');
+
+    const isUserExists = await User.findOne(
+      { vendor: isOrderExists.vendorId },
+      { stripeId: 1 }
+    );
+    if (!isUserExists)
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
+
+    const applicationFeePercentage = isOrderExists.isInstantTransfer
+      ? Number(config.instant_transfer_fee)
+      : Number(config.application_fee);
+    const applicationFee = Math.floor(
+      isPaymentExists.amount * applicationFeePercentage
+    );
+    const remainingAmount = isPaymentExists.amount - applicationFee;
+
+    const [transfer, payout] = await Promise.all([
+      stripe.transfers.create({
+        amount: Math.floor(remainingAmount * 100),
+        currency: 'usd',
+        destination: isUserExists.stripeId,
+      }),
+      stripe.payouts.create({
+        amount: Math.floor(applicationFee * 100),
+        currency: 'usd',
+        destination: isUserExists.stripeId,
+        method: isOrderExists.isInstantTransfer ? 'instant' : 'standard',
+      }),
+    ]);
+
     const updatePayment = await Payment.findOneAndUpdate(
       { _id: isPaymentExists._id },
       {
-        applicationFee: applicationFee,
+        applicationFee,
         isInstantTransfer: isOrderExists.isInstantTransfer,
       },
       { new: true }
     );
 
-    // 2. ensure payout
-    const payout = await stripe.payouts.create({
-      amount: Math.floor(applicationFee * 100),
-      currency: 'usd',
-      destination: isUserExists.stripeId,
-      method: isOrderExists.isInstantTransfer ? 'instant' : 'standard',
-    });
-
-    //add to transfer collection
     await Transfer.create({
       transferId: transfer.id,
       payoutId: payout.id,
       paymentId: isPaymentExists._id,
     });
 
-    //update the order status to completed
+    // Update the order status to completed
     await Order.findOneAndUpdate(
       { _id: orderId, status: 'ongoing' },
       { status: 'completed' },

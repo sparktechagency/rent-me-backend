@@ -23,46 +23,23 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
 
   let newUserData = null;
   let createdUser;
-
   const session = await mongoose.startSession();
 
   try {
     session.startTransaction();
 
-    const id = await generateCustomIdBasedOnRole(user?.role!);
+    // Generate custom ID in parallel with other operations
+    const idPromise = generateCustomIdBasedOnRole(user?.role!);
+
+    // Initialize the user creation process based on role
+    const createRoleDataPromise = createUserByRole(user, session);
+
+    const id = await idPromise;
     user.id = id as string;
 
-    if (user?.role === USER_ROLES.ADMIN) {
-      createdUser = await Admin.create([user], { session });
-      if (!createdUser?.length) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Admin');
-      }
+    createdUser = await createRoleDataPromise;
 
-      //assign admin mongoDB id to user
-      user.admin = createdUser[0]._id;
-    } else if (user?.role === USER_ROLES.CUSTOMER) {
-      createdUser = await Customer.create([user], { session });
-      if (!createdUser?.length) {
-        throw new ApiError(
-          StatusCodes.BAD_REQUEST,
-          'Failed to create Customer'
-        );
-      }
-
-      //assign customer mongoDB id to user
-      user.customer = createdUser[0]._id;
-    } else if (user?.role === USER_ROLES.VENDOR) {
-      const account = await StripeService.createConnectedAccount(user.email!); //create stripe connect account for vendor
-      user.stripeId = account.id!;
-      createdUser = await Vendor.create([user], { session });
-      if (!createdUser?.length) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Vendor');
-      }
-
-      //assign vendor mongoDB id to user
-      user.vendor = createdUser[0]._id;
-    }
-
+    // Create the main User after the role-specific user
     const newUser = await User.create([user], { session });
     if (!newUser?.length) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create User');
@@ -85,7 +62,7 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
       .populate('vendor');
   }
 
-  //send email
+  // Send email (could be handled asynchronously in a queue)
   const otp = generateOTP();
   const values = {
     name: createdUser![0].name,
@@ -96,7 +73,7 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   const createAccountTemplate = emailTemplate.createAccount(values);
   emailHelper.sendEmail(createAccountTemplate);
 
-  //save to DB
+  // Save authentication info (do this only after session commit)
   const authentication = {
     oneTimeCode: otp,
     expireAt: new Date(Date.now() + 5 * 60000),
@@ -107,6 +84,49 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   );
 
   return newUserData!;
+};
+
+// Helper to create user based on role
+const createUserByRole = async (
+  user: Partial<IUser>,
+  session: mongoose.ClientSession
+) => {
+  switch (user?.role) {
+    case USER_ROLES.ADMIN: {
+      const admin = await Admin.create([user], { session });
+      if (!admin?.length) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Admin');
+      }
+      user.admin = admin[0]._id;
+      return admin;
+    }
+
+    case USER_ROLES.CUSTOMER: {
+      const customer = await Customer.create([user], { session });
+      if (!customer?.length) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Failed to create Customer'
+        );
+      }
+      user.customer = customer[0]._id;
+      return customer;
+    }
+
+    case USER_ROLES.VENDOR: {
+      const account = await StripeService.createConnectedAccount(user.email!); // Async Stripe API call
+      user.stripeId = account.id!;
+      const vendor = await Vendor.create([user], { session });
+      if (!vendor?.length) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Vendor');
+      }
+      user.vendor = vendor[0]._id;
+      return vendor;
+    }
+
+    default:
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid role');
+  }
 };
 
 const updateUser = async (
