@@ -145,7 +145,7 @@ const forgetPasswordToDB = async (email: string) => {
   //save to DB
   const authentication = {
     oneTimeCode: otp,
-    expireAt: new Date(Date.now() + 3 * 60000),
+    expireAt: new Date(Date.now() + 5 * 60000),
   };
   await User.findOneAndUpdate({ email }, { $set: { authentication } });
 };
@@ -203,7 +203,7 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
     await ResetToken.create({
       user: isExistUser._id,
       token: createToken,
-      expireAt: new Date(Date.now() + 3 * 60000),
+      expireAt: new Date(Date.now() + 5 * 60000),
     });
     message =
       'Verification Successful: Please securely store and utilize this code for reset password';
@@ -274,6 +274,15 @@ const changePasswordToDB = async (
   payload: IChangePassword
 ) => {
   const { currentPassword, newPassword, confirmPassword } = payload;
+
+  //new password and confirm password check
+  if (newPassword !== confirmPassword) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Password and Confirm password doesn't matched"
+    );
+  }
+
   const isExistUser = await User.findById(user.id).select('+password');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
@@ -292,13 +301,6 @@ const changePasswordToDB = async (
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Please give different password from current password'
-    );
-  }
-  //new password and confirm password check
-  if (newPassword !== confirmPassword) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "Password and Confirm password doesn't matched"
     );
   }
 

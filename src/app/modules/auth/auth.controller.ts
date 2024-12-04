@@ -29,7 +29,7 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
 });
 
 const refreshToken = catchAsync(async (req: Request, res: Response) => {
-  const token = req.headers.authorization;
+  const token = req.headers.authorization; //it will be changed as per frontend implementation
   const result = await AuthService.refreshToken(token!);
 
   sendResponse(res, {
@@ -65,6 +65,18 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const resendOtp = catchAsync(async (req: Request, res: Response) => {
+  const email = req.body.email;
+  const result = await AuthService.resendOtp(email);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Password reset successfully',
+    data: result,
+  });
+});
+
 const changePassword = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
   const { ...passwordData } = req.body;
@@ -77,23 +89,12 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const resendOtp = catchAsync(async (req: Request, res: Response) => {
-  const email = req.body.email;
-  const result = await AuthService.resendOtp(email);
-
-  sendResponse(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: 'Password reset successfully',
-    data: result,
-  });
-});
 export const AuthController = {
   verifyEmail,
   loginUser,
   refreshToken,
   forgetPassword,
   resetPassword,
-  changePassword,
   resendOtp,
+  changePassword,
 };
