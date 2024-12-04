@@ -77,6 +77,17 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const resendOtp = catchAsync(async (req: Request, res: Response) => {
+  const email = req.body.email;
+  const result = await AuthService.resendOtp(email);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Password reset successfully',
+    data: result,
+  });
+});
 export const AuthController = {
   verifyEmail,
   loginUser,
@@ -84,4 +95,5 @@ export const AuthController = {
   forgetPassword,
   resetPassword,
   changePassword,
+  resendOtp,
 };

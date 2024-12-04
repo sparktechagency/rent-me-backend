@@ -45,7 +45,10 @@ const loginUserFromDB = async (
   }
 
   //check match password
-  if (password && !User.isMatchPassword(password, isExistUser.password)) {
+  if (
+    password &&
+    !(await User.isMatchPassword(password, isExistUser.password))
+  ) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }
 
@@ -84,7 +87,7 @@ const loginUserFromDB = async (
     config.jwt.jwt_refresh_expire_in as string
   );
 
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, role: isExistUser.role };
 };
 
 const refreshToken = async (
@@ -200,7 +203,7 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
     await ResetToken.create({
       user: isExistUser._id,
       token: createToken,
-      expireAt: new Date(Date.now() + 5 * 60000),
+      expireAt: new Date(Date.now() + 3 * 60000),
     });
     message =
       'Verification Successful: Please securely store and utilize this code for reset password';
@@ -311,6 +314,30 @@ const changePasswordToDB = async (
   await User.findOneAndUpdate({ _id: user.id }, updateData, { new: true });
 };
 
+const resendOtp = async (email: string) => {
+  const isExistUser = await User.isExistUserByEmail(email);
+  if (!isExistUser) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  //send mail
+  const otp = generateOTP();
+  const value = {
+    name: isExistUser.name,
+    otp,
+    email: isExistUser.email,
+  };
+  const forgetPassword = emailTemplate.createAccount(value);
+  emailHelper.sendEmail(forgetPassword);
+
+  //save to DB
+  const authentication = {
+    oneTimeCode: otp,
+    expireAt: new Date(Date.now() + 3 * 60000),
+  };
+  await User.findOneAndUpdate({ email }, { $set: { authentication } });
+};
+
 export const AuthService = {
   verifyEmailToDB,
   loginUserFromDB,
@@ -318,4 +345,5 @@ export const AuthService = {
   resetPasswordToDB,
   changePasswordToDB,
   refreshToken,
+  resendOtp,
 };
