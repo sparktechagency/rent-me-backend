@@ -10,9 +10,19 @@ const getLastOrderId = async () => {
 
 export const generateCustomOrderId = async () => {
   const currentId = (await getLastOrderId()) || (0).toString().padStart(5, '0');
+  let currentIdLength = currentId.length;
+  if (currentIdLength < 5) currentIdLength = 5;
 
-  let incrementedId = (parseInt(currentId) + 1).toString().padStart(5, '0');
-  incrementedId = `${incrementedId}`;
+  const maxValue = Math.pow(10, currentIdLength) - 1;
+
+  if (parseInt(currentId) >= maxValue) {
+    currentIdLength += 1;
+  }
+
+  // Increment the ID and pad it to the new length
+  const incrementedId = (parseInt(currentId) + 1)
+    .toString()
+    .padStart(currentIdLength, '0');
 
   return incrementedId;
 };

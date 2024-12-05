@@ -40,7 +40,8 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
         'ongoing',
         'rejected',
         'completed',
-        'decline',
+        'declined',
+        'confirmed',
       ],
       default: 'pending',
     },
@@ -62,13 +63,12 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
     },
     deliveryLocation: {
       type: { type: String, default: 'Point', enum: ['Point'] },
-      coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
+      coordinates: { type: [Number], required: true }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
     },
     deliveryAddress: {
       type: String,
       required: true,
     },
-    // serviceDate: { type: String, required: true },
     serviceStartDateTime: { type: Date, required: true },
     serviceEndDateTime: { type: Date, required: true },
     isInstantTransfer: {

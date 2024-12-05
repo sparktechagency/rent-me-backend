@@ -22,7 +22,8 @@ export type IOrder = {
     | 'ongoing'
     | 'rejected'
     | 'completed'
-    | 'decline';
+    | 'confirmed'
+    | 'declined';
   preference: string;
   paymentId: Types.ObjectId;
   paymentStatus: 'pending' | 'half' | 'full';

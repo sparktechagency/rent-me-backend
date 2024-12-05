@@ -22,6 +22,7 @@ const createOrder = async (payload: IOrder) => {
   // Check if the customer already has an active order at the same time
   const existingCustomerOrder = await Order.findOne({
     customerId: payload.customerId,
+    vendorId: payload.vendorId,
     serviceStartDateTime: { $lt: payload.serviceEndDateTime },
     serviceEndDateTime: { $gt: payload.serviceStartDateTime },
     status: { $nin: ['rejected', 'declined'] }, // Exclude rejected and declined orders
@@ -34,35 +35,28 @@ const createOrder = async (payload: IOrder) => {
     );
   }
 
-  const [
-    vendorExist,
-    customerExist,
-    vendor,
-    serviceExist,
-    packageExist,
-    existingOrder,
-  ] = await Promise.all([
-    User.findOne(
-      { vendor: payload.vendorId, status: 'active' },
-      { status: 1, needInformation: 1, approvedByAdmin: 1 }
-    ),
-    User.findOne({ customer: payload.customerId, status: 'active' }).populate(
-      'customer',
-      { name: 1 }
-    ),
-    Vendor.findOne(
-      { _id: payload.vendorId },
-      { availableDays: 1, operationStartTime: 1, operationEndTime: 1 }
-    ),
-    Service.findById(payload.serviceId),
-    Package.findById(payload.packageId),
-    Order.findOne({
-      vendorId: payload.vendorId,
-      serviceStartDateTime: { $lt: payload.serviceEndDateTime },
-      serviceEndDateTime: { $gt: payload.serviceStartDateTime },
-      status: { $in: ['accepted', 'ongoing'] },
-    }),
-  ]);
+  const [vendorExist, customerExist, vendor, serviceExist, existingOrder] =
+    await Promise.all([
+      User.findOne(
+        { vendor: payload.vendorId, status: 'active' },
+        { status: 1, needInformation: 1, approvedByAdmin: 1 }
+      ),
+      User.findOne({ customer: payload.customerId, status: 'active' }).populate(
+        'customer',
+        { name: 1 }
+      ),
+      Vendor.findOne(
+        { _id: payload.vendorId },
+        { availableDays: 1, operationStartTime: 1, operationEndTime: 1 }
+      ),
+      Service.findById(payload.serviceId),
+      Order.findOne({
+        vendorId: payload.vendorId,
+        serviceStartDateTime: { $lt: payload.serviceEndDateTime },
+        serviceEndDateTime: { $gt: payload.serviceStartDateTime },
+        status: { $in: ['accepted', 'ongoing'] },
+      }),
+    ]);
 
   if (!vendorExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor does not exist');
@@ -108,7 +102,7 @@ const createOrder = async (payload: IOrder) => {
   if (!serviceExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Service does not exist');
   }
-  if (!packageExist) {
+  if (!serviceExist?.packages?.includes(payload.packageId as Types.ObjectId)) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Package does not exist');
   }
   if (existingOrder) {
@@ -229,7 +223,7 @@ const getAllOrderByUserId = async (
 
   const result = await Order.find(whereConditions)
     .populate('vendorId', { name: 1, email: 1, phone: 1, address: 1 })
-    .populate('packageId')
+    .populate('packageId', { title: 1 })
     .populate('serviceId', { title: 1, price: 1 })
     .populate('paymentId')
     .populate('customerId', { name: 1, email: 1, phone: 1, address: 1 })
@@ -259,7 +253,7 @@ const declineOrConfirmOrder = async (
   id: string,
   payload: Pick<IOrder, 'status' | 'deliveryDeclineMessage'>
 ) => {
-  if (payload?.status === 'decline') {
+  if (payload?.status === 'declined') {
     if (!payload.deliveryDeclineMessage) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
@@ -296,7 +290,11 @@ const declineOrConfirmOrder = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
   }
 
-  const result = await Order.findByIdAndUpdate(id, payload, { new: true });
+  const result = await Order.findOneAndUpdate(
+    { _id: id, status: 'accepted' },
+    payload,
+    { new: true }
+  );
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
@@ -309,7 +307,7 @@ const declineOrConfirmOrder = async (
   };
 
   await sendNotification(
-    payload?.status === 'decline' ? 'declinedOrder' : 'confirmedOrder',
+    payload?.status === 'declined' ? 'declinedOrder' : 'confirmedOrder',
     result.vendorId as Types.ObjectId,
     notificationData
   );
@@ -318,6 +316,10 @@ const declineOrConfirmOrder = async (
 };
 
 const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
+  if (payload.status === 'accepted' && !payload.amount) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
+  }
+
   const orderExists = await Order.findById({ _id: id, status: 'pending' })
     .populate('vendorId', { name: 1 })
     .populate('customerId', { name: 1 });
@@ -367,10 +369,16 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     }
   }
 
+  let updatedValue;
+
+  payload.status === 'accepted'
+    ? (updatedValue = { ...payload, amount: payload.amount })
+    : (updatedValue = { ...payload });
+
   // Update the order status
-  const result = await Order.findByIdAndUpdate(
-    id,
-    { status: payload.status },
+  const result = await Order.findOneAndUpdate(
+    { _id: id, status: 'pending' },
+    { ...updatedValue },
     { new: true }
   );
 

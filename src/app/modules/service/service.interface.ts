@@ -1,13 +1,14 @@
 import { Model, Types } from 'mongoose';
 import { IVendor } from '../vendor/vendor.interface';
 import { ICategory } from '../category/category.interface';
+import { IPackage } from '../package/package.interface';
 
 export type IService = {
   vendorId: Types.ObjectId | IVendor;
   title: string;
   description: string;
   estBudget: number;
-  productDimension: string;
+  packages: Types.ObjectId[];
   categoryId: Types.ObjectId | ICategory;
   cover: string;
 };

@@ -7,7 +7,7 @@ import { serviceSearchableFields } from './service.constants';
 import { User } from '../user/user.model';
 import { Package } from '../package/package.model';
 import { IPackage } from '../package/package.interface';
-import mongoose from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { JwtPayload } from 'jsonwebtoken';
 
 //Filter and pagination needed
@@ -60,9 +60,11 @@ const getAllService = async (
   const whereConditions =
     andConditions.length > 0 ? { $and: andConditions } : {};
 
-  const result = await Service.find(whereConditions)
-    .populate('vendorId')
-    .populate('categoryId');
+  const result = await Service.find(whereConditions).populate('packages', {
+    title: 1,
+    features: 1,
+  });
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get all service');
   }
@@ -70,9 +72,8 @@ const getAllService = async (
 };
 
 const getSingleService = async (id: string): Promise<IService | null> => {
-  const result = await Service.findById(id)
-    .populate('vendorId')
-    .populate('categoryId');
+  const result = await Service.findById(id);
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get single service');
   }
@@ -84,7 +85,11 @@ const createService = async (
   user: JwtPayload
 ): Promise<IService> => {
   //check if the vendor exist and vendor is approved by admin
-  const vendor = await User.findById({ vendor: user?.userId });
+
+  const vendor = await User.findOne({
+    vendor: new Types.ObjectId(user.userId),
+    status: 'active',
+  });
   if (!vendor) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
   }
@@ -94,7 +99,7 @@ const createService = async (
       'You are not approved by admin yet'
     );
   }
-
+  data.vendorId = user.userId;
   const result = await Service.create(data);
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create service');
@@ -124,22 +129,42 @@ const getAllPackageByServiceId = async (id: string): Promise<IPackage[]> => {
 
 const getAllServiceByVendorId = async (id: string): Promise<IService[]> => {
   const result = await Service.find({ vendorId: id })
-    .populate('categoryId')
-    .populate('vendorId');
+    .populate('vendorId', {
+      name: 1,
+      rating: 1,
+      totalReviews: 1,
+      orderCompleted: 1,
+      location: 1,
+    })
+    .populate('packages', {
+      title: 1,
+      features: 1,
+    });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get services');
   }
   return result;
 };
 
-const deleteService = async (id: string): Promise<IService | null> => {
+const deleteService = async (
+  id: string,
+  user: JwtPayload
+): Promise<IService | null> => {
   const session = await mongoose.startSession();
 
   try {
     session.startTransaction();
-    const service = await Service.findById(id);
+    const service = await Service.findOne({ _id: id });
+
     if (!service) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Service does not exists');
+    }
+
+    if (service.vendorId.toString() !== user.userId) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'You are not authorized to delete this service'
+      );
     }
     const result = await Service.findByIdAndDelete(id);
     if (!result) {

@@ -23,6 +23,10 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
 
     const vendorId = vendor._id;
 
+    const createReview = await Review.create(payload);
+    if (!createReview) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create review');
+    }
     const avgRating = await Review.aggregate([
       {
         $match: { vendorId }, // Filter reviews by the userId
@@ -40,11 +44,6 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
     vendor.totalReviews = vendor.totalReviews + 1;
 
     await vendor.save({ session });
-
-    const createReview = await Review.create(payload);
-    if (!createReview) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create review');
-    }
 
     await session.commitTransaction();
     session.endSession();

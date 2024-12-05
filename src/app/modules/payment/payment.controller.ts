@@ -108,8 +108,8 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         }
 
         const order = await Order.findOneAndUpdate(
-          { orderId: session?.metadata?.orderId, status: 'confirmed' },
-          { status: 'ongoing' },
+          { _id: session?.metadata?.orderId, status: 'confirmed' },
+          { status: 'ongoing', paymentStatus: 'full' },
           { new: true }
         );
 

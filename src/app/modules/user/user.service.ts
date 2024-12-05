@@ -22,24 +22,18 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   const { ...user } = payload;
 
   let newUserData = null;
-  let createdUser;
   const session = await mongoose.startSession();
 
   try {
     session.startTransaction();
 
-    // Generate custom ID in parallel with other operations
-    const idPromise = generateCustomIdBasedOnRole(user?.role!);
+    // Generate custom ID
+    user.id = await generateCustomIdBasedOnRole(user.role!);
 
-    // Initialize the user creation process based on role
-    const createRoleDataPromise = createUserByRole(user, session);
+    // Create user role-specific data
+    const createdUser = await createUserByRole(user, session);
 
-    const id = await idPromise;
-    user.id = id as string;
-
-    createdUser = await createRoleDataPromise;
-
-    // Create the main User after the role-specific user
+    // Save user to DB
     const newUser = await User.create([user], { session });
     if (!newUser?.length) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create User');
@@ -47,46 +41,45 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
 
     newUserData = newUser[0];
 
+    // Commit the transaction
     await session.commitTransaction();
-    session.endSession();
+
+    // Populate related fields after commit
+    if (newUserData) {
+      newUserData = await User.findOne({ _id: newUserData._id })
+        .populate('admin')
+        .populate('customer')
+        .populate('vendor');
+    }
+
+    const otp = generateOTP();
+    const values = {
+      name: createdUser![0].name,
+      otp,
+      email: newUserData!.email!,
+    };
+    const createAccountTemplate = emailTemplate.createAccount(values);
+    await emailHelper.sendEmail(createAccountTemplate);
+
+    const authentication = {
+      oneTimeCode: otp,
+      expireAt: new Date(Date.now() + 3 * 60000),
+    };
+    await User.findOneAndUpdate(
+      { _id: newUserData!._id },
+      { $set: { authentication } }
+    );
+
+    return newUserData!;
   } catch (error) {
     await session.abortTransaction();
-    session.endSession();
-    throw error;
+    throw error; // Rethrow error for upstream handling
+  } finally {
+    session.endSession(); // Ensure session cleanup
   }
-
-  if (newUserData) {
-    newUserData = await User.findOne({ _id: newUserData._id })
-      .populate('admin')
-      .populate('customer')
-      .populate('vendor');
-  }
-
-  // Send email (could be handled asynchronously in a queue)
-  const otp = generateOTP();
-  const values = {
-    name: createdUser![0].name,
-    otp: otp,
-    email: newUserData!.email!,
-  };
-
-  const createAccountTemplate = emailTemplate.createAccount(values);
-  emailHelper.sendEmail(createAccountTemplate);
-
-  // Save authentication info (do this only after session commit)
-  const authentication = {
-    oneTimeCode: otp,
-    expireAt: new Date(Date.now() + 5 * 60000),
-  };
-  await User.findOneAndUpdate(
-    { _id: newUserData!._id },
-    { $set: { authentication } }
-  );
-
-  return newUserData!;
 };
 
-// Helper to create user based on role
+// Helper to create user by role
 const createUserByRole = async (
   user: Partial<IUser>,
   session: mongoose.ClientSession
@@ -100,7 +93,6 @@ const createUserByRole = async (
       user.admin = admin[0]._id;
       return admin;
     }
-
     case USER_ROLES.CUSTOMER: {
       const customer = await Customer.create([user], { session });
       if (!customer?.length) {
@@ -112,10 +104,9 @@ const createUserByRole = async (
       user.customer = customer[0]._id;
       return customer;
     }
-
     case USER_ROLES.VENDOR: {
-      const account = await StripeService.createConnectedAccount(user.email!); // Async Stripe API call
-      user.stripeId = account.id!;
+      const account = await StripeService.createConnectedAccount(user.email!);
+      user.stripeId = account.id;
       const vendor = await Vendor.create([user], { session });
       if (!vendor?.length) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Vendor');
@@ -123,7 +114,6 @@ const createUserByRole = async (
       user.vendor = vendor[0]._id;
       return vendor;
     }
-
     default:
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid role');
   }

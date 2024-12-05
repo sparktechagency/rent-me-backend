@@ -30,14 +30,15 @@ const onboardVendor = async (user: JwtPayload) => {
 
 const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
   try {
-    // Fetch order and vendor details in parallel
-    const [isOrderExists, vendor] = await Promise.all([
-      Order.findById(
-        { _id: orderId, status: 'confirmed' },
-        { vendorId: 1, amount: 1, isInstantTransfer: 1 }
-      ),
-      User.findOne({ vendor: orderId }, { stripeId: 1, _id: 1 }),
-    ]);
+    const isOrderExists = await Order.findById(
+      { _id: orderId, status: 'accepted', paymentStatus: 'pending' },
+      { vendorId: 1, amount: 1, isInstantTransfer: 1 }
+    );
+
+    const vendor = await User.findOne(
+      { vendor: isOrderExists?.vendorId },
+      { stripeId: 1, _id: 1 }
+    );
 
     if (!isOrderExists) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Order does not exist');

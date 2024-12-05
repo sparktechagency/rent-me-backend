@@ -33,7 +33,7 @@ const updateOrderStatusValidationForVendor = z.object({
 
 const updateOrderStatusValidationForCustomer = z.object({
   body: z.object({
-    status: z.enum(['decline'], {
+    status: z.enum(['declined', 'confirmed'], {
       required_error: 'Status is required',
     }),
     deliveryDeclineMessage: z.string().optional(),

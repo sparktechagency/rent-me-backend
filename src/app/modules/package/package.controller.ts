@@ -42,8 +42,9 @@ const getSinglePackage = catchAsync(async (req: Request, res: Response) => {
 
 const deletePackage = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await PackageService.deletePackage(id);
-  sendResponse<IPackage | null>(res, {
+  const user = req.user;
+  const result = await PackageService.deletePackage(user, id);
+  sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Package deleted successfully',

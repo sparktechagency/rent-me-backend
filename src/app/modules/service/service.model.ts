@@ -7,13 +7,13 @@ const serviceSchema = new Schema<IService, ServiceModel>(
     title: { type: String, required: true },
     description: { type: String, required: true },
     estBudget: { type: Number, required: true },
-    productDimension: { type: String, required: true },
+    packages: [{ type: Schema.Types.ObjectId, ref: 'Package', required: true }],
     categoryId: {
       type: Schema.Types.ObjectId,
       ref: 'Category',
       required: true,
     },
-    cover: { type: String, required: true },
+    cover: { type: String },
   },
   { timestamps: true }
 );

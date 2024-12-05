@@ -44,23 +44,22 @@ const generateCustomAdminId = async () => {
 
 // Helper function to generate the new ID by checking if we need to increase the length
 const generateCustomId = async (prefix: string, lastId: string | undefined) => {
-  let currentId = lastId ? lastId.substring(2) : '0'; // Remove prefix (e.g., 'VD' or 'CS')
-
-  // Determine the current ID length
+  const currentId = lastId ? lastId.substring(prefix.length) : '0'; // Extract numeric part from lastId
   let currentIdLength = currentId.length;
 
-  // Check the maximum value for the current ID length (e.g., 99999 for 5 digits)
+  if (currentIdLength < 5) currentIdLength = 5;
+  // Calculate the maximum value for the current ID length
   const maxValue = Math.pow(10, currentIdLength) - 1;
 
-  // If the current ID is equal to the maximum value, increase the ID length
+  // If the current ID reaches the max value, increase its length
   if (parseInt(currentId) >= maxValue) {
-    currentIdLength += 1; // Increment length to handle more digits
-    currentId = '0'; // Start from zero for the new length
+    currentIdLength += 1; // Increment the length
   }
 
-  // Increment the current ID by 1 and pad it to the required length
+  // Increment the ID and pad it to the new length
   const incrementedId = (parseInt(currentId) + 1)
     .toString()
     .padStart(currentIdLength, '0');
+
   return `${prefix}${incrementedId}`;
 };

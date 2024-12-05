@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
-import { IService, IServiceFilters } from './service.interface';
+import { IService } from './service.interface';
 import { ServiceServices } from './service.service';
 import { StatusCodes } from 'http-status-codes';
 import pick from '../../../shared/pick';
@@ -35,8 +35,6 @@ const getAllService = catchAsync(async (req: Request, res: Response) => {
 const createService = catchAsync(async (req: Request, res: Response) => {
   const serviceData = req?.body;
   const user = req.user;
-
-  console.log(req.user);
 
   serviceData.vendorId = user?.userId;
 
@@ -85,7 +83,8 @@ const updateService = catchAsync(async (req: Request, res: Response) => {
 
 const deleteService = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await ServiceServices.deleteService(id);
+  const user = req.user;
+  const result = await ServiceServices.deleteService(id, user);
   sendResponse<IService | null>(res, {
     success: true,
     statusCode: StatusCodes.OK,
