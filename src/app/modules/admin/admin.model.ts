@@ -22,6 +22,7 @@ const adminSchema = new Schema<IAdmin, AdminModel>(
     },
     profileImg: {
       type: String,
+      default: 'https://cdn-icons-png.flaticon.com/512/1253/1253756.png',
     },
     address: {
       type: String,

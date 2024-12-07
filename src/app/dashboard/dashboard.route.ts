@@ -44,4 +44,6 @@ router.get(
 
 router.get('/revenue', DashboardController.getRevenue);
 
+router.get('/overall-stat', DashboardController.getYearlyActivityData);
+
 export const DashboardRoutes = router;

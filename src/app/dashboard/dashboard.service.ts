@@ -91,7 +91,7 @@ const totalSaleAndRevenue = async (
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
           totalSales: { $sum: 1 },
-          totalRevenue: { $sum: '$offeredAmount' },
+          totalRevenue: { $sum: '$amount' },
         },
       },
 
@@ -530,7 +530,7 @@ const getBestServices = async () => {
         $project: {
           serviceId: '$_id',
           orderCount: 1,
-          serviceName: { $arrayElemAt: ['$serviceDetails.name', 0] }, // Use $arrayElemAt to access the name directly
+          serviceName: { $arrayElemAt: ['$serviceDetails.title', 0] }, // Use $arrayElemAt to access the name directly
         },
       },
 
@@ -793,7 +793,15 @@ const getRevenue = async (range: IRange = '1-week') => {
 
     const pipeline: any[] = [
       // Step 1: Filter orders by createdAt date if a range is specified
-      ...(startDate ? [{ $match: { createdAt: { $gte: startDate } } }] : []),
+
+      {
+        $match: {
+          status: 'completed',
+          ...(startDate
+            ? [{ $match: { createdAt: { $gte: startDate } } }]
+            : []),
+        },
+      },
 
       // Step 2: Group revenue by day, week, month, or year
       {
@@ -811,7 +819,7 @@ const getRevenue = async (range: IRange = '1-week') => {
               date: '$createdAt',
             },
           },
-          totalRevenue: { $sum: '$offeredAmount' }, // Sum revenue from orders
+          totalRevenue: { $sum: '$amount' }, // Sum revenue from orders
         },
       },
 
@@ -855,6 +863,89 @@ const getRevenue = async (range: IRange = '1-week') => {
   }
 };
 
+const getYearlyActivityData = async () => {
+  try {
+    const startDate = new Date(new Date().getFullYear(), 0, 1); // Start of the current year
+
+    const [userStats, orderStats, revenueStats] = await Promise.all([
+      // Fetch user creation stats grouped by month
+      User.aggregate([
+        { $match: { createdAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: { $month: '$createdAt' }, // Group by month (1-12)
+            userCount: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+
+      // Fetch order stats grouped by month
+      Order.aggregate([
+        { $match: { createdAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: { $month: '$createdAt' }, // Group by month (1-12)
+            orderCount: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+
+      // Fetch revenue stats grouped by month
+      Order.aggregate([
+        { $match: { createdAt: { $gte: startDate }, status: 'completed' } },
+        {
+          $group: {
+            _id: { $month: '$createdAt' }, // Group by month (1-12)
+            revenue: { $sum: '$amount' },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+    ]);
+
+    // Map the months to their names
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    // Combine results into a single array
+    const yearlyData = Array.from({ length: 12 }, (_, i) => {
+      const month = i + 1; // MongoDB $month returns 1-12
+      return {
+        month: monthNames[i],
+        orderCount:
+          orderStats.find(stat => stat._id === month)?.orderCount || 0,
+        userCount: userStats.find(stat => stat._id === month)?.userCount || 0,
+        revenue: revenueStats.find(stat => stat._id === month)?.revenue || 0,
+      };
+    });
+
+    return {
+      success: true,
+      message: 'Yearly activity data retrieved successfully',
+      data: yearlyData,
+    };
+  } catch (error) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to retrieve yearly activity data'
+    );
+  }
+};
+
 export const DashboardService = {
   generalStatForAdminDashboard,
   totalSaleAndRevenue,
@@ -867,4 +958,5 @@ export const DashboardService = {
   getOrderRetentionRate,
   getCustomerRetentionData,
   getRevenue,
+  getYearlyActivityData,
 };

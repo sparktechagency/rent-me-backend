@@ -3,7 +3,6 @@
 
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
-import { Package } from '../package/package.model';
 import { Service } from '../service/service.model';
 import { IOrder, IOrderFilter } from './order.interface';
 import { Order } from './order.model';
@@ -169,7 +168,9 @@ const createOrder = async (payload: IOrder) => {
 };
 
 const getAllOrders = async () => {
-  const result = await Order.find({});
+  const result = await Order.find({})
+    .populate('vendorId', { name: 1, email: 1, profileImg: 1, phone: 1 })
+    .populate('customerId', { name: 1, email: 1, profileImg: 1, phone: 1 });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get orders');
   }

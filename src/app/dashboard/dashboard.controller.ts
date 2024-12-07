@@ -132,6 +132,18 @@ const getRevenue = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getYearlyActivityData = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await DashboardService.getYearlyActivityData();
+    sendResponse(res, {
+      success: true,
+      statusCode: 200,
+      message: 'Over all stat retrieved successfully',
+      data: result,
+    });
+  }
+);
+
 export const DashboardController = {
   generalStatForAdminDashboard,
   totalSaleAndRevenue,
@@ -144,4 +156,5 @@ export const DashboardController = {
   getOrderRetentionRate,
   getCustomerRetentionData,
   getRevenue,
+  getYearlyActivityData,
 };
