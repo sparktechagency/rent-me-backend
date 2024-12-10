@@ -67,10 +67,7 @@ const userSchema = new Schema<IUser, UserModel>(
       type: Boolean,
       default: false,
     },
-    termsAndCondition: {
-      type: Boolean,
-      required: true,
-    },
+
     authentication: {
       type: {
         passwordChangedAt: {

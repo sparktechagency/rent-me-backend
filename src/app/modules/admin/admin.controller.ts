@@ -27,7 +27,25 @@ const deleteAdmin = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateAdminProfile = catchAsync(async (req: Request, res: Response) => {
+  const admin = req.user;
+  const payload = req.body;
+
+  if (req.files && 'image' in req.files && req.files.image[0]) {
+    payload.profileImg = `/images/${req.files.image[0].filename}`;
+  }
+
+  const result = await AdminService.updateAdminProfileToDB(admin, payload);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Admin profile updated successfully',
+    data: result,
+  });
+});
+
 export const AdminController = {
   getAdminProfile,
   deleteAdmin,
+  updateAdminProfile,
 };

@@ -1,7 +1,6 @@
 import { Model, Types } from 'mongoose';
 import { IVendor } from '../vendor/vendor.interface';
 import { ICategory } from '../category/category.interface';
-import { IPackage } from '../package/package.interface';
 
 export type IService = {
   vendorId: Types.ObjectId | IVendor;

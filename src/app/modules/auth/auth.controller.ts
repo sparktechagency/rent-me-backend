@@ -29,7 +29,7 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
 });
 
 const refreshToken = catchAsync(async (req: Request, res: Response) => {
-  const token = req.headers.authorization; //it will be changed as per frontend implementation
+  const { token } = req.body;
   const result = await AuthService.refreshToken(token!);
 
   sendResponse(res, {

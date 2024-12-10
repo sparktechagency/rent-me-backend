@@ -3,27 +3,48 @@ import { z } from 'zod';
 const createPrivacyPolicyZodSchema = z.object({
   body: z.object({
     content: z.string().min(1, { message: 'Content is required1111' }),
-    userType: z.enum(['USER', 'VENDOR'], {
+    userType: z.enum(['USER', 'VENDOR', 'CUSTOMER'], {
       required_error: 'User type is required',
     }),
+  }),
+});
+
+const updatePrivacyPolicyZodSchema = z.object({
+  body: z.object({
+    content: z.string().min(1).optional(),
+    userType: z.enum(['USER', 'VENDOR', 'CUSTOMER']).optional(),
   }),
 });
 
 const createTermsAndConditionsZodSchema = z.object({
   body: z.object({
     content: z.string().min(1, { message: 'Content is required' }),
-    userType: z.enum(['USER', 'VENDOR'], {
+    userType: z.enum(['USER', 'VENDOR', 'CUSTOMER'], {
       required_error: 'User type is required',
     }),
+  }),
+});
+
+const updateTermsAndConditionsZodSchema = z.object({
+  body: z.object({
+    content: z.string().min(1).optional(),
+    userType: z.enum(['USER', 'VENDOR', 'CUSTOMER']).optional(),
   }),
 });
 
 const createFaqsZodSchema = z.object({
   body: z.object({
     content: z.string().min(1, { message: 'Content is required' }),
-    userType: z.enum(['USER', 'VENDOR'], {
+    userType: z.enum(['USER', 'VENDOR', 'CUSTOMER'], {
       required_error: 'User type is required',
     }),
+  }),
+});
+
+const updateFaqsZodSchema = z.object({
+  body: z.object({
+    content: z.string().min(1).optional(),
+    userType: z.enum(['USER', 'VENDOR', 'CUSTOMER']).optional(),
   }),
 });
 
@@ -53,4 +74,8 @@ export const othersValidation = {
   createFaqsZodSchema,
   createBannerSchema,
   updateBannerSchema,
+
+  updatePrivacyPolicyZodSchema,
+  updateTermsAndConditionsZodSchema,
+  updateFaqsZodSchema,
 };

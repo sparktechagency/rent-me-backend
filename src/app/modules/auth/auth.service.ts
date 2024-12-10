@@ -87,7 +87,7 @@ const loginUserFromDB = async (
     config.jwt.jwt_refresh_expire_in as string
   );
 
-  return { accessToken, refreshToken, role: isExistUser.role };
+  return { accessToken, refreshToken };
 };
 
 const refreshToken = async (
@@ -95,11 +95,17 @@ const refreshToken = async (
 ): Promise<IRefreshTokenResponse | null> => {
   let verifiedToken = null;
   try {
+    // Verify the refresh token
     verifiedToken = jwtHelper.verifyToken(
       token,
-      config.jwt.jwt_secret as Secret
+      config.jwt.jwt_refresh_secret as Secret
     );
   } catch (error) {
+    console.log(error, 'EEEEEEEEEEEEEEE');
+    // If the token verification fails, it might be expired or invalid
+    if (error.name === 'TokenExpiredError') {
+      throw new ApiError(StatusCodes.UNAUTHORIZED, 'Refresh Token has expired');
+    }
     throw new ApiError(StatusCodes.FORBIDDEN, 'Invalid Refresh Token');
   }
 

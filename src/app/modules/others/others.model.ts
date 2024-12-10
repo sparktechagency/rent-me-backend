@@ -18,7 +18,7 @@ const privacyPolicySchema = new Schema<IPrivacyPolicy, PrivacyPolicyModel>(
     },
     userType: {
       type: String,
-      enum: ['USER', 'VENDOR'],
+      enum: ['CUSTOMER', 'VENDOR', 'USER'],
       required: true,
     },
   },
@@ -36,7 +36,7 @@ const termsAndConditionSchema = new Schema<
     },
     userType: {
       type: String,
-      enum: ['USER', 'VENDOR'],
+      enum: ['CUSTOMER', 'VENDOR', 'USER'],
       required: true,
     },
   },
@@ -51,7 +51,7 @@ const faqsSchema = new Schema<IFaQs, FaQsModel>(
     },
     userType: {
       type: String,
-      enum: ['USER', 'VENDOR'],
+      enum: ['CUSTOMER', 'VENDOR'],
       required: true,
     },
   },

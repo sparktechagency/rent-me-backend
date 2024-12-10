@@ -2,17 +2,17 @@ import { Model, Types } from 'mongoose';
 
 export type IPrivacyPolicy = {
   content: string;
-  userType: 'USER' | 'VENDOR';
+  userType: 'CUSTOMER' | 'VENDOR' | 'USER';
 };
 
 export type ITermsAndConditions = {
   content: string;
-  userType: 'USER' | 'VENDOR';
+  userType: 'CUSTOMER' | 'VENDOR' | 'USER';
 };
 
 export type IFaQs = {
   content: string;
-  userType: 'USER' | 'VENDOR';
+  userType: 'CUSTOMER' | 'VENDOR' | 'USER';
 };
 
 export type IBanner = {
