@@ -4,6 +4,8 @@ import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
 import { OrderService } from './order.service';
 import pick from '../../../shared/pick';
+import { orderFilterableFields } from './order.constant';
+import { paginationFields } from '../../../types/pagination';
 
 const createOrder = catchAsync(async (req: Request, res: Response) => {
   const { ...orderData } = req.body;
@@ -20,7 +22,9 @@ const createOrder = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllOrders = catchAsync(async (req: Request, res: Response) => {
-  const result = await OrderService.getAllOrders();
+  const filterData = pick(req.query, orderFilterableFields);
+  const paginationOptions = pick(req.query, paginationFields);
+  const result = await OrderService.getAllOrders(filterData, paginationFields);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

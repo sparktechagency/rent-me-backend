@@ -15,6 +15,7 @@ export default {
     jwt_refresh_secret: process.env.JWT_REFRESH_SECRET,
     jwt_refresh_expire_in: process.env.JWT_REFRESH_EXPIRES_IN,
   },
+  delivery_fee: process.env.DELIVERY_FEE,
   application_fee: process.env.APPLICATION_FEE,
   instant_transfer_fee: process.env.INSTANT_TRANSFER_FEE,
   openAi_api_key: process.env.OPENAI_API_KEY,

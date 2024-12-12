@@ -11,8 +11,12 @@ const app = express();
 app.use(Morgan.successHandler);
 app.use(Morgan.errorHandler);
 
-//body parser
-app.use(cors());
+app.use(
+  cors({
+    origin: 'http://localhost:3003',
+    credentials: true,
+  })
+);
 
 app.post(
   '/webhook',

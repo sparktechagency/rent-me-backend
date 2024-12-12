@@ -29,8 +29,9 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
 });
 
 const refreshToken = catchAsync(async (req: Request, res: Response) => {
-  const { token } = req.body;
-  const result = await AuthService.refreshToken(token!);
+  const { refreshToken } = req.body;
+
+  const result = await AuthService.refreshToken(refreshToken!);
 
   sendResponse(res, {
     success: true,
@@ -72,7 +73,7 @@ const resendOtp = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
-    message: 'Password reset successfully',
+    message: 'Resend otp is sent to your mail',
     data: result,
   });
 });

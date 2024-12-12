@@ -233,6 +233,7 @@ const getAllVendor = async (
     serviceTime,
     minBudget,
     maxBudget,
+    category,
     customerLat,
     customerLng,
     radius,
@@ -263,7 +264,21 @@ const getAllVendor = async (
     });
   }
 
-  //Check whether a vendor is available or not for a given date and time range
+  if (category) {
+    const servicesWithCategory = await Service.find(
+      { categoryId: category },
+      { vendorId: 1 }
+    ).distinct('vendorId');
+
+    const vendorIdsForCategory = servicesWithCategory.map(service => service);
+
+    {
+      andCondition.push({
+        _id: { $in: vendorIdsForCategory },
+      });
+    }
+  }
+
   if (serviceDate && serviceTime) {
     const busyVendorIds = await buildDateTimeFilter(serviceDate, serviceTime);
     andCondition.push({
@@ -280,7 +295,6 @@ const getAllVendor = async (
     });
   }
 
-  // Add range filters
   const orderCompletedFilter = buildRangeFilter(
     'orderCompleted',
     minOrderCompleted,
@@ -311,7 +325,6 @@ const getAllVendor = async (
     });
   }
 
-  //check if rating based sorting is needed
   const sortConditions: { [key: string]: SortOrder } = {};
   if (sortBy && sortOrder) {
     sortConditions[sortBy] = sortOrder;
@@ -319,15 +332,13 @@ const getAllVendor = async (
 
   const whereConditions = andCondition.length > 0 ? { $and: andCondition } : {};
 
-  // Step 1: Get vendor IDs of active users
   const activeUserVendors = await User.find(
-    { status: 'active', needInformation: false, approvedByAdmin: true }, // Filter for active users
+    { status: 'active', needInformation: false, approvedByAdmin: true },
     'vendor' // Only select the `vendor` field
   ).lean();
 
   const activeVendorIds = activeUserVendors.map(user => user.vendor);
 
-  // Step 2: Query the Vendor collection using these vendor IDs
   const vendors = await Vendor.find(
     {
       ...whereConditions,
@@ -350,7 +361,11 @@ const getAllVendor = async (
     .limit(limit)
     .lean();
 
-  const total = await Vendor.countDocuments(whereConditions);
+  const total = await Vendor.countDocuments({
+    ...whereConditions,
+
+    _id: { $in: activeVendorIds }, // Filter by vendor IDs
+  });
 
   return {
     meta: {

@@ -7,7 +7,7 @@ import { emailTemplate } from '../../../shared/emailTemplate';
 import generateOTP from '../../../util/generateOTP';
 import { IUser, IUserFilters } from './user.interface';
 import { User } from './user.model';
-import mongoose, { SortOrder } from 'mongoose';
+import mongoose, { SortOrder, Types } from 'mongoose';
 import { generateCustomIdBasedOnRole } from './user.utils';
 import { Admin } from '../admin/admin.model';
 import { Customer } from '../customer/customer.model';
@@ -17,6 +17,7 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
 import StripeService from '../payment/payment.stripe';
+import { sendNotification } from '../../../helpers/sendNotificationHelper';
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   const { ...user } = payload;
@@ -27,13 +28,10 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   try {
     session.startTransaction();
 
-    // Generate custom ID
     user.id = await generateCustomIdBasedOnRole(user.role!);
 
-    // Create user role-specific data
     const createdUser = await createUserByRole(user, session);
 
-    // Save user to DB
     const newUser = await User.create([user], { session });
     if (!newUser?.length) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create User');
@@ -41,10 +39,8 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
 
     newUserData = newUser[0];
 
-    // Commit the transaction
     await session.commitTransaction();
 
-    // Populate related fields after commit
     if (newUserData) {
       newUserData = await User.findOne({ _id: newUserData._id })
         .populate('admin')
@@ -73,9 +69,9 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
     return newUserData!;
   } catch (error) {
     await session.abortTransaction();
-    throw error; // Rethrow error for upstream handling
+    throw error;
   } finally {
-    session.endSession(); // Ensure session cleanup
+    session.endSession();
   }
 };
 
@@ -111,6 +107,14 @@ const createUserByRole = async (
       if (!vendor?.length) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Vendor');
       }
+
+      sendNotification('newVendor', USER_ROLES.ADMIN, {
+        title: `${vendor[0].name} has created an account.`,
+        message: 'Please take a look into the newly created vendor account.',
+        userId: user._id as Types.ObjectId,
+        type: USER_ROLES.ADMIN,
+      });
+
       user.vendor = vendor[0]._id;
       return vendor;
     }

@@ -14,9 +14,10 @@ import { CustomerRoutes } from '../app/modules/customer/customer.route';
 import { ChatRoutes } from '../app/modules/chat/chat.route';
 import { MessageRoutes } from '../app/modules/message/message.route';
 import { ChatBotRoutes } from '../app/modules/chat-bot/chatbot.route';
-import { DashboardRoutes } from '../app/dashboard/dashboard.route';
+
 import { NotificationRoutes } from '../app/modules/notification/notification.route';
 import { AdminRoutes } from '../app/modules/admin/admin.route';
+import { DashboardRoutes } from '../app/modules/dashboard/dashboard.route';
 const router = express.Router();
 
 const apiRoutes = [

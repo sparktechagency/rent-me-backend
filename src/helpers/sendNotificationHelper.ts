@@ -8,7 +8,7 @@ import { INotification } from '../app/modules/notification/notification.interfac
 
 export const sendNotification = async (
   namespace: string,
-  recipient: Types.ObjectId,
+  recipient: Types.ObjectId | string,
   data: INotification
 ) => {
   const result = await Notification.create(data);

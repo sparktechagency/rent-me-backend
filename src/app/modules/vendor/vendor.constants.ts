@@ -24,6 +24,7 @@ export const vendorFilterableFields = [
   'minBudget',
   'maxBudget',
   'radius',
+  'category',
   'customerLat',
   'customerLng',
 ];

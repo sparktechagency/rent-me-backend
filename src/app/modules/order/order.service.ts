@@ -1,109 +1,110 @@
+import { validateOrderTime } from './order.utils';
 /* eslint-disable no-unused-expressions */
 /* eslint-disable no-undef */
 
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
-import { Service } from '../service/service.model';
-import { IOrder, IOrderFilter } from './order.interface';
+
+import { IOrder, IOrderFilterableFields } from './order.interface';
 import { Order } from './order.model';
-import { generateCustomOrderId, validateOrderTime } from './order.utils';
+import {
+  calculateDistance,
+  generateCustomOrderId,
+  parseDuration,
+} from './order.utils';
 import { JwtPayload } from 'jsonwebtoken';
 import { USER_ROLES } from '../../../enums/user';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
 import { User } from '../user/user.model';
 import { Types } from 'mongoose';
-import { Vendor } from '../vendor/vendor.model';
+
+import { IVendor } from '../vendor/vendor.interface';
+import { ICustomer } from '../customer/customer.interface';
+import config from '../../../config';
+import { paginationHelper } from '../../../helpers/paginationHelper';
+import { IPaginationOptions } from '../../../types/pagination';
+import { orderSearchableFields } from './order.constant';
 
 const createOrder = async (payload: IOrder) => {
   const orderId = await generateCustomOrderId();
   payload.orderId = orderId;
 
-  // Check if the customer already has an active order at the same time
-  const existingCustomerOrder = await Order.findOne({
-    customerId: payload.customerId,
-    vendorId: payload.vendorId,
-    serviceStartDateTime: { $lt: payload.serviceEndDateTime },
-    serviceEndDateTime: { $gt: payload.serviceStartDateTime },
-    status: { $nin: ['rejected', 'declined'] }, // Exclude rejected and declined orders
-  });
+  let payloadSetupStartDateAndTime;
+  if (payload.isSetup) {
+    const setupDurationMs = payload.isSetup
+      ? parseDuration(payload.setupDuration)
+      : 0;
 
-  if (existingCustomerOrder) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'You already have an order request for the same time and date.'
+    const deliveryDate = new Date(payload.deliveryDateAndTime);
+    payloadSetupStartDateAndTime = new Date(
+      deliveryDate.getTime() - setupDurationMs
     );
   }
 
-  const [vendorExist, customerExist, vendor, serviceExist, existingOrder] =
-    await Promise.all([
-      User.findOne(
-        { vendor: payload.vendorId, status: 'active' },
-        { status: 1, needInformation: 1, approvedByAdmin: 1 }
-      ),
-      User.findOne({ customer: payload.customerId, status: 'active' }).populate(
-        'customer',
-        { name: 1 }
-      ),
-      Vendor.findOne(
-        { _id: payload.vendorId },
-        { availableDays: 1, operationStartTime: 1, operationEndTime: 1 }
-      ),
-      Service.findById(payload.serviceId),
-      Order.findOne({
-        vendorId: payload.vendorId,
-        serviceStartDateTime: { $lt: payload.serviceEndDateTime },
-        serviceEndDateTime: { $gt: payload.serviceStartDateTime },
-        status: { $in: ['accepted', 'ongoing'] },
-      }),
-    ]);
+  const payloadDeliveryDateAndTime = new Date(payload.deliveryDateAndTime);
 
-  if (!vendorExist) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor does not exist');
-  }
-
-  if (vendorExist.needInformation) {
-    throw new ApiError(
-      StatusCodes.FORBIDDEN,
-      'Vendor information is incomplete'
-    );
-  }
-
-  const requestedDate = new Date(payload.serviceStartDateTime);
-
-  //check whether  customer is trying to order for past time
   const currentDate = new Date();
 
-  if (new Date(payload.serviceStartDateTime) < currentDate) {
+  //past order prevent
+  if (payloadDeliveryDateAndTime < currentDate) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Cannot create an order for a past time'
     );
   }
 
-  const requestedDay = requestedDate.toLocaleDateString('en-US', {
-    weekday: 'long',
+  const [vendorExist, customerExist] = await Promise.all([
+    User.findOne({ vendor: payload.vendorId, status: 'active' }).populate(
+      'vendor',
+      {
+        availableDays: 1,
+        operationStartTime: 1,
+        operationEndTime: 1,
+        location: 1,
+      }
+    ),
+    User.findOne({ customer: payload.customerId, status: 'active' }).populate(
+      'customer',
+      { name: 1, location: 1 }
+    ),
+  ]);
+
+  if (!vendorExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor does not exist');
+  }
+
+  if (!customerExist) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      'You are not allowed to create order'
+    );
+  }
+
+  const { availableDays, operationStartTime, operationEndTime, location } =
+    vendorExist.vendor! as IVendor;
+
+  const { name } = customerExist!.customer! as ICustomer;
+
+  const query = [];
+
+  if (payload.isSetup) {
+    query.push({
+      setupStartDateAndTime: { $lt: payloadDeliveryDateAndTime },
+      deliveryDateAndTime: { $gt: payloadSetupStartDateAndTime },
+    });
+  } else {
+    query.push({
+      setupStartDateAndTime: { $lt: payloadDeliveryDateAndTime },
+      deliveryDateAndTime: { $gt: payloadDeliveryDateAndTime },
+    });
+  }
+
+  const existingOrder = await Order.findOne({
+    vendorId: payload.vendorId,
+    status: { $in: ['accepted', 'ongoing', 'confirmed', 'on the way'] },
+    $and: query.length > 0 ? query : [{}],
   });
 
-  if (!vendor!.availableDays!.includes(requestedDay)) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Vendor is not available on the requested day'
-    );
-  }
-
-  if (!vendorExist.approvedByAdmin) {
-    throw new ApiError(
-      StatusCodes.FORBIDDEN,
-      'Vendor is not approved by admin'
-    );
-  }
-
-  if (!serviceExist) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'Service does not exist');
-  }
-  if (!serviceExist?.packages?.includes(payload.packageId as Types.ObjectId)) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'Package does not exist');
-  }
   if (existingOrder) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -111,49 +112,50 @@ const createOrder = async (payload: IOrder) => {
     );
   }
 
-  const date = payload.serviceStartDateTime.toString().split('T')[0];
+  !payload.isSetup &&
+    validateOrderTime(
+      payloadDeliveryDateAndTime,
+      operationStartTime!,
+      operationEndTime!
+    );
 
-  validateOrderTime(
-    new Date(payload.serviceStartDateTime),
-    new Date(payload.serviceEndDateTime),
-    vendor!.operationStartTime!,
-    vendor!.operationEndTime!
-  );
-
-  const vendorOrders = await Order.aggregate([
-    {
-      $project: {
-        orderId: 1,
-        status: 1,
-        serviceStartDateTime: 1,
-        serviceStartDate: {
-          $dateToString: { format: '%Y-%m-%d', date: '$serviceStartDateTime' },
-        },
-      },
-    },
-    {
-      $match: {
-        serviceStartDate: date,
-        status: 'accepted',
-      },
-    },
-  ]);
-
-  if (vendorOrders.length >= 10) {
+  const requestedDate = new Date(payload.deliveryDateAndTime);
+  const requestedDay = requestedDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+  });
+  if (!availableDays!.includes(requestedDay)) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Vendor already has 10 active orders for the day'
+      'Vendor is not available on the requested day'
     );
   }
 
-  const result = await Order.create(payload);
+  if (payload.isSetup) {
+    //calculate distance
+    const distance = calculateDistance(
+      [location.coordinates[0], location.coordinates[1]],
+      [
+        payload.deliveryLocation.coordinates[0],
+        payload.deliveryLocation.coordinates[1],
+      ]
+    );
+    const fee = (distance * Number(config.delivery_fee)).toFixed(2);
+    payload.deliveryFee = Number(fee);
+  }
+
+  const orderData = {
+    ...payload,
+    setupStartDateAndTime: payloadDeliveryDateAndTime,
+  };
+
+  const result = await Order.create(orderData);
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order');
   }
 
   const notificationData = {
     userId: vendorExist?._id,
-    title: `Order request from ${customerExist?.customer?.name}`,
+    title: `Order request from ${name}`,
     message: 'You have a new order request. Please check your order dashboard.',
     type: USER_ROLES.VENDOR,
   };
@@ -167,14 +169,59 @@ const createOrder = async (payload: IOrder) => {
   return result;
 };
 
-const getAllOrders = async () => {
-  const result = await Order.find({})
+const getAllOrders = async (
+  filters: IOrderFilterableFields,
+  paginationOptions: IPaginationOptions
+) => {
+  const { page, limit, skip, sortOrder, sortBy } =
+    paginationHelper.calculatePagination(paginationOptions);
+
+  const { searchTerm, ...filtersData } = filters;
+
+  const andConditions = [];
+
+  if (searchTerm) {
+    andConditions.push({
+      $or: orderSearchableFields.map(field => ({
+        [field]: {
+          $regex: searchTerm,
+          $options: 'i',
+        },
+      })),
+    });
+  }
+
+  if (Object.keys(filtersData).length) {
+    andConditions.push({
+      $and: Object.entries(filtersData).map(([field, value]) => ({
+        [field]: value,
+      })),
+    });
+  }
+
+  const whereConditions =
+    andConditions.length > 0 ? { $and: andConditions } : {};
+  const result = await Order.find(whereConditions)
     .populate('vendorId', { name: 1, email: 1, profileImg: 1, phone: 1 })
-    .populate('customerId', { name: 1, email: 1, profileImg: 1, phone: 1 });
+    .populate('customerId', { name: 1, email: 1, profileImg: 1, phone: 1 })
+    .skip(skip)
+    .sort({ [sortBy]: sortOrder })
+    .limit(limit);
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get orders');
   }
-  return result;
+
+  const total = await Order.countDocuments(whereConditions);
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+    },
+    data: result,
+  };
 };
 
 const getAllOrderByUserId = async (
@@ -300,10 +347,12 @@ const declineOrConfirmOrder = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
 
+  const { name } = customerExist?.customer as { name: string };
+
   const notificationData = {
     userId: vendorExist._id,
-    title: `Order ${payload?.status} by ${customerExist?.customer?.name}`,
-    message: `${customerExist?.customer?.name} has ${payload?.status} the order.`,
+    title: `Order ${payload?.status} by ${name}`,
+    message: `${name} has ${payload?.status} the order.`,
     type: USER_ROLES.VENDOR,
   };
 
@@ -346,21 +395,34 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
   }
 
+  const { name } = vendorExist.vendor as { name: string };
+
   const notificationData = {
     userId: customerExist._id,
-    title: `Order ${payload?.status} by ${vendorExist?.vendor?.name}`,
-    message: `Order request for ID:${orderExists?.orderId} is ${payload?.status} by ${vendorExist?.vendor?.name}.`,
+    title: `Order ${payload?.status} by ${name}`,
+    message: `Order request for ID:${orderExists?.orderId} is ${payload?.status} by ${name}.`,
     type: USER_ROLES.CUSTOMER,
   };
 
   if (payload.status === 'accepted') {
-    const conflictingOrder = await Order.findOne({
-      vendorId: orderExists.vendorId,
-      serviceStartDateTime: { $lt: orderExists.serviceEndDateTime },
-      serviceEndDateTime: { $gt: orderExists.serviceStartDateTime },
-      status: { $in: ['accepted', 'ongoing'] },
-      _id: { $ne: id },
-    });
+    let conflictingOrder;
+
+    if (orderExists.isSetup) {
+      conflictingOrder = await Order.findOne({
+        vendorId: orderExists.vendorId,
+        setupStartDateAndTime: { $lt: orderExists.deliveryDateAndTime },
+        deliveryDateAndTime: { $gt: orderExists.setupStartDateAndTime },
+        status: { $in: ['accepted', 'ongoing', 'on the way'] },
+        _id: { $ne: id },
+      });
+    } else {
+      conflictingOrder = await Order.findOne({
+        vendorId: orderExists.vendorId,
+        deliveryDateAndTime: orderExists.deliveryDateAndTime,
+        status: { $in: ['accepted', 'ongoing', 'on the way'] },
+        _id: { $ne: id },
+      });
+    }
 
     if (conflictingOrder) {
       throw new ApiError(

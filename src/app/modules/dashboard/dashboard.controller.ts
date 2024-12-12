@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import catchAsync from '../../shared/catchAsync';
-import { DashboardService } from './dashboard.service';
-import sendResponse from '../../shared/sendResponse';
-import pick from '../../shared/pick';
 import { orderFilterableFields } from './dashboard.constants';
 import { IRange } from './dashboard.interface';
+import catchAsync from '../../../shared/catchAsync';
+import { DashboardService } from './dashboard.service';
+import sendResponse from '../../../shared/sendResponse';
+import pick from '../../../shared/pick';
 
 const generalStatForAdminDashboard = catchAsync(
   async (req: Request, res: Response) => {
@@ -134,7 +134,8 @@ const getRevenue = catchAsync(async (req: Request, res: Response) => {
 
 const getYearlyActivityData = catchAsync(
   async (req: Request, res: Response) => {
-    const result = await DashboardService.getYearlyActivityData();
+    const { range } = req.query;
+    const result = await DashboardService.getYearlyActivityData(Number(range));
     sendResponse(res, {
       success: true,
       statusCode: 200,

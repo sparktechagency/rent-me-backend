@@ -6,6 +6,7 @@ import { JwtPayload } from 'jsonwebtoken';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
+import { USER_ROLES } from '../../../enums/user';
 
 const storeNotificationToDB = async (
   data: INotification
@@ -26,7 +27,15 @@ const getNotifications = async (
 ): Promise<IGenericResponse<INotification[]>> => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
-  const result = await Notification.find({ userId: user.id })
+
+  let query = {};
+  if (user.role === USER_ROLES.ADMIN) {
+    query = { type: user.role };
+  } else {
+    query = { userId: user.id };
+  }
+
+  const result = await Notification.find(query)
     .sort({ [sortBy]: sortOrder })
     .skip(skip)
     .limit(limit);

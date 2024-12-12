@@ -44,6 +44,13 @@ const loginUserFromDB = async (
     );
   }
 
+  if (isExistUser.status === 'restricted') {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Your account has been restricted for security reasons. Please contact admin.'
+    );
+  }
+
   //check match password
   if (
     password &&
@@ -58,10 +65,10 @@ const loginUserFromDB = async (
       id: isExistUser._id, //user collection id
       userCustomId: isExistUser.id, // user custom id
       userId:
-        isExistUser.role === 'CUSTOMER' || isExistUser.role === 'VENDOR'
-          ? isExistUser?.role === 'CUSTOMER'
-            ? isExistUser.customer
-            : isExistUser.vendor
+        isExistUser.role === 'CUSTOMER'
+          ? isExistUser.customer
+          : isExistUser.role === 'VENDOR'
+          ? isExistUser.vendor
           : isExistUser.admin,
       role: isExistUser.role,
       email: isExistUser.email,
@@ -75,10 +82,10 @@ const loginUserFromDB = async (
       id: isExistUser._id, //user collection id
       userCustomId: isExistUser.id, // user custom id
       userId:
-        isExistUser.role === 'CUSTOMER' || isExistUser.role === 'VENDOR'
-          ? isExistUser?.role === 'CUSTOMER'
-            ? isExistUser.customer
-            : isExistUser.vendor
+        isExistUser.role === 'CUSTOMER'
+          ? isExistUser.customer
+          : isExistUser.role === 'VENDOR'
+          ? isExistUser.vendor
           : isExistUser.admin,
       role: isExistUser.role,
       email: isExistUser.email,
@@ -101,7 +108,6 @@ const refreshToken = async (
       config.jwt.jwt_refresh_secret as Secret
     );
   } catch (error) {
-    console.log(error, 'EEEEEEEEEEEEEEE');
     // If the token verification fails, it might be expired or invalid
     if (error.name === 'TokenExpiredError') {
       throw new ApiError(StatusCodes.UNAUTHORIZED, 'Refresh Token has expired');
@@ -119,6 +125,12 @@ const refreshToken = async (
   const newAccessToken = jwtHelper.createToken(
     {
       id: isUserExist._id,
+      userId:
+        isUserExist.role === 'CUSTOMER'
+          ? isUserExist.customer
+          : isUserExist.role === 'VENDOR'
+          ? isUserExist.vendor
+          : isUserExist.admin,
       email: isUserExist.email,
       role: isUserExist.role,
       isSubscribe: isUserExist.isSubscribe,
@@ -159,19 +171,20 @@ const forgetPasswordToDB = async (email: string) => {
 //verify email
 const verifyEmailToDB = async (payload: IVerifyEmail) => {
   const { email, oneTimeCode } = payload;
+
   const isExistUser = await User.findOne({ email }).select('+authentication');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  if (!oneTimeCode) {
+  if (!Number(oneTimeCode)) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Please give the otp, check your email we send a code'
     );
   }
 
-  if (isExistUser.authentication?.oneTimeCode !== oneTimeCode) {
+  if (isExistUser.authentication?.oneTimeCode !== Number(oneTimeCode)) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'You provided wrong otp');
   }
 
@@ -189,7 +202,7 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
   if (!isExistUser.verified) {
     await User.findOneAndUpdate(
       { _id: isExistUser._id },
-      { verified: true, authentication: { oneTimeCode: null, expireAt: null } }
+      { verified: true, authentication: { Number: null, expireAt: null } }
     );
     message = 'Email verify successfully';
   } else {

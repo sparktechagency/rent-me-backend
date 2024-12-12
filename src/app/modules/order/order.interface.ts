@@ -19,31 +19,44 @@ export type IOrder = {
   status:
     | 'pending'
     | 'accepted'
-    | 'ongoing'
-    | 'rejected'
-    | 'completed'
     | 'confirmed'
-    | 'declined';
+    | 'rejected'
+    | 'declined'
+    | 'cancelled'
+    | 'on the way'
+    | 'ongoing'
+    | 'completed';
   preference: string;
   paymentId: Types.ObjectId;
-  paymentStatus: 'pending' | 'half' | 'full';
-  offeredAmount: number; //offer by customer
+  paymentStatus: 'pending' | 'done';
+  offeredAmount: number;
   isDeliveryDecline: boolean;
   isInstantTransfer: boolean;
   deliveryDeclineMessage: string;
   deliveryAddress: string;
   deliveryLocation: Point;
-
-  serviceStartDateTime: Date;
-  serviceEndDateTime: Date;
+  deliveryFee: number;
+  isSetup: boolean;
+  setupDuration: string;
+  setupStartDateAndTime: Date;
+  deliveryStartDateTime: Date;
+  deliveryDateAndTime: Date;
 };
 
 export type IOrderModel = Model<IOrder>;
 
-export type IOrderFilter = {
-  status?: 'pending' | 'accepted' | 'ongoing' | 'rejected' | 'completed';
+export type IOrderFilterableFields = {
+  searchTerm: string;
+  status:
+    | 'pending'
+    | 'accepted'
+    | 'confirmed'
+    | 'rejected'
+    | 'declined'
+    | 'cancelled'
+    | 'on the way'
+    | 'ongoing'
+    | 'completed';
   paymentStatus?: 'pending' | 'half' | 'full';
-  serviceStartDateTime?: string;
-  serviceEndDateTime?: string;
-  serviceDate?: string;
+  vendorId: string;
 };

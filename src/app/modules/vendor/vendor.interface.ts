@@ -92,7 +92,7 @@ export type IVendorFilterableFields = {
   maxOrderCompleted?: number;
   minReviews?: number;
   maxReviews?: number;
-
+  category?: string;
   // schedule
   serviceDate?: string;
   serviceTime?: string;

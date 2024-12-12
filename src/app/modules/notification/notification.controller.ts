@@ -22,6 +22,7 @@ const createNotification = catchAsync(async (req: Request, res: Response) => {
 
 const getNotifications = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
+
   const paginationOptions = pick(req.query, paginationFields);
   const result = await NotificationService.getNotifications(
     user,
