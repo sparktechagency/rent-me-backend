@@ -3,6 +3,7 @@ export const orderFilterableFields = [
   'status',
   'paymentStatus',
   'vendorId',
+  'serviceDate',
 ];
 
 export const orderSearchableFields = [

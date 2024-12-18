@@ -46,8 +46,8 @@ export type IOrder = {
 export type IOrderModel = Model<IOrder>;
 
 export type IOrderFilterableFields = {
-  searchTerm: string;
-  status:
+  searchTerm?: string;
+  status?:
     | 'pending'
     | 'accepted'
     | 'confirmed'
@@ -58,5 +58,6 @@ export type IOrderFilterableFields = {
     | 'ongoing'
     | 'completed';
   paymentStatus?: 'pending' | 'half' | 'full';
-  vendorId: string;
+  vendorId?: string;
+  serviceDate?: string;
 };

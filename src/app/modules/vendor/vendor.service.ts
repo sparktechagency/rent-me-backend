@@ -18,6 +18,7 @@ import { Service } from '../service/service.model';
 import { Order } from '../order/order.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
+import { parse } from 'date-fns';
 
 const updateVendorProfile = async (
   user: JwtPayload,
@@ -171,11 +172,16 @@ const getVendorProfile = async (user: JwtPayload) => {
 };
 
 const getSingleVendor = async (id: string) => {
-  const result = await Vendor.findOne({ id: id });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get vendor');
+  const [isUserExist, isVendorExist] = await Promise.all([
+    User.findOne({ vendor: id, status: 'active' }),
+    Vendor.findById(id),
+  ]);
+
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User account is not active!');
   }
-  return result;
+
+  return isVendorExist;
 };
 
 const deleteVendorProfile = async (user: JwtPayload) => {
@@ -270,22 +276,31 @@ const getAllVendor = async (
       { vendorId: 1 }
     ).distinct('vendorId');
 
-    const vendorIdsForCategory = servicesWithCategory.map(service => service);
-
     {
       andCondition.push({
-        _id: { $in: vendorIdsForCategory },
+        _id: { $in: servicesWithCategory },
       });
     }
   }
 
-  if (serviceDate && serviceTime) {
-    const busyVendorIds = await buildDateTimeFilter(serviceDate, serviceTime);
-    andCondition.push({
-      _id: { $nin: busyVendorIds },
-    });
-  }
+  if (serviceDate) {
+    const requestedDay = parse(
+      serviceDate,
+      'dd-MM-yyyy',
+      new Date()
+    ).toLocaleDateString('en-US', { weekday: 'long' });
 
+    andCondition.push({
+      availableDays: { $in: [requestedDay] },
+    });
+
+    if (serviceTime) {
+      const busyVendorIds = await buildDateTimeFilter(serviceDate, serviceTime);
+      andCondition.push({
+        _id: { $nin: busyVendorIds },
+      });
+    }
+  }
   // Budget range filtering based on service data
   if (minBudget !== undefined || maxBudget !== undefined) {
     const budgetVendorIds = await findVendorsByBudget(minBudget, maxBudget);
@@ -391,16 +406,16 @@ const getVendorRevenue = async (
         $match: {
           vendorId: new Types.ObjectId(user.userId),
           status: 'completed',
-          serviceStartDateTime: { $gte: startDate, $lte: endDate },
+          deliveryDateTime: { $gte: startDate, $lte: endDate },
         },
       },
       {
         $project: {
-          offeredAmount: 1,
+          amount: 1,
           intervalStart: {
             $floor: {
               $divide: [
-                { $subtract: ['$serviceStartDateTime', startDate] },
+                { $subtract: ['$deliveryDateTime', startDate] },
                 intervalMilliseconds,
               ],
             },
@@ -410,7 +425,7 @@ const getVendorRevenue = async (
       {
         $group: {
           _id: '$intervalStart',
-          totalRevenue: { $sum: '$offeredAmount' },
+          totalRevenue: { $sum: '$amount' },
         },
       },
     ]);

@@ -11,10 +11,10 @@ export const buildDateTimeFilter = async (
 ) => {
   const parsedDate = parse(serviceDate, 'dd-MM-yyyy', new Date());
   const [startTimeStr, endTimeStr] = serviceTime.split(' - ');
-
   const serviceStartDateTime = new Date(
     `${format(parsedDate, 'yyyy-MM-dd')}T${convertTo24Hour(startTimeStr)}:00Z`
   );
+
   const serviceEndDateTime = new Date(
     `${format(parsedDate, 'yyyy-MM-dd')}T${convertTo24Hour(endTimeStr)}:00Z`
   );
@@ -23,8 +23,8 @@ export const buildDateTimeFilter = async (
     status: 'accepted',
     $and: [
       {
-        serviceStartDateTime: { $lt: serviceEndDateTime },
-        serviceEndDateTime: { $gt: serviceStartDateTime },
+        setupStartDateAndTime: { $lt: serviceEndDateTime },
+        deliveryDateAndTime: { $gt: serviceStartDateTime },
       },
     ],
   }).distinct('vendorId');

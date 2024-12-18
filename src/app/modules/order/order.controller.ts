@@ -10,7 +10,7 @@ import { paginationFields } from '../../../types/pagination';
 const createOrder = catchAsync(async (req: Request, res: Response) => {
   const { ...orderData } = req.body;
   const { userId } = req.user;
-  orderData.customerId = userId; // assigning customer id to order
+  orderData.customerId = userId;
   const result = await OrderService.createOrder(orderData);
 
   sendResponse(res, {
@@ -24,7 +24,7 @@ const createOrder = catchAsync(async (req: Request, res: Response) => {
 const getAllOrders = catchAsync(async (req: Request, res: Response) => {
   const filterData = pick(req.query, orderFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
-  const result = await OrderService.getAllOrders(filterData, paginationFields);
+  const result = await OrderService.getAllOrders(filterData, paginationOptions);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -49,7 +49,12 @@ const getAllOrderByUserId = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
 
   const filterData = pick(req.query, ['status', 'serviceDate']);
-  const result = await OrderService.getAllOrderByUserId(user, filterData);
+  const paginationOptions = pick(req.query, paginationFields);
+  const result = await OrderService.getAllOrderByUserId(
+    user,
+    filterData,
+    paginationOptions
+  );
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

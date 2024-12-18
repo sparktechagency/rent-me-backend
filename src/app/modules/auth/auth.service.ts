@@ -28,6 +28,13 @@ const loginUserFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
+  if (isExistUser.status === 'restricted') {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Your account has been restricted for security reasons. Please contact admin.'
+    );
+  }
+
   //check verified and status
   if (!isExistUser.verified) {
     throw new ApiError(
@@ -41,13 +48,6 @@ const loginUserFromDB = async (
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'You don’t have permission to access this content.It looks like your account has been deactivated.'
-    );
-  }
-
-  if (isExistUser.status === 'restricted') {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Your account has been restricted for security reasons. Please contact admin.'
     );
   }
 
@@ -94,7 +94,7 @@ const loginUserFromDB = async (
     config.jwt.jwt_refresh_expire_in as string
   );
 
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, role: isExistUser.role };
 };
 
 const refreshToken = async (
@@ -108,7 +108,7 @@ const refreshToken = async (
       config.jwt.jwt_refresh_secret as Secret
     );
   } catch (error) {
-    // If the token verification fails, it might be expired or invalid
+    //@ts-expect-error don't know
     if (error.name === 'TokenExpiredError') {
       throw new ApiError(StatusCodes.UNAUTHORIZED, 'Refresh Token has expired');
     }

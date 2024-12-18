@@ -18,6 +18,7 @@ import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
 import StripeService from '../payment/payment.stripe';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import { JwtPayload } from 'jsonwebtoken';
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   const { ...user } = payload;
@@ -111,6 +112,7 @@ const createUserByRole = async (
       sendNotification('newVendor', USER_ROLES.ADMIN, {
         title: `${vendor[0].name} has created an account.`,
         message: 'Please take a look into the newly created vendor account.',
+        // @ts-expect-error _id exists
         userId: user._id as Types.ObjectId,
         type: USER_ROLES.ADMIN,
       });
@@ -139,8 +141,10 @@ const updateUser = async (
   return updateDoc;
 };
 
-const getUserProfileFromDB = async (id: string): Promise<Partial<IUser>> => {
-  const isExistUser = await User.findOne({ id: id })
+const getUserProfileFromDB = async (
+  user: JwtPayload
+): Promise<Partial<IUser>> => {
+  const isExistUser = await User.findById({ _id: user.id })
     .populate('admin')
     .populate('customer')
     .populate('vendor')
@@ -225,10 +229,33 @@ const deleteUser = async (id: string): Promise<IUser | null> => {
   return result;
 };
 
+const restrictOrActivateUserToDB = async (
+  id: string,
+  payload: 'restricted' | 'active'
+) => {
+  const isUserExist = await User.findById({ _id: id });
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User does not exist.');
+  }
+
+  const result = await User.findOneAndUpdate(
+    { _id: id },
+    { status: payload },
+    {
+      new: true,
+    }
+  );
+  if (!result) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update user');
+  }
+  return result;
+};
+
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,
   updateUser,
   getAllUser,
   deleteUser,
+  restrictOrActivateUserToDB,
 };

@@ -20,8 +20,8 @@ const createUser = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getUserProfile = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const result = await UserService.getUserProfileFromDB(id);
+  const user = req.user;
+  const result = await UserService.getUserProfileFromDB(user);
 
   sendResponse(res, {
     success: true,
@@ -68,10 +68,25 @@ const deleteUser = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const restrictOrActivateUser = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const result = await UserService.restrictOrActivateUserToDB(id, status);
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'User restricted successfully',
+      data: result,
+    });
+  }
+);
+
 export const UserController = {
   createUser,
   getUserProfile,
   updateUser,
   getAllUser,
   deleteUser,
+  restrictOrActivateUser,
 };

@@ -112,6 +112,23 @@ const createOrder = async (payload: IOrder) => {
     );
   }
 
+  // Check if customer already has an order for this vendor during the requested time slot
+  const customerExistingOrder = await Order.findOne({
+    customerId: payload.customerId,
+    vendorId: payload.vendorId,
+    status: {
+      $in: ['pending', 'accepted', 'ongoing', 'confirmed', 'on the way'],
+    },
+    $and: query.length > 0 ? query : [{}],
+  });
+
+  if (customerExistingOrder) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You have already placed an order with this vendor during this time slot.'
+    );
+  }
+
   !payload.isSetup &&
     validateOrderTime(
       payloadDeliveryDateAndTime,
@@ -226,9 +243,12 @@ const getAllOrders = async (
 
 const getAllOrderByUserId = async (
   user: JwtPayload,
-  filters: Partial<IOrderFilter>
+  filters: Partial<IOrderFilterableFields>,
+  paginationOptions: IPaginationOptions
 ) => {
   const { serviceDate, ...filterData } = filters;
+  const { page, limit, skip, sortOrder, sortBy } =
+    paginationHelper.calculatePagination(paginationOptions);
 
   const andCondition = [];
 
@@ -251,10 +271,10 @@ const getAllOrderByUserId = async (
       andCondition.push({
         $or: [
           {
-            serviceStartDateTime: { $gte: startOfDay, $lt: endOfDay },
+            setupStartDateAndTime: { $gte: startOfDay, $lt: endOfDay },
           },
           {
-            serviceEndDateTime: { $gte: startOfDay, $lt: endOfDay },
+            deliveryDateAndTime: { $gte: startOfDay, $lt: endOfDay },
           },
         ],
       });
@@ -275,12 +295,25 @@ const getAllOrderByUserId = async (
     .populate('serviceId', { title: 1, price: 1 })
     .populate('paymentId')
     .populate('customerId', { name: 1, email: 1, phone: 1, address: 1 })
+    .skip(skip)
+    .sort({ [sortBy]: sortOrder })
+    .limit(limit)
     .lean();
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get orders');
   }
-  return result;
+
+  const total = await Order.countDocuments(whereConditions);
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+    },
+    data: result,
+  };
 };
 
 const getSingleOrder = async (id: string) => {

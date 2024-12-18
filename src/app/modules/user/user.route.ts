@@ -8,7 +8,7 @@ const router = express.Router();
 
 //get user profile
 router.get(
-  '/profile/:id',
+  '/profile/',
   auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
   UserController.getUserProfile
 );
@@ -26,6 +26,12 @@ router.patch(
   auth(USER_ROLES.ADMIN),
   validateRequest(UserValidation.updateUserZodSchema),
   UserController.updateUser
+);
+
+router.patch(
+  '/manage-user/:id',
+  auth(USER_ROLES.ADMIN),
+  UserController.restrictOrActivateUser
 );
 
 router.delete('/delete/:id', auth(USER_ROLES.ADMIN), UserController.deleteUser);
