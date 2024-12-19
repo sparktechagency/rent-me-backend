@@ -22,17 +22,13 @@ const addBanner = async (payload: IBanner, user: JwtPayload) => {
 
 const getBanners = async (): Promise<IBanner[] | null> => {
   const result = await Banner.find().sort({ createdAt: -1 });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get banner');
-  }
+
   return result;
 };
 
 const getSingleBanner = async (id: string): Promise<IBanner | null> => {
   const result = await Banner.findById(id);
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get banner');
-  }
+
   return result;
 };
 
@@ -107,9 +103,7 @@ const getPrivacyPolicy = async (
   type: string
 ): Promise<IPrivacyPolicy | null> => {
   const result = await PrivacyPolicy.findOne({ userType: type });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get privacy policy');
-  }
+
   return result;
 };
 
@@ -117,21 +111,14 @@ const getTermsAndConditions = async (
   type: string
 ): Promise<ITermsAndConditions | null> => {
   const result = await TermsAndCondition.findOne({ userType: type });
-  if (!result) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Failed to get terms and conditions'
-    );
-  }
+
   return result;
 };
 
-const getFaQs = async (type: string): Promise<IFaQs | null> => {
+const getFaQs = async (type: string) => {
   const result = await FaQs.findOne({ userType: type });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get FaQs');
-  }
-  return result;
+
+  return result || {};
 };
 
 const deletePrivacyPolicy = async (id: string) => {

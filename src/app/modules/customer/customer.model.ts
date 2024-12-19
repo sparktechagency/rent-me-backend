@@ -38,6 +38,7 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
     deliveryOption: {
       type: String,
       enum: ['Leave at the front door', 'Call upon arrival'],
+      default: 'Call upon arrival',
     },
     receivePromotionalNotification: {
       type: Boolean,

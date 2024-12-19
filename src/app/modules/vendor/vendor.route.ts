@@ -31,7 +31,6 @@ router.patch(
   VendorController.getBusinessInformationFromVendor
 );
 
-//get single vendor by custom Id
 router.get(
   '/profile',
   auth(USER_ROLES.VENDOR),
@@ -46,10 +45,18 @@ router.delete(
 );
 
 //get vendor profile by custom id
-router.get('/:id', VendorController.getSingleVendor);
+router.get(
+  '/:id',
+  auth(USER_ROLES.VENDOR, USER_ROLES.ADMIN, USER_ROLES.CUSTOMER),
+  VendorController.getSingleVendor
+);
 
 //get all vendor for home page search and filter
-router.get('/', VendorController.getAllVendor);
+router.get(
+  '/',
+  auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  VendorController.getAllVendor
+);
 
 router.get(
   '/statistic/revenue/',

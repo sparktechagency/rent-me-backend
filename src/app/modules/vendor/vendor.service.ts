@@ -19,6 +19,9 @@ import { Order } from '../order/order.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { parse } from 'date-fns';
+import { calculateDistance } from '../order/order.utils';
+import { Bookmark } from '../bookmark/bookmark.model';
+import { Customer } from '../customer/customer.model';
 
 const updateVendorProfile = async (
   user: JwtPayload,
@@ -225,7 +228,8 @@ const deleteVendorProfile = async (user: JwtPayload) => {
 
 const getAllVendor = async (
   filters: IVendorFilterableFields,
-  paginationOptions: IPaginationOptions
+  paginationOptions: IPaginationOptions,
+  user: JwtPayload
 ) => {
   const {
     searchTerm,
@@ -332,7 +336,7 @@ const getAllVendor = async (
       location: {
         $geoWithin: {
           $centerSphere: [
-            [Number(customerLat), Number(customerLng)], // [lng, lat] format for GeoJSON
+            [Number(customerLng), Number(customerLat)], // [lng, lat] format for GeoJSON
             radius / 6378.1, // Radius in radians (6378.1 is Earth's radius in kilometers)
           ],
         },
@@ -340,7 +344,7 @@ const getAllVendor = async (
     });
   }
 
-  const sortConditions: { [key: string]: SortOrder } = {};
+  const sortConditions = {};
   if (sortBy && sortOrder) {
     sortConditions[sortBy] = sortOrder;
   }
@@ -353,6 +357,21 @@ const getAllVendor = async (
   ).lean();
 
   const activeVendorIds = activeUserVendors.map(user => user.vendor);
+
+  // Get requested customer from the customer collection
+  const requestedCustomer = await Customer.findById(user.userId);
+
+  if (!requestedCustomer) {
+    throw new Error('Customer not found');
+  }
+
+  const { location: customerLocation } = requestedCustomer;
+
+  // Get bookmarked vendors for the requested customer
+  const bookmarkedVendorIds = await Bookmark.find(
+    { customerId: requestedCustomer._id },
+    'vendorId'
+  ).distinct('vendorId');
 
   const vendors = await Vendor.find(
     {
@@ -367,14 +386,28 @@ const getAllVendor = async (
       totalReviews: 1,
       orderCompleted: 1,
       isAvailable: 1,
-      contact: 1,
-      address: 1,
+      profileImg: 1,
+      location: 1,
     }
   )
     .sort(sortConditions) // Apply sorting
     .skip(skip)
     .limit(limit)
     .lean();
+
+  // Calculate distance and check bookmarks for each vendor
+  const enrichedVendors = vendors.map(vendor => {
+    const distance = calculateDistance(
+      [customerLocation.coordinates[1], customerLocation.coordinates[0]],
+      [vendor.location.coordinates[1], vendor.location.coordinates[0]]
+    );
+
+    return {
+      ...vendor,
+      distance,
+      isBookmarked: bookmarkedVendorIds.includes(vendor._id),
+    };
+  });
 
   const total = await Vendor.countDocuments({
     ...whereConditions,
@@ -389,7 +422,7 @@ const getAllVendor = async (
       totalPage: Math.ceil(total / limit),
       total: total,
     },
-    data: vendors,
+    data: enrichedVendors,
   };
 };
 

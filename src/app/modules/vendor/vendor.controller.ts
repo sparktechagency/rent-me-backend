@@ -89,7 +89,12 @@ const deleteVendorProfile = catchAsync(async (req: Request, res: Response) => {
 const getAllVendor = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, vendorFilterableFields);
   const paginationOptions = pick(req.query, paginationFields);
-  const result = await VendorService.getAllVendor(filters, paginationOptions);
+  const user = req.user;
+  const result = await VendorService.getAllVendor(
+    filters,
+    paginationOptions,
+    user
+  );
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

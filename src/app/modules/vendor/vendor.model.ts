@@ -153,7 +153,9 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
     signature: {
       type: String,
     },
-
+    digitalSignature: {
+      type: String,
+    },
     location: {
       type: { type: String, default: 'Point', enum: ['Point'] },
       coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided

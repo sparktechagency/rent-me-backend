@@ -70,6 +70,7 @@ export type IVendor = {
 
   signatureType?: 'Typed' | 'Digital';
   signature?: string;
+  digitalSignature?: string;
 };
 
 export type VendorModel = Model<IVendor>;
