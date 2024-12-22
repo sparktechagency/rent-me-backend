@@ -5,7 +5,7 @@ import { IVendor, IVendorFilterableFields } from './vendor.interface';
 import { JwtPayload } from 'jsonwebtoken';
 import { User } from '../user/user.model';
 import { userSearchableFields } from '../user/user.constants';
-import { SortOrder, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import {
   buildDateTimeFilter,
   buildRangeFilter,

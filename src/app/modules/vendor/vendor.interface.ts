@@ -44,7 +44,7 @@ export type IVendor = {
   isAvailable?: boolean; // order < 10 ? true : false
 
   //business information
-
+  businessProfile: string;
   businessTitle?: string;
   businessType?: IBusinessType;
   businessAddress?: IAddress;

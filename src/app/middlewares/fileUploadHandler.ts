@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request } from 'express';
 import fs from 'fs';
 import { StatusCodes } from 'http-status-codes';
@@ -6,21 +7,21 @@ import path from 'path';
 import ApiError from '../../errors/ApiError';
 
 const fileUploadHandler = () => {
-  //create upload folder
+  // Create upload folder
   // eslint-disable-next-line no-undef
   const baseUploadDir = path.join(process.cwd(), 'uploads');
   if (!fs.existsSync(baseUploadDir)) {
     fs.mkdirSync(baseUploadDir);
   }
 
-  //folder create for different file
+  // Create directory for specific fields
   const createDir = (dirPath: string) => {
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath);
     }
   };
 
-  //create filename
+  // Configure storage
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
       let uploadDir;
@@ -33,6 +34,15 @@ const fileUploadHandler = () => {
           break;
         case 'doc':
           uploadDir = path.join(baseUploadDir, 'docs');
+          break;
+        case 'license':
+          uploadDir = path.join(baseUploadDir, 'images');
+          break;
+        case 'signature':
+          uploadDir = path.join(baseUploadDir, 'images');
+          break;
+        case 'businessProfile':
+          uploadDir = path.join(baseUploadDir, 'images');
           break;
         default:
           throw new ApiError(StatusCodes.BAD_REQUEST, 'File is not supported');
@@ -54,9 +64,13 @@ const fileUploadHandler = () => {
     },
   });
 
-  //file filter
+  // File filter
   const filterFilter = (req: Request, file: any, cb: FileFilterCallback) => {
-    if (file.fieldname === 'image') {
+    if (
+      ['image', 'license', 'signature', 'businessProfile'].includes(
+        file.fieldname
+      )
+    ) {
       if (
         file.mimetype === 'image/jpeg' ||
         file.mimetype === 'image/png' ||
@@ -93,6 +107,7 @@ const fileUploadHandler = () => {
     }
   };
 
+  // Configure multer
   const upload = multer({
     storage: storage,
     fileFilter: filterFilter,
@@ -100,6 +115,9 @@ const fileUploadHandler = () => {
     { name: 'image', maxCount: 3 },
     { name: 'media', maxCount: 3 },
     { name: 'doc', maxCount: 3 },
+    { name: 'license', maxCount: 1 },
+    { name: 'signature', maxCount: 1 },
+    { name: 'businessProfile', maxCount: 1 },
   ]);
   return upload;
 };

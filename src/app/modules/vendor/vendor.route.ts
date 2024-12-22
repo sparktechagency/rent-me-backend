@@ -4,7 +4,6 @@ import { USER_ROLES } from '../../../enums/user';
 import { VendorController } from './vendor.controller';
 import { VendorValidation } from './vendor.validation';
 import fileUploadHandler from '../../middlewares/fileUploadHandler';
-import validateRequest from '../../middlewares/validateRequest';
 
 const router = express.Router();
 
@@ -27,8 +26,16 @@ router.patch(
 router.patch(
   '/business-information',
   auth(USER_ROLES.VENDOR),
-  validateRequest(VendorValidation.getBusinessInformationFromVendor),
-  VendorController.getBusinessInformationFromVendor
+  fileUploadHandler(),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.data) {
+      req.body = VendorValidation.getBusinessInformationFromVendor.parse(
+        JSON.parse(req.body.data)
+      );
+    }
+
+    return VendorController.getBusinessInformationFromVendor(req, res, next);
+  }
 );
 
 router.get(

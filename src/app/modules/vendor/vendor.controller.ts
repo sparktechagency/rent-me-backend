@@ -8,6 +8,7 @@ import { VendorService } from './vendor.service';
 import { Request, Response } from 'express';
 import { vendorFilterableFields } from './vendor.constants';
 import pick from '../../../shared/pick';
+import { Express } from 'express';
 
 const updateVendorProfile = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -35,7 +36,27 @@ const updateVendorProfile = catchAsync(async (req: Request, res: Response) => {
 const getBusinessInformationFromVendor = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
-    const { ...vendorData } = req.body;
+    const vendorData = { ...req.body };
+
+    // Define the expected structure of req.files
+    type UploadedFiles = {
+      [fieldname: string]: Express.Multer.File[];
+    };
+
+    const files = req.files as UploadedFiles;
+
+    // Map field names to corresponding keys in vendorData
+    const fileMappings: { [key: string]: string } = {
+      businessProfile: 'businessProfile',
+      license: 'license',
+      signature: 'digitalSignature',
+    };
+
+    Object.entries(fileMappings).forEach(([field, key]) => {
+      if (files && files[field] && files[field][0]) {
+        vendorData[key] = `/images/${files[field][0].filename}`;
+      }
+    });
 
     const result = await VendorService.getBusinessInformationFromVendor(
       user,
