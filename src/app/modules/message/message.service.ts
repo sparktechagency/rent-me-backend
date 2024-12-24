@@ -8,16 +8,17 @@ import ApiError from '../../../errors/ApiError';
 import { Chat } from '../chat/chat.model';
 import { Types } from 'mongoose';
 import { Message } from './message.model';
+import { IPaginationOptions } from '../../../types/pagination';
+import { paginationHelper } from '../../../helpers/paginationHelper';
 
 const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   const senderId = new Types.ObjectId(user.id);
 
-  // Find chat and receiver in parallel
   const [chat, receiver] = await Promise.all([
     Chat.findById(payload.chatId),
     User.findOne({
       [user.role === USER_ROLES.CUSTOMER ? 'vendor' : 'customer']:
-        payload.receiverId,
+        payload.receiver,
     }),
   ]);
 
@@ -32,8 +33,8 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   }
 
   // Determine message type
-  payload.senderId = senderId;
-  payload.receiverId = receiver._id;
+  payload.sender = senderId;
+  payload.receiver = receiver._id;
   payload.type =
     payload.image && payload.message
       ? 'both'
@@ -47,47 +48,86 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to send message.');
   }
 
-  const populatedResult = await (
-    await result.populate('senderId', { name: 1, email: 1 })
-  ).populate('receiverId', { name: 1, email: 1 });
+  // Populate the message with sender and receiver details
+  const populatedResult = await Message.findById(result._id)
+    .populate({
+      path: 'sender',
+      select: { name: 1 },
 
+      populate: {
+        path: 'customer vendor',
+        select: { name: 1, profileImg: 1 },
+      },
+    })
+    .populate({
+      path: 'receiver',
+      select: { name: 1 },
+
+      populate: {
+        path: 'customer vendor',
+        select: { name: 1, profileImg: 1 },
+      },
+    });
+
+  // Update the chat with latest message details
+  const chatUpdate = await Chat.findOneAndUpdate(
+    { _id: payload.chatId },
+    { latestMessage: result._id, latestMessageTime: new Date() },
+    { new: true }
+  );
+  // Emit message to socket
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   global.io?.emit(`messageReceived::${payload.chatId}`, populatedResult);
 
-  // Update the chat with latest message details
-  await Chat.findByIdAndUpdate(
-    payload.chatId,
-    { latestMessage: result._id, latestMessageTime: new Date() },
-    { new: true }
-  );
+  if (!chatUpdate) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update chat.');
+  }
 
   return populatedResult;
 };
 
-const getMessagesByChatId = async (chatId: string) => {
+const getMessagesByChatId = async (
+  chatId: string,
+  paginationOptions: IPaginationOptions
+) => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOptions);
   const result = await Message.find({ chatId })
     .populate({
-      path: 'senderId',
-      select: 'email',
+      path: 'sender',
+      select: { name: 1 },
       populate: {
         path: 'customer vendor',
-        select: 'name',
+        select: { name: 1, profileImg: 1 },
       },
     })
     .populate({
-      path: 'receiverId',
-      select: 'email',
+      path: 'receiver',
+      select: { name: 1 },
+
       populate: {
         path: 'customer vendor',
-        select: 'name',
+        select: { name: 1, profileImg: 1 },
       },
-    });
+    })
+    .sort({ [sortBy]: sortOrder })
+    .skip(skip)
+    .limit(limit);
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get messages.');
   }
-  return result;
+  const total = await Message.countDocuments({ chatId });
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data: result,
+  };
 };
 
 export const MessageService = {

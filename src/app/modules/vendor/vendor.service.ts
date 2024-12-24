@@ -520,7 +520,7 @@ const getVendorOrders = async (
 
 //customer Retention
 
-export const getCustomerRetentionData = async (
+export const getOrderRetentionByVendor = async (
   user: JwtPayload,
   range: string | '1' = '1' // Default to 1 month
 ): Promise<
@@ -539,6 +539,7 @@ export const getCustomerRetentionData = async (
     startDate.setMonth(endDate.getMonth() - months);
 
     const intervalDays = (months * 30) / 10;
+    console.log(intervalDays);
     const intervalMilliseconds = intervalDays * 24 * 60 * 60 * 1000;
     const totalIntervals = Math.floor(
       (endDate.getTime() - startDate.getTime()) / intervalMilliseconds
@@ -667,6 +668,6 @@ export const VendorService = {
   getAllVendor,
   getVendorRevenue,
   getVendorOrders,
-  getCustomerRetentionData,
+  getOrderRetentionByVendor,
   getBusinessInformationFromVendor,
 };

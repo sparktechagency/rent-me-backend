@@ -3,14 +3,18 @@ import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
 import { MessageService } from './message.service';
+import { paginationFields } from '../../../types/pagination';
+import pick from '../../../shared/pick';
 
 const sendMessage = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
   const { ...messageData } = req.body;
 
-  let image;
-  if (req.files && 'image' in req.files && req.files.image[0]) {
-    image = `/images/${req.files.image[0].filename}`;
+  const image: string[] = [];
+  if (req.files && 'image' in req.files && req.files.image) {
+    req.files.image.forEach(file => {
+      image.push(`/images/${file.filename}`);
+    });
   }
   messageData.image = image;
 
@@ -26,7 +30,11 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
 
 const getMessagesByChatId = catchAsync(async (req: Request, res: Response) => {
   const { chatId } = req.params;
-  const result = await MessageService.getMessagesByChatId(chatId);
+  const paginationOptions = pick(req.query, paginationFields);
+  const result = await MessageService.getMessagesByChatId(
+    chatId,
+    paginationOptions
+  );
 
   sendResponse(res, {
     success: true,

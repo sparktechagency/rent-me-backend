@@ -157,7 +157,7 @@ const getCustomerRetentionData = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user;
     const { range } = req.query as { range: string };
-    const result = await VendorService.getCustomerRetentionData(user, range);
+    const result = await VendorService.getOrderRetentionByVendor(user, range);
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
