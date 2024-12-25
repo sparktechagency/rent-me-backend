@@ -51,8 +51,9 @@ export function calculateDistance(
 
   const [lon1, lat1] = coords1; // [longitude, latitude]
   const [lon2, lat2] = coords2;
+  //convert km to miles
+  const R = 3959; // Radius of the Earth in miles
 
-  const R = 6371; // Radius of the Earth in kilometers
   const dLat = toRadians(lat2 - lat1);
   const dLon = toRadians(lon2 - lon1);
 
@@ -68,36 +69,6 @@ export function calculateDistance(
 
   return Number(distance.toFixed(2));
 }
-
-// export const validateOrderTime = (
-//   serviceStartDateTime: Date,
-//   serviceEndDateTime: Date,
-//   vendorOperationStart: string,
-//   vendorOperationEnd: string
-// ) => {
-//   const serviceStartUTC = new Date(serviceStartDateTime.toISOString());
-//   const serviceEndUTC = new Date(serviceEndDateTime.toISOString());
-
-//   const { hour: startHour, minute: startMinute } =
-//     convertTo24Hour(vendorOperationStart);
-//   const { hour: endHour, minute: endMinute } =
-//     convertTo24Hour(vendorOperationEnd);
-
-//   const operationStart = new Date(serviceStartUTC);
-//   const operationEnd = new Date(serviceStartUTC);
-
-//   // Set vendor's operation hours in UTC
-//   operationStart.setUTCHours(startHour, startMinute, 0, 0);
-//   operationEnd.setUTCHours(endHour, endMinute, 0, 0);
-
-//   // Validate that the order time falls within the vendor's operation time
-//   if (serviceStartUTC < operationStart || serviceEndUTC > operationEnd) {
-//     throw new ApiError(
-//       StatusCodes.BAD_REQUEST,
-//       `Order time must be between ${vendorOperationStart} and ${vendorOperationEnd}`
-//     );
-//   }
-// };
 
 export const validateOrderTime = (
   serviceEndDateTime: Date,
@@ -130,56 +101,6 @@ export const validateOrderTime = (
   }
 };
 
-// export const validateSetupTime = async (
-//   setupStartTime: Date,
-//   setupEndTime: Date,
-//   vendorId: Types.ObjectId,
-//   operationStartTime: string,
-//   operationEndTime: string
-// ) => {
-//   // Validate operation hours for each day in the setup duration
-//   const currentTime = setupStartTime;
-
-//   while (currentTime < setupEndTime) {
-//     const { hour: startHour, minute: startMinute } =
-//       convertTo24Hour(operationStartTime);
-//     const { hour: endHour, minute: endMinute } =
-//       convertTo24Hour(operationEndTime);
-
-//     // Set operation hours for the current day
-//     const operationStart = new Date(currentTime);
-//     const operationEnd = new Date(currentTime);
-
-//     operationStart.setUTCHours(startHour, startMinute, 0, 0);
-//     operationEnd.setUTCHours(endHour, endMinute, 0, 0);
-
-//     // Check if the vendor is available during this time
-//     if (setupStartTime < operationStart || setupEndTime > operationEnd) {
-//       throw new ApiError(
-//         StatusCodes.BAD_REQUEST,
-//         `Vendor is not available during the requested setup time.`
-//       );
-//     }
-
-//     // Check if vendor is already busy on this day
-//     const conflictingOrder = await Order.findOne({
-//       vendorId: vendorId,
-//       status: { $in: ['accepted', 'ongoing', 'confirmed', 'on the way'] },
-//       deliveryDate: { $gte: operationStart, $lte: operationEnd },
-//     });
-
-//     if (conflictingOrder) {
-//       throw new ApiError(
-//         StatusCodes.BAD_REQUEST,
-//         `The vendor is already busy during the requested setup time.`
-//       );
-//     }
-
-//     // Move to the next day for multi-day setups
-//     currentTime.setDate(currentTime.getDate() + 1);
-//   }
-// };
-
 export const parseDuration = (duration: string): number => {
   const timeUnits: { [key: string]: number } = {
     min: 60 * 1000, // minute in milliseconds
@@ -199,4 +120,72 @@ export const parseDuration = (duration: string): number => {
   const unit = match[2] as keyof typeof timeUnits; // Cast `unit` to a valid key of `timeUnits`
 
   return value * timeUnits[unit];
+};
+
+export const getDuration = (duration: string): number => {
+  const timeUnits: { [key: string]: number } = {
+    min: 60 * 1000, // minute in milliseconds
+    hr: 60 * 60 * 1000, // hour in milliseconds
+    d: 24 * 60 * 60 * 1000, // day in milliseconds
+  };
+
+  // Match the original format (e.g., '5min', '2hr', '1d')
+  const simpleMatch = duration.match(/^(\d+)(min|hr|d)$/);
+  if (simpleMatch) {
+    const value = parseInt(simpleMatch[1], 10);
+    const unit = simpleMatch[2] as keyof typeof timeUnits;
+    return value * timeUnits[unit];
+  }
+
+  // Match the 'dd:hh:mm' format
+  const complexMatch = duration.match(/^(\d+):(\d+):(\d+)$/);
+  if (complexMatch) {
+    const days = parseInt(complexMatch[1], 10);
+    const hours = parseInt(complexMatch[2], 10);
+    const minutes = parseInt(complexMatch[3], 10);
+
+    if (hours < 0 || hours > 23) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Hours must be between 0 and 23.'
+      );
+    }
+    if (minutes < 0 || minutes > 59) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Minutes must be between 0 and 59.'
+      );
+    }
+
+    return (
+      days * timeUnits['d'] +
+      hours * timeUnits['hr'] +
+      minutes * timeUnits['min']
+    );
+  }
+
+  // Match the 'hh:mm' format
+  const hourMinuteMatch = duration.match(/^(\d+):(\d+)$/);
+  if (hourMinuteMatch) {
+    const hours = parseInt(hourMinuteMatch[1], 10);
+    const minutes = parseInt(hourMinuteMatch[2], 10);
+
+    if (hours < 0 || hours > 23) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Hours must be between 0 and 23.'
+      );
+    }
+    if (minutes < 0 || minutes > 59) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Minutes must be between 0 and 59.'
+      );
+    }
+
+    return hours * timeUnits['hr'] + minutes * timeUnits['min'];
+  }
+
+  // If neither pattern matches, throw an error
+  throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid setup duration format.');
 };

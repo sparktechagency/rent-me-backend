@@ -1,4 +1,4 @@
-import { validateOrderTime } from './order.utils';
+import { getDuration, validateOrderTime } from './order.utils';
 /* eslint-disable no-unused-expressions */
 /* eslint-disable no-undef */
 
@@ -24,39 +24,48 @@ import config from '../../../config';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IPaginationOptions } from '../../../types/pagination';
 import { orderSearchableFields } from './order.constant';
+import { Vendor } from '../vendor/vendor.model';
+import { Package } from '../package/package.model';
 
 const createOrder = async (payload: IOrder) => {
+  // Generate a custom order ID
   const orderId = await generateCustomOrderId();
   payload.orderId = orderId;
 
-  let payloadSetupStartDateAndTime;
-  if (payload.isSetup) {
-    const setupDurationMs = payload.isSetup
-      ? parseDuration(payload.setupDuration)
-      : 0;
+  let setupStartDateAndTime: Date | undefined;
 
+  // Handle setup duration and compute start time
+  if (payload.isSetup) {
+    const setupDurationMs = getDuration(payload.setupDuration);
     const deliveryDate = new Date(payload.deliveryDateAndTime);
-    payloadSetupStartDateAndTime = new Date(
-      deliveryDate.getTime() - setupDurationMs
-    );
+
+    if (isNaN(setupDurationMs) || isNaN(deliveryDate.getTime())) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Invalid setup duration or delivery date.'
+      );
+    }
+
+    setupStartDateAndTime = new Date(deliveryDate.getTime() - setupDurationMs);
   }
 
-  const payloadDeliveryDateAndTime = new Date(payload.deliveryDateAndTime);
-
+  const deliveryDateAndTime = new Date(payload.deliveryDateAndTime);
   const currentDate = new Date();
 
-  //past order prevent
-  if (payloadDeliveryDateAndTime < currentDate) {
+  // Prevent orders in the past
+  if (deliveryDateAndTime < currentDate) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Cannot create an order for a past time'
+      'Cannot create an order for a past time.'
     );
   }
 
-  const [vendorExist, customerExist] = await Promise.all([
+  // Fetch vendor, customer, and package details
+  const [vendorExist, customerExist, packageExist] = await Promise.all([
     User.findOne({ vendor: payload.vendorId, status: 'active' }).populate(
       'vendor',
       {
+        name: 1,
         availableDays: 1,
         operationStartTime: 1,
         operationEndTime: 1,
@@ -65,44 +74,46 @@ const createOrder = async (payload: IOrder) => {
     ),
     User.findOne({ customer: payload.customerId, status: 'active' }).populate(
       'customer',
-      { name: 1, location: 1 }
+      {
+        name: 1,
+        location: 1,
+      }
     ),
+    Package.findById(payload.packageId, { setupFee: 1, setupDuration: 1 }),
   ]);
 
-  if (!vendorExist) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor does not exist');
-  }
-
-  if (!customerExist) {
+  if (!vendorExist)
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor does not exist.');
+  if (!customerExist)
     throw new ApiError(
       StatusCodes.NOT_FOUND,
-      'You are not allowed to create order'
+      'You are not allowed to create an order.'
     );
-  }
+  if (!packageExist)
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Package does not exist.');
 
   const { availableDays, operationStartTime, operationEndTime, location } =
-    vendorExist.vendor! as IVendor;
+    vendorExist.vendor as IVendor;
 
-  const { name } = customerExist!.customer! as ICustomer;
-
-  const query = [];
-
-  if (payload.isSetup) {
-    query.push({
-      setupStartDateAndTime: { $lt: payloadDeliveryDateAndTime },
-      deliveryDateAndTime: { $gt: payloadSetupStartDateAndTime },
-    });
-  } else {
-    query.push({
-      setupStartDateAndTime: { $lt: payloadDeliveryDateAndTime },
-      deliveryDateAndTime: { $gt: payloadDeliveryDateAndTime },
-    });
-  }
+  // Check for conflicting orders
+  const query = payload.isSetup
+    ? [
+        {
+          setupStartDateAndTime: { $lt: deliveryDateAndTime },
+          deliveryDateAndTime: { $gt: setupStartDateAndTime },
+        },
+      ]
+    : [
+        {
+          setupStartDateAndTime: { $lt: deliveryDateAndTime },
+          deliveryDateAndTime: { $gt: deliveryDateAndTime },
+        },
+      ];
 
   const existingOrder = await Order.findOne({
     vendorId: payload.vendorId,
-    status: { $in: ['accepted', 'ongoing', 'confirmed', 'on the way'] },
-    $and: query.length > 0 ? query : [{}],
+    status: { $in: ['accepted', 'ongoing', 'confirmed', 'started'] },
+    $and: query,
   });
 
   if (existingOrder) {
@@ -112,14 +123,12 @@ const createOrder = async (payload: IOrder) => {
     );
   }
 
-  // Check if customer already has an order for this vendor during the requested time slot
+  // Check for customer's conflicting orders
   const customerExistingOrder = await Order.findOne({
     customerId: payload.customerId,
     vendorId: payload.vendorId,
-    status: {
-      $in: ['pending', 'accepted', 'ongoing', 'confirmed', 'on the way'],
-    },
-    $and: query.length > 0 ? query : [{}],
+    status: { $in: ['pending', 'accepted', 'ongoing', 'started'] },
+    $and: query,
   });
 
   if (customerExistingOrder) {
@@ -129,26 +138,28 @@ const createOrder = async (payload: IOrder) => {
     );
   }
 
-  !payload.isSetup &&
+  // Validate operation time
+  if (!payload.isSetup) {
     validateOrderTime(
-      payloadDeliveryDateAndTime,
+      deliveryDateAndTime,
       operationStartTime!,
       operationEndTime!
     );
+  }
 
-  const requestedDate = new Date(payload.deliveryDateAndTime);
-  const requestedDay = requestedDate.toLocaleDateString('en-US', {
+  // Check vendor's available days
+  const requestedDay = deliveryDateAndTime.toLocaleDateString('en-US', {
     weekday: 'long',
   });
   if (!availableDays!.includes(requestedDay)) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Vendor is not available on the requested day'
+      'Vendor is not available on the requested day.'
     );
   }
 
+  // Calculate fees if setup is included
   if (payload.isSetup) {
-    //calculate distance
     const distance = calculateDistance(
       [location.coordinates[0], location.coordinates[1]],
       [
@@ -156,24 +167,29 @@ const createOrder = async (payload: IOrder) => {
         payload.deliveryLocation.coordinates[1],
       ]
     );
+
     const fee = (distance * Number(config.delivery_fee)).toFixed(2);
     payload.deliveryFee = Number(fee);
+    payload.setupFee = packageExist.setupFee;
+    payload.setupStartDateAndTime = setupStartDateAndTime!;
   }
 
   const orderData = {
     ...payload,
-    setupStartDateAndTime: payloadDeliveryDateAndTime,
   };
 
+  // Create the order in the database
   const result = await Order.create(orderData);
   if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order');
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order.');
   }
 
+  // Send notification to the vendor
+  const { name } = customerExist.customer as ICustomer;
   const notificationData = {
-    userId: vendorExist?._id,
+    userId: vendorExist._id,
     title: `Order request from ${name}`,
-    message: 'You have a new order request. Please check your order dashboard.',
+    message: `${name} has placed an order. Please accept or decline the order. Order ID: ${orderId}`,
     type: USER_ROLES.VENDOR,
   };
 
@@ -330,7 +346,7 @@ const getSingleOrder = async (id: string) => {
   return result;
 };
 
-const declineOrConfirmOrder = async (
+const declineOrder = async (
   id: string,
   payload: Pick<IOrder, 'status' | 'deliveryDeclineMessage'>
 ) => {
@@ -371,11 +387,20 @@ const declineOrConfirmOrder = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
   }
 
+  if (customerExist._id.toString() !== orderExists.customerId.toString()) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You are not allowed to decline this order'
+    );
+  }
+
+  //update the order status
   const result = await Order.findOneAndUpdate(
     { _id: id, status: 'accepted' },
     payload,
     { new: true }
   );
+
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
@@ -384,8 +409,8 @@ const declineOrConfirmOrder = async (
 
   const notificationData = {
     userId: vendorExist._id,
-    title: `Order ${payload?.status} by ${name}`,
-    message: `${name} has ${payload?.status} the order.`,
+    title: `${name} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
+    message: `${payload?.deliveryDeclineMessage}`,
     type: USER_ROLES.VENDOR,
   };
 
@@ -398,6 +423,104 @@ const declineOrConfirmOrder = async (
   return result;
 };
 
+// const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
+//   if (payload.status === 'accepted' && !payload.amount) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
+//   }
+
+//   const orderExists = await Order.findById({ _id: id, status: 'pending' })
+//     .populate('vendorId', { name: 1 })
+//     .populate('customerId', { name: 1 });
+//   if (!orderExists) {
+//     throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
+//   }
+
+//   const [vendorExist, customerExist] = await Promise.all([
+//     User.findOne(
+//       { vendor: orderExists?.vendorId, status: 'active' },
+//       { status: 1, needInformation: 1, approvedByAdmin: 1 }
+//     ).populate('vendor', { name: 1 }),
+//     User.findOne({
+//       customer: orderExists?.customerId,
+//       status: 'active',
+//     }).populate('customer', { name: 1 }),
+//   ]);
+
+//   if (!vendorExist) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor not found');
+//   }
+//   if (!customerExist) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
+//   }
+
+//   if (payload.status === 'accepted') {
+//     let conflictingOrder;
+
+//     if (orderExists.isSetup) {
+//       conflictingOrder = await Order.findOne({
+//         vendorId: orderExists.vendorId,
+//         setupStartDateAndTime: { $lt: orderExists.deliveryDateAndTime },
+//         deliveryDateAndTime: { $gt: orderExists.setupStartDateAndTime },
+//         status: { $in: ['accepted', 'ongoing', 'started'] },
+//         _id: { $ne: id },
+//       });
+//     } else {
+//       conflictingOrder = await Order.findOne({
+//         vendorId: orderExists.vendorId,
+//         deliveryDateAndTime: orderExists.deliveryDateAndTime,
+//         status: { $in: ['accepted', 'ongoing', 'started'] },
+//         _id: { $ne: id },
+//       });
+//     }
+
+//     if (conflictingOrder) {
+//       throw new ApiError(
+//         StatusCodes.BAD_REQUEST,
+//         'The vendor already has an order during this time slot'
+//       );
+//     }
+
+//     if (orderExists.isSetup && payload.setupDuration && payload.setupFee) {
+//       const setupDurationMs = getDuration(orderExists.setupDuration);
+//       const deliveryDate = new Date(orderExists.deliveryDateAndTime);
+//       const setupStartDateAndTime = new Date(
+//         deliveryDate.getTime() - setupDurationMs
+//       );
+//       payload.setupStartDateAndTime = setupStartDateAndTime;
+//       payload.setupFee = orderExists.setupFee;
+//       console.log(payload);
+//     }
+//   }
+
+//   const result = await Order.findOneAndUpdate(
+//     { _id: id, status: 'pending' },
+//     { ...payload },
+//     { new: true }
+//   );
+
+//   if (!result) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
+//   }
+
+//   //update the order status
+
+//   const { name } = vendorExist.vendor as { name: string };
+
+//   const notificationData = {
+//     userId: customerExist._id,
+//     title: `Order ${payload?.status} by ${name}`,
+//     message: `Order request for ID:${orderExists?.orderId} is ${payload?.status} by ${name}.`,
+//     type: USER_ROLES.CUSTOMER,
+//   };
+//   await sendNotification(
+//     payload?.status === 'rejected' ? 'rejectedOrder' : 'acceptedOrder',
+//     result.customerId as Types.ObjectId,
+//     notificationData
+//   );
+
+//   return result;
+// };
+
 const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   if (payload.status === 'accepted' && !payload.amount) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
@@ -406,6 +529,7 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   const orderExists = await Order.findById({ _id: id, status: 'pending' })
     .populate('vendorId', { name: 1 })
     .populate('customerId', { name: 1 });
+
   if (!orderExists) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
   }
@@ -428,15 +552,6 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
   }
 
-  const { name } = vendorExist.vendor as { name: string };
-
-  const notificationData = {
-    userId: customerExist._id,
-    title: `Order ${payload?.status} by ${name}`,
-    message: `Order request for ID:${orderExists?.orderId} is ${payload?.status} by ${name}.`,
-    type: USER_ROLES.CUSTOMER,
-  };
-
   if (payload.status === 'accepted') {
     let conflictingOrder;
 
@@ -445,14 +560,14 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
         vendorId: orderExists.vendorId,
         setupStartDateAndTime: { $lt: orderExists.deliveryDateAndTime },
         deliveryDateAndTime: { $gt: orderExists.setupStartDateAndTime },
-        status: { $in: ['accepted', 'ongoing', 'on the way'] },
+        status: { $in: ['accepted', 'ongoing', 'started'] },
         _id: { $ne: id },
       });
     } else {
       conflictingOrder = await Order.findOne({
         vendorId: orderExists.vendorId,
         deliveryDateAndTime: orderExists.deliveryDateAndTime,
-        status: { $in: ['accepted', 'ongoing', 'on the way'] },
+        status: { $in: ['accepted', 'ongoing', 'started'] },
         _id: { $ne: id },
       });
     }
@@ -463,24 +578,54 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
         'The vendor already has an order during this time slot'
       );
     }
+
+    if (orderExists.isSetup) {
+      if (!payload.setupDuration) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Setup duration is required for setup orders'
+        );
+      }
+
+      const setupDurationMs = getDuration(payload.setupDuration);
+      const deliveryDate = new Date(orderExists.deliveryDateAndTime);
+      const setupStartDateAndTime = new Date(
+        deliveryDate.getTime() - setupDurationMs
+      );
+
+      if (isNaN(setupStartDateAndTime.getTime())) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Invalid setup start date calculation'
+        );
+      }
+
+      payload.setupStartDateAndTime = setupStartDateAndTime;
+      payload.setupFee = payload.setupFee || orderExists.setupFee;
+
+      console.log('Updated setupStartDateAndTime:', setupStartDateAndTime);
+    }
   }
 
-  let updatedValue;
-
-  payload.status === 'accepted'
-    ? (updatedValue = { ...payload, amount: payload.amount })
-    : (updatedValue = { ...payload });
-
-  // Update the order status
   const result = await Order.findOneAndUpdate(
     { _id: id, status: 'pending' },
-    { ...updatedValue },
+    { ...payload },
     { new: true }
   );
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
+
+  // Update the order status
+  const { name } = vendorExist.vendor as { name: string };
+
+  const notificationData = {
+    userId: customerExist._id,
+    title: `Order ${payload?.status} by ${name}`,
+    message: `Order request for ID:${orderExists?.orderId} is ${payload?.status} by ${name}.`,
+    type: USER_ROLES.CUSTOMER,
+  };
 
   await sendNotification(
     payload?.status === 'rejected' ? 'rejectedOrder' : 'acceptedOrder',
@@ -491,11 +636,33 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   return result;
 };
 
+const getDeliveryCharge = async (
+  payload: { coordinates: number[] },
+  vendorId: string
+) => {
+  const { coordinates } = payload;
+  const vendor = await Vendor.findById(vendorId, { location: 1 });
+
+  if (!vendor) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor not found');
+  }
+
+  const location = vendor?.location;
+
+  const distance = calculateDistance(
+    [coordinates[0], coordinates[1]],
+    [location.coordinates[0], location.coordinates[1]]
+  );
+  const fee = (distance * Number(config.delivery_fee)).toFixed(2);
+  return fee;
+};
+
 export const OrderService = {
   createOrder,
   getAllOrders,
   getSingleOrder,
   getAllOrderByUserId,
-  declineOrConfirmOrder,
+  declineOrder,
   rejectOrAcceptOrder,
+  getDeliveryCharge,
 };

@@ -8,6 +8,8 @@ export type IPackage = {
   type: string;
   vendorId: Types.ObjectId | IVendor;
   serviceId: Types.ObjectId | IService;
+  setupDuration: number;
+  setupFee: number;
 };
 
 export type IPackageModel = Model<IPackage>;

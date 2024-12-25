@@ -4,10 +4,10 @@ import { orderFilterableFields } from './dashboard.constants';
 import { IRange } from './dashboard.interface';
 import { Order } from '../order/order.model';
 import ApiError from '../../../errors/ApiError';
-import { IOrderFilter } from '../order/order.interface';
 import { Vendor } from '../vendor/vendor.model';
 import { User } from '../user/user.model';
 import { Service } from '../service/service.model';
+import { IOrderFilterableFields } from '../order/order.interface';
 
 const RANGE_MAPPING: Record<IRange, number> = {
   '1-week': 7,
@@ -121,7 +121,7 @@ const totalSaleAndRevenue = async (
   }
 };
 
-const getAllOrders = async (filtersData: IOrderFilter) => {
+const getAllOrders = async (filtersData: IOrderFilterableFields) => {
   const andCondition: any[] = [];
 
   for (const [key, value] of Object.entries(filtersData)) {
@@ -862,97 +862,6 @@ const getRevenue = async (range: IRange = '1-week') => {
     );
   }
 };
-
-// const getYearlyActivityData = async (year: number) => {
-//   try {
-//     const targetYear = year || new Date().getFullYear();
-//     const startDate = new Date(targetYear, 0, 1); // Start of the target year (Jan 1)
-//     const endDate = new Date(targetYear + 1, 0, 1); // Start of the next year (Jan 1)
-
-//     const [userStats, orderStats, revenueStats] = await Promise.all([
-//       // Fetch user creation stats grouped by month
-//       User.aggregate([
-//         { $match: { createdAt: { $gte: startDate, $lt: endDate } } },
-//         {
-//           $group: {
-//             _id: { $month: '$createdAt' }, // Group by month (1-12)
-//             userCount: { $sum: 1 },
-//           },
-//         },
-//         { $sort: { _id: 1 } },
-//       ]),
-
-//       // Fetch order stats grouped by month
-//       Order.aggregate([
-//         { $match: { createdAt: { $gte: startDate, $lt: endDate } } },
-//         {
-//           $group: {
-//             _id: { $month: '$createdAt' }, // Group by month (1-12)
-//             orderCount: { $sum: 1 },
-//           },
-//         },
-//         { $sort: { _id: 1 } },
-//       ]),
-
-//       // Fetch revenue stats grouped by month
-//       Order.aggregate([
-//         {
-//           $match: {
-//             createdAt: { $gte: startDate, $lt: endDate },
-//             status: 'completed',
-//           },
-//         },
-//         {
-//           $group: {
-//             _id: { $month: '$createdAt' }, // Group by month (1-12)
-//             revenue: { $sum: '$amount' },
-//           },
-//         },
-//         { $sort: { _id: 1 } },
-//       ]),
-//     ]);
-
-//     // Map the months to their names
-//     const monthNames = [
-//       'January',
-//       'February',
-//       'March',
-//       'April',
-//       'May',
-//       'June',
-//       'July',
-//       'August',
-//       'September',
-//       'October',
-//       'November',
-//       'December',
-//     ];
-
-//     // Combine results into a single array
-//     const yearlyData = Array.from({ length: 12 }, (_, i) => {
-//       const month = i + 1; // MongoDB $month returns 1-12
-//       return {
-//         month: monthNames[i],
-//         orderCount:
-//           orderStats.find((stat: { _id: number }) => stat._id === month)
-//             ?.orderCount || 0,
-//         userCount:
-//           userStats.find((stat: { _id: number }) => stat._id === month)
-//             ?.userCount || 0,
-//         revenue:
-//           revenueStats.find((stat: { _id: number }) => stat._id === month)
-//             ?.revenue || 0,
-//       };
-//     });
-
-//     return yearlyData;
-//   } catch (error) {
-//     throw new ApiError(
-//       StatusCodes.BAD_REQUEST,
-//       'Failed to retrieve yearly activity data'
-//     );
-//   }
-// };
 
 const getYearlyActivityData = async (year: number) => {
   try {

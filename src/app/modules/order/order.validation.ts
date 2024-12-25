@@ -23,15 +23,19 @@ const createOrderZodSchema = z.object({
 
 const updateOrderStatusValidationForVendor = z.object({
   body: z.object({
-    status: z.enum(['accepted', 'rejected', 'on the way', 'canceled'], {
+    status: z.enum(['accepted', 'rejected', 'started'], {
       required_error: 'Status is required',
     }),
+    setupFee: z.number().optional(),
+    setupDuration: z.string().optional(),
+    deliveryFee: z.number().optional(),
+    amount: z.number().optional(),
   }),
 });
 
 const updateOrderStatusValidationForCustomer = z.object({
   body: z.object({
-    status: z.enum(['declined', 'confirmed', 'canceled'], {
+    status: z.enum(['declined'], {
       required_error: 'Status is required',
     }),
     deliveryDeclineMessage: z.string().optional(),

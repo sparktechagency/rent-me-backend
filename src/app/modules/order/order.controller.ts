@@ -64,19 +64,17 @@ const getAllOrderByUserId = catchAsync(async (req: Request, res: Response) => {
 });
 
 //customer
-const declineOrConfirmOrder = catchAsync(
-  async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { ...updatedData } = req.body;
-    const result = await OrderService.declineOrConfirmOrder(id, updatedData);
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'Order updated successfully',
-      data: result,
-    });
-  }
-);
+const declineOrder = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { ...updatedData } = req.body;
+  const result = await OrderService.declineOrder(id, updatedData);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Order updated successfully',
+    data: result,
+  });
+});
 
 const rejectOrAcceptOrder = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -89,11 +87,25 @@ const rejectOrAcceptOrder = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+
+const getDeliveryCharge = catchAsync(async (req: Request, res: Response) => {
+  const { location, vendorId } = req.body;
+  const result = await OrderService.getDeliveryCharge(location, vendorId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Delivery charge calculated successfully',
+    data: result,
+  });
+});
+
 export const OrderController = {
   createOrder,
   getAllOrders,
   getSingleOrder,
   getAllOrderByUserId,
-  declineOrConfirmOrder,
+  declineOrder,
   rejectOrAcceptOrder,
+  getDeliveryCharge,
 };

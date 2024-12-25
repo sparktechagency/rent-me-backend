@@ -37,11 +37,10 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
       enum: [
         'pending',
         'accepted',
-        'confirmed',
         'rejected',
         'declined',
         'cancelled',
-        'on the way',
+        'started',
         'ongoing',
         'completed',
       ],
@@ -73,11 +72,11 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
     },
 
     isSetup: { type: Boolean, default: false },
+    setupFee: { type: Number },
     setupDuration: { type: String },
     setupStartDateAndTime: { type: Date },
     deliveryDateAndTime: { type: Date },
     deliveryFee: { type: Number, default: 0 },
-    deliveryStartDateTime: { type: Date },
     isInstantTransfer: {
       type: Boolean,
       default: false,

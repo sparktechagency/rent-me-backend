@@ -7,6 +7,12 @@ import { OrderValidation } from './order.validation';
 
 const router = express.Router();
 
+router.get(
+  '/delivery-fee',
+  auth(USER_ROLES.CUSTOMER),
+  OrderController.getDeliveryCharge
+);
+
 router.post(
   '/create-order',
   auth(USER_ROLES.CUSTOMER),
@@ -25,10 +31,10 @@ router.get('/:id', OrderController.getSingleOrder);
 
 //decline order only for customer
 router.patch(
-  '/confirm-cancel/:id',
+  '/decline/:id',
   auth(USER_ROLES.CUSTOMER),
   validateRequest(OrderValidation.updateOrderStatusValidationForCustomer),
-  OrderController.declineOrConfirmOrder
+  OrderController.declineOrder
 );
 //api to reject or accept order by vendor
 router.patch(

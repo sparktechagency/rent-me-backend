@@ -12,11 +12,11 @@ router.post(
   auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
-    req.body.data
-      ? (req.body = MessageValidation.sendMessageValidationSchema.parse(
-          JSON.parse(req.body.data)
-        ))
-      : req.body;
+    if (req.body.data) {
+      req.body = MessageValidation.sendMessageValidationSchema.parse(
+        JSON.parse(req.body.data)
+      );
+    }
     return MessageController.sendMessage(req, res, next);
   }
 );

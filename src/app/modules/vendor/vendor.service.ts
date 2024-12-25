@@ -539,7 +539,6 @@ export const getOrderRetentionByVendor = async (
     startDate.setMonth(endDate.getMonth() - months);
 
     const intervalDays = (months * 30) / 10;
-    console.log(intervalDays);
     const intervalMilliseconds = intervalDays * 24 * 60 * 60 * 1000;
     const totalIntervals = Math.floor(
       (endDate.getTime() - startDate.getTime()) / intervalMilliseconds

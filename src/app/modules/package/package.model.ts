@@ -25,6 +25,12 @@ const packageSchema = new Schema<IPackage, IPackageModel>(
       ref: 'Service',
       required: true,
     },
+    setupDuration: {
+      type: Number,
+    },
+    setupFee: {
+      type: Number,
+    },
   },
   {
     timestamps: true,

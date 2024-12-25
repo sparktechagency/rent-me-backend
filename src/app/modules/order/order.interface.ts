@@ -16,16 +16,7 @@ export type IOrder = {
   serviceId: Types.ObjectId | IService;
   packageId: Types.ObjectId | IPackage;
   amount: number; // final amount
-  status:
-    | 'pending'
-    | 'accepted'
-    | 'confirmed'
-    | 'rejected'
-    | 'declined'
-    | 'cancelled'
-    | 'on the way'
-    | 'ongoing'
-    | 'completed';
+  status: string;
   preference: string;
   paymentId: Types.ObjectId;
   paymentStatus: 'pending' | 'done';
@@ -37,9 +28,9 @@ export type IOrder = {
   deliveryLocation: Point;
   deliveryFee: number;
   isSetup: boolean;
+  setupFee: number;
   setupDuration: string;
   setupStartDateAndTime: Date;
-  deliveryStartDateTime: Date;
   deliveryDateAndTime: Date;
 };
 
@@ -50,11 +41,10 @@ export type IOrderFilterableFields = {
   status?:
     | 'pending'
     | 'accepted'
-    | 'confirmed'
     | 'rejected'
     | 'declined'
     | 'cancelled'
-    | 'on the way'
+    | 'started'
     | 'ongoing'
     | 'completed';
   paymentStatus?: 'pending' | 'half' | 'full';

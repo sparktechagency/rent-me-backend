@@ -38,7 +38,6 @@ export type IVendor = {
   address?: IAddress;
   rating?: number;
   totalReviews: number;
-  location: Point; // [longitude, latitude]
 
   orderCompleted?: number;
   isAvailable?: boolean; // order < 10 ? true : false
@@ -71,6 +70,7 @@ export type IVendor = {
   signatureType?: 'Typed' | 'Digital';
   signature?: string;
   digitalSignature?: string;
+  location: Point; // [longitude, latitude]
 };
 
 export type VendorModel = Model<IVendor>;
