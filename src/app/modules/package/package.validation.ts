@@ -7,7 +7,8 @@ const createPackageZodSchema = z.object({
     }),
     features: z.array(z.string()).nonempty('Features are required'),
     serviceId: z.string({ required_error: 'Service ID is required' }),
-    setupFee: z.number({ required_error: 'Setup fee is required' }),
+    setupFee: z.number().optional(),
+    setupDuration: z.string().optional(),
   }),
 });
 
@@ -17,6 +18,7 @@ const updatePackageZodSchema = z.object({
     features: z.array(z.string()).optional(),
     serviceId: z.string().optional(),
     setupFee: z.number().optional(),
+    setupDuration: z.string().optional(),
   }),
 });
 

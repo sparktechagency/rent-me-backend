@@ -22,6 +22,11 @@ export default {
   stripe_secret: process.env.STRIPE_SECRET_KEY,
   stripe_account_id: process.env.STRIPE_ACCOUNT_ID,
   webhook_secret: process.env.WEBHOOK_SECRET,
+  twilio: {
+    account_sid: process.env.TWILIO_ACCOUNT_SID,
+    auth_token: process.env.TWILIO_AUTH_TOKEN,
+    phone_number: process.env.TWILIO_PHONE_NUMBER,
+  },
   email: {
     from: process.env.EMAIL_FROM,
     user: process.env.EMAIL_USER,

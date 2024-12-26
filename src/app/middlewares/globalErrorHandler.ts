@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { ErrorRequestHandler } from 'express';
 import config from '../../config';
 import ApiError from '../../errors/ApiError';
@@ -6,6 +7,7 @@ import handleZodError from '../../errors/handleZodError';
 import { errorLogger } from '../../shared/logger';
 import { IErrorMessage } from '../../types/errors.types';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
   if (config.node_env === 'development') {
     errorLogger.error('🚨 globalErrorHandler ~~ ', error);

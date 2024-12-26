@@ -3,6 +3,7 @@ import { parse, format } from 'date-fns';
 import { Order } from '../order/order.model';
 import { Service } from '../service/service.model';
 import { convertTo24Hour } from '../../../helpers/dateFormatHelper';
+import { IVendor } from './vendor.interface';
 
 // Helper function to convert 12-hour time format to 24-hour format
 export const buildDateTimeFilter = async (
@@ -115,4 +116,107 @@ export const handleObjectUpdate = (
   }
 
   return updatedData;
+};
+
+const requiredFields = [
+  'contact',
+  'isContactVerified',
+  'profileImg',
+  'address',
+  'businessProfile',
+  'businessTitle',
+  'businessType',
+  'businessAddress',
+  'businessContact',
+  'isBusinessContactVerified',
+  'businessEmail',
+  'isBusinessEmailVerified',
+  'availableDays',
+  'operationStartTime',
+  'operationEndTime',
+  'location',
+  'stripeId',
+  'stripeConnected',
+];
+
+export const calculateProfileCompletion = (vendor: IVendor): number => {
+  let completedFields = 0;
+  // console.log(vendor);
+  for (const field of requiredFields) {
+    const fieldValue = vendor[field as keyof IVendor];
+
+    if (fieldValue !== undefined && fieldValue !== null) {
+      switch (field) {
+        case 'isContactVerified':
+        case 'isBusinessContactVerified':
+        case 'isBusinessEmailVerified':
+        case 'stripeConnected':
+          // Ensure verifiable fields are `true`
+          if (fieldValue === true) {
+            completedFields += 1;
+            // console.log(`Field ${field}: Counted (Value: true)`);
+          } else {
+            // console.log(`Field ${field}: Not Counted (Value: ${fieldValue})`);
+          }
+          break;
+
+        case 'location':
+          // Ensure location is valid
+          if (
+            typeof fieldValue === 'object' &&
+            'type' in fieldValue &&
+            fieldValue.type === 'Point' &&
+            'coordinates' in fieldValue &&
+            Array.isArray(fieldValue.coordinates) &&
+            fieldValue.coordinates.length === 2
+          ) {
+            completedFields += 1;
+            // console.log(
+            //   `Field ${field}: Counted (Value: ${JSON.stringify(fieldValue)})`
+            // );
+          } else {
+            // console.log(
+            //   `Field ${field}: Not Counted (Value: ${JSON.stringify(
+            //     fieldValue
+            //   )})`
+            // );
+          }
+          break;
+
+        case 'address':
+        case 'businessAddress':
+          // Ensure address fields are objects and not empty
+          if (
+            typeof fieldValue === 'object' &&
+            Object.keys(fieldValue).length > 0
+          ) {
+            completedFields += 1;
+            // console.log(
+            //   `Field ${field}: Counted (Value: ${JSON.stringify(fieldValue)})`
+            // );
+          } else {
+            // console.log(
+            //   `Field ${field}: Not Counted (Value: ${JSON.stringify(
+            //     fieldValue
+            //   )})`
+            // );
+          }
+          break;
+
+        default:
+          // Count all other fields if they have a value
+          completedFields += 1;
+        // console.log(`Field ${field}: Counted (Value: ${fieldValue})`);
+      }
+    } else {
+      // console.log(`Field ${field}: Not Counted (Value: ${fieldValue})`);
+    }
+  }
+
+  const percentage = (completedFields / requiredFields.length) * 100;
+  // console.log(`Total Fields: ${requiredFields.length}`);
+  // console.log(`Completed Fields: ${completedFields}`);
+  // console.log(`Completion Percentage: ${percentage}%`);
+
+  return Math.round(percentage);
 };

@@ -15,11 +15,12 @@ export type IUser = {
   admin?: Types.ObjectId | IAdmin;
   role: USER_ROLES;
   status: 'active' | 'restricted' | 'delete';
-  needInformation: boolean;
-  approvedByAdmin: boolean;
+
   verified: boolean;
   stripeId: string;
   appId: string;
+  wrongLoginAttempts: number;
+  restrictionLeftAt: Date | null;
   authentication?: {
     passwordChangedAt: Date;
     isResetPassword: boolean;

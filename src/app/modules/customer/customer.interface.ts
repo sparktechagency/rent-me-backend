@@ -20,10 +20,13 @@ export type ICustomer = {
   name: string;
   email: string;
   contact?: string;
+  isContactVerified?: boolean;
   profileImg?: string;
   address: IAddress;
   deliveryOption: IDeliveryOption;
   receivePromotionalNotification: boolean;
+  profileCompletion: number;
+  verifiedFlag: boolean;
   location: Point;
 };
 

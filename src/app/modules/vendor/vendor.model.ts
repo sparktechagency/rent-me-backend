@@ -21,8 +21,16 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
       type: String,
       default: '',
     },
+    isContactVerified: {
+      type: Boolean,
+      default: false,
+    },
     profileImg: {
       type: String,
+    },
+    verifiedFlag: {
+      type: Boolean,
+      default: false,
     },
     address: {
       _id: false,
@@ -70,7 +78,17 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
         'Other',
       ],
     },
-
+    profileCompletion: {
+      type: Number,
+      default: 0,
+    },
+    stripeId: {
+      type: String,
+    },
+    stripeConnected: {
+      type: Boolean,
+      default: false,
+    },
     businessAddress: {
       _id: false,
       type: {
@@ -82,12 +100,19 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
         country: { type: String, required: true, default: 'United States' },
       },
     },
-
     businessContact: {
       type: String,
     },
+    isBusinessContactVerified: {
+      type: Boolean,
+      default: false,
+    },
     businessEmail: {
       type: String,
+    },
+    isBusinessEmailVerified: {
+      type: Boolean,
+      default: false,
     },
     socialLinks: {
       _id: false,
@@ -122,29 +147,6 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
       type: String,
     },
 
-    //Bank info
-
-    bankName: {
-      type: String,
-      select: false,
-    },
-    bankAccountName: {
-      type: String,
-      select: false,
-    },
-    bankAccountNumber: {
-      type: String,
-      select: false,
-    },
-    bankAccountType: {
-      type: String,
-      select: false,
-    },
-    bankRoutingNumber: {
-      type: String,
-      select: false,
-    },
-
     signatureType: {
       type: String,
       enum: ['Typed', 'Digital'],
@@ -158,7 +160,7 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
     },
     location: {
       type: { type: String, default: 'Point', enum: ['Point'] },
-      coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude] // Default to [0, 0] if coordinates are not provided
+      coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude]
     },
   },
   {

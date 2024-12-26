@@ -9,6 +9,7 @@ import { Types } from 'mongoose';
 import {
   buildDateTimeFilter,
   buildRangeFilter,
+  calculateProfileCompletion,
   findVendorsByBudget,
   getDateRangeAndIntervals,
   handleObjectUpdate,
@@ -28,9 +29,9 @@ const updateVendorProfile = async (
   payload: Partial<IVendor>
 ) => {
   const { id, userId } = user;
-  const { address, socialLinks, businessAddress, ...restData } = payload;
+  const { address, ...restData } = payload;
 
-  let updatedVendorData = { ...restData }; // Create a mutable object
+  let updatedVendorData = { ...restData };
 
   const isExistUser = await User.isExistUserById(id);
   if (!isExistUser) {
@@ -46,88 +47,79 @@ const updateVendorProfile = async (
     );
   }
 
-  if (businessAddress && Object.keys(businessAddress).length > 0) {
-    updatedVendorData = handleObjectUpdate(
-      businessAddress,
-      updatedVendorData,
-      'businessAddress'
-    );
-  }
-
-  if (socialLinks && Object.keys(socialLinks).length > 0) {
-    updatedVendorData = handleObjectUpdate(
-      socialLinks,
-      updatedVendorData,
-      'socialLinks'
-    );
-  }
-
   // Perform the database update
-  const result = await Vendor.findOneAndUpdate(
+  const vendor = await Vendor.findOneAndUpdate(
     { _id: userId },
-    updatedVendorData,
+    { $set: updatedVendorData },
     {
       new: true,
     }
   );
 
-  if (!result) {
+  if (!vendor) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update vendor');
   }
 
-  return result;
+  const profileCompletion = calculateProfileCompletion(vendor);
+
+  vendor.profileCompletion = profileCompletion;
+
+  vendor.verifiedFlag = profileCompletion === 100;
+  await Vendor.findByIdAndUpdate(userId, {
+    verifiedFlag: vendor.verifiedFlag,
+    profileCompletion: vendor.profileCompletion,
+  });
+  return vendor;
 };
 
 const getBusinessInformationFromVendor = async (
   user: JwtPayload,
   payload: Partial<IVendor>
 ) => {
-  const session = await Vendor.startSession(); // Start a session
-  session.startTransaction();
+  const { userId } = user;
 
-  try {
-    const { id, userId } = user;
+  const vendorExist = await Vendor.findById(userId);
+  if (!vendorExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Vendor doesn't exist!");
+  }
 
-    const isExistUser = await User.isExistUserById(id);
-    if (!isExistUser) {
-      throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-    }
-
-    // Update Vendor
-    const result = await Vendor.findOneAndUpdate(
-      { _id: userId },
-      payload,
-      { new: true, session } // Pass session here
+  const { businessAddress, socialLinks, ...restData } = payload;
+  let updatedVendorData = { ...restData }; // Create a mutable object
+  if (businessAddress && Object.keys(businessAddress).length > 0) {
+    updatedVendorData = handleObjectUpdate(
+      businessAddress,
+      restData,
+      'businessAddress'
     );
 
-    if (!result) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update vendor');
-    }
-
-    // Update User
-    const changeStatus = await User.findOneAndUpdate(
-      { vendor: userId },
-      { needInformation: false },
-      { new: true, session } // Pass session here
-    );
-
-    if (!changeStatus) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Failed to update information need status'
+    if (socialLinks && Object.keys(socialLinks).length > 0) {
+      updatedVendorData = handleObjectUpdate(
+        socialLinks,
+        restData,
+        'socialLinks'
       );
     }
 
-    // Commit the transaction
-    await session.commitTransaction();
-    session.endSession();
+    const vendor = await Vendor.findOneAndUpdate(
+      { _id: userId },
+      { $set: updatedVendorData },
+      {
+        new: true,
+      }
+    );
 
-    return result;
-  } catch (error) {
-    // Rollback the transaction in case of any error
-    await session.abortTransaction();
-    session.endSession();
-    throw error;
+    if (!vendor) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update vendor');
+    }
+
+    const profileCompletion = calculateProfileCompletion(vendor);
+
+    await Vendor.findByIdAndUpdate(userId, {
+      profileCompletion: profileCompletion,
+      verifiedFlag: profileCompletion === 100,
+    });
+
+    return vendor;
   }
 };
 
@@ -344,15 +336,10 @@ const getAllVendor = async (
     });
   }
 
-  const sortConditions = {};
-  if (sortBy && sortOrder) {
-    sortConditions[sortBy] = sortOrder;
-  }
-
   const whereConditions = andCondition.length > 0 ? { $and: andCondition } : {};
 
   const activeUserVendors = await User.find(
-    { status: 'active', needInformation: false, approvedByAdmin: true },
+    { status: 'active' },
     'vendor' // Only select the `vendor` field
   ).lean();
 
@@ -390,7 +377,13 @@ const getAllVendor = async (
       location: 1,
     }
   )
-    .sort(sortConditions) // Apply sorting
+    .sort(
+      sortBy || sortOrder
+        ? {
+            [sortBy]: sortOrder,
+          }
+        : {}
+    ) // Apply sorting
     .skip(skip)
     .limit(limit)
     .lean();

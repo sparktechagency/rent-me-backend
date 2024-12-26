@@ -11,10 +11,7 @@ const packageSchema = new Schema<IPackage, IPackageModel>(
       type: [String],
       required: true,
     },
-    type: {
-      type: String,
-      required: true,
-    },
+
     vendorId: {
       type: Schema.Types.ObjectId,
       ref: 'Vendor',
@@ -26,7 +23,7 @@ const packageSchema = new Schema<IPackage, IPackageModel>(
       required: true,
     },
     setupDuration: {
-      type: Number,
+      type: String,
     },
     setupFee: {
       type: Number,

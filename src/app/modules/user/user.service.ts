@@ -18,7 +18,6 @@ import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
 import StripeService from '../payment/payment.stripe';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
-import { JwtPayload } from 'jsonwebtoken';
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   const { ...user } = payload;
@@ -134,17 +133,23 @@ const updateUser = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
 
-  const updateDoc = await User.findOneAndUpdate({ id: id }, payload, {
-    new: true,
-  });
+  const updateDoc = await User.findOneAndUpdate(
+    { id: id },
+    { $set: payload },
+    {
+      new: true,
+    }
+  );
 
   return updateDoc;
 };
 
 const getUserProfileFromDB = async (
-  user: JwtPayload
+  id: Types.ObjectId
 ): Promise<Partial<IUser>> => {
-  const isExistUser = await User.findById({ _id: user.id })
+  const isExistUser = await User.findById({
+    _id: id,
+  })
     .populate('admin')
     .populate('customer')
     .populate('vendor')
@@ -240,7 +245,7 @@ const restrictOrActivateUserToDB = async (
 
   const result = await User.findOneAndUpdate(
     { _id: id },
-    { status: payload },
+    { $set: { status: payload } },
     {
       new: true,
     }

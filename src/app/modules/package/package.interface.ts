@@ -5,10 +5,9 @@ import { IService } from '../service/service.interface';
 export type IPackage = {
   title: string;
   features: string[];
-  type: string;
   vendorId: Types.ObjectId | IVendor;
   serviceId: Types.ObjectId | IService;
-  setupDuration: number;
+  setupDuration: string;
   setupFee: number;
 };
 

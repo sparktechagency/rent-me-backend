@@ -8,6 +8,7 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
 import { ICustomer } from './customer.interface';
+import { calculateCustomerProfileCompletion } from './customer.utils';
 
 const getCustomerProfile = async (id: Types.ObjectId) => {
   const customerId = new Types.ObjectId(id);
@@ -43,13 +44,27 @@ const updateCustomerProfile = async (id: Types.ObjectId, payload: any) => {
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
-  const result = await Customer.findOneAndUpdate({ _id: id }, updatedData, {
-    new: true,
-  });
-  if (!result) {
+  const customer = await Customer.findOneAndUpdate(
+    { _id: id },
+    { $set: updatedData },
+    {
+      new: true,
+    }
+  );
+  if (!customer) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update customer');
   }
-  return result;
+
+  const profileCompletion = calculateCustomerProfileCompletion(customer);
+  await User.findByIdAndUpdate(
+    { _id: customer._id },
+    {
+      profileCompletion: profileCompletion,
+      verifiedFlag: profileCompletion === 100,
+    }
+  );
+
+  return customer;
 };
 
 const deleteCustomerProfile = async (id: Types.ObjectId) => {

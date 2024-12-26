@@ -55,19 +55,19 @@ const userSchema = new Schema<IUser, UserModel>(
       type: String,
       select: 0,
     },
-    needInformation: {
-      type: Boolean,
-      default: true,
-    },
-    approvedByAdmin: {
-      type: Boolean,
-      default: false,
-    },
+
     verified: {
       type: Boolean,
       default: false,
     },
-
+    wrongLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    restrictionLeftAt: {
+      type: Date,
+      default: null,
+    },
     authentication: {
       type: {
         passwordChangedAt: {

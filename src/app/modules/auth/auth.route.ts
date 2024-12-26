@@ -4,10 +4,12 @@ import auth from '../../middlewares/auth';
 import validateRequest from '../../middlewares/validateRequest';
 import { AuthController } from './auth.controller';
 import { AuthValidation } from './auth.validation';
+import { rateLimiter } from '../../../util/rateLimmiter';
 const router = express.Router();
 
 router.post(
   '/login',
+  rateLimiter,
   validateRequest(AuthValidation.createLoginZodSchema),
   AuthController.loginUser
 );
@@ -43,6 +45,20 @@ router.post(
   auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
   validateRequest(AuthValidation.createChangePasswordZodSchema),
   AuthController.changePassword
+);
+
+router.post(
+  '/send-otp-to-phone',
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  validateRequest(AuthValidation.createSendOtpToPhoneZodSchema),
+  AuthController.sendOtpToPhone
+);
+
+router.post(
+  '/verify-otp-for-phone',
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  validateRequest(AuthValidation.createVerifyOtpForPhoneZodSchema),
+  AuthController.verifyOtpForPhone
 );
 
 export const AuthRoutes = router;

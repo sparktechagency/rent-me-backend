@@ -43,18 +43,21 @@ const updateVendorZodSchema = z.object({
 // Main Vendor schema
 const getBusinessInformationFromVendor = z.object({
   // Business Information
-  businessTitle: z.string(),
-  businessType: z.enum([
-    'Party Rentals',
-    'Event Planning',
-    'Catering',
-    'Entertainment',
-    'Other',
-  ]),
-
+  businessTitle: z.string().optional(),
+  businessType: z
+    .enum([
+      'Party Rentals',
+      'Event Planning',
+      'Catering',
+      'Entertainment',
+      'Other',
+    ])
+    .optional(),
   businessAddress: updateAddressSchema.optional(),
   businessContact: z.string().optional(),
   businessEmail: z.string().email('Invalid email address').optional(),
+  isBusinessContactVerified: z.boolean().default(false),
+  isBusinessEmailVerified: z.boolean().default(false),
   socialLinks: updateSocialLinksSchema.optional(),
   yearsInBusiness: z.number().optional(),
   isLicensed: z.boolean().default(false),
@@ -73,19 +76,21 @@ const getBusinessInformationFromVendor = z.object({
       ])
     )
     .optional(),
+  stripeId: z.string().optional(),
+  stripeConnected: z.boolean().default(false),
   operationStartTime: z.string().optional(),
   operationEndTime: z.string().optional(),
-
-  // Bank Information (Sensitive fields, typically excluded from responses)
-  bankName: z.string().optional(),
-  bankAccountName: z.string().optional(),
-  bankAccountNumber: z.string().optional(),
-  bankAccountType: z.string().optional(),
-  bankRoutingNumber: z.string().optional(),
-
-  // Signature
   signatureType: z.enum(['Typed', 'Digital']).optional(),
   signature: z.string().optional(),
+  digitalSignature: z.string().optional(),
+
+  // Location (if needed)
+  location: z
+    .object({
+      type: z.enum(['Point']).default('Point'),
+      coordinates: z.tuple([z.number(), z.number()]).optional(), // [longitude, latitude]
+    })
+    .optional(),
 });
 
 export const VendorValidation = {

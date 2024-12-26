@@ -63,6 +63,8 @@ const getAllService = async (
   const result = await Service.find(whereConditions).populate('packages', {
     title: 1,
     features: 1,
+    setupFee: 1,
+    setupDuration: 1,
   });
 
   if (!result) {
@@ -72,7 +74,12 @@ const getAllService = async (
 };
 
 const getSingleService = async (id: string): Promise<IService | null> => {
-  const result = await Service.findById(id);
+  const result = await Service.findById(id).populate('packages', {
+    title: 1,
+    features: 1,
+    setupFee: 1,
+    setupDuration: 1,
+  });
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get single service');
@@ -93,12 +100,7 @@ const createService = async (
   if (!vendor) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
   }
-  if (!vendor?.approvedByAdmin) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'You are not approved by admin yet'
-    );
-  }
+
   data.vendorId = user.userId;
   const result = await Service.create(data);
   if (!result) {
@@ -110,7 +112,11 @@ const updateService = async (
   id: string,
   data: IService
 ): Promise<IService | null> => {
-  const result = await Service.findByIdAndUpdate(id, data, { new: true });
+  const result = await Service.findByIdAndUpdate(
+    id,
+    { $set: data },
+    { new: true }
+  );
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update service');
   }
@@ -129,17 +135,10 @@ const getAllPackageByServiceId = async (id: string): Promise<IPackage[]> => {
 
 const getAllServiceByVendorId = async (id: string): Promise<IService[]> => {
   const result = await Service.find({ vendorId: id })
-    .populate('vendorId', {
-      name: 1,
-      rating: 1,
-      totalReviews: 1,
-      orderCompleted: 1,
-      location: 1,
-    })
-    .populate('packages', {
-      title: 1,
-      features: 1,
-    });
+  .populate('packages', {
+    title: 1,
+    features: 1,
+  });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get services');
   }

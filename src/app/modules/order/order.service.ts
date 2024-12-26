@@ -7,11 +7,7 @@ import ApiError from '../../../errors/ApiError';
 
 import { IOrder, IOrderFilterableFields } from './order.interface';
 import { Order } from './order.model';
-import {
-  calculateDistance,
-  generateCustomOrderId,
-  parseDuration,
-} from './order.utils';
+import { calculateDistance, generateCustomOrderId } from './order.utils';
 import { JwtPayload } from 'jsonwebtoken';
 import { USER_ROLES } from '../../../enums/user';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
@@ -372,7 +368,7 @@ const declineOrder = async (
   const [vendorExist, customerExist] = await Promise.all([
     User.findOne(
       { vendor: orderExists?.vendorId, status: 'active' },
-      { status: 1, needInformation: 1, approvedByAdmin: 1 }
+      { status: 1 }
     ).populate('vendor', { name: 1 }),
     User.findOne({
       customer: orderExists?.customerId,
@@ -423,104 +419,6 @@ const declineOrder = async (
   return result;
 };
 
-// const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
-//   if (payload.status === 'accepted' && !payload.amount) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
-//   }
-
-//   const orderExists = await Order.findById({ _id: id, status: 'pending' })
-//     .populate('vendorId', { name: 1 })
-//     .populate('customerId', { name: 1 });
-//   if (!orderExists) {
-//     throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
-//   }
-
-//   const [vendorExist, customerExist] = await Promise.all([
-//     User.findOne(
-//       { vendor: orderExists?.vendorId, status: 'active' },
-//       { status: 1, needInformation: 1, approvedByAdmin: 1 }
-//     ).populate('vendor', { name: 1 }),
-//     User.findOne({
-//       customer: orderExists?.customerId,
-//       status: 'active',
-//     }).populate('customer', { name: 1 }),
-//   ]);
-
-//   if (!vendorExist) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor not found');
-//   }
-//   if (!customerExist) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
-//   }
-
-//   if (payload.status === 'accepted') {
-//     let conflictingOrder;
-
-//     if (orderExists.isSetup) {
-//       conflictingOrder = await Order.findOne({
-//         vendorId: orderExists.vendorId,
-//         setupStartDateAndTime: { $lt: orderExists.deliveryDateAndTime },
-//         deliveryDateAndTime: { $gt: orderExists.setupStartDateAndTime },
-//         status: { $in: ['accepted', 'ongoing', 'started'] },
-//         _id: { $ne: id },
-//       });
-//     } else {
-//       conflictingOrder = await Order.findOne({
-//         vendorId: orderExists.vendorId,
-//         deliveryDateAndTime: orderExists.deliveryDateAndTime,
-//         status: { $in: ['accepted', 'ongoing', 'started'] },
-//         _id: { $ne: id },
-//       });
-//     }
-
-//     if (conflictingOrder) {
-//       throw new ApiError(
-//         StatusCodes.BAD_REQUEST,
-//         'The vendor already has an order during this time slot'
-//       );
-//     }
-
-//     if (orderExists.isSetup && payload.setupDuration && payload.setupFee) {
-//       const setupDurationMs = getDuration(orderExists.setupDuration);
-//       const deliveryDate = new Date(orderExists.deliveryDateAndTime);
-//       const setupStartDateAndTime = new Date(
-//         deliveryDate.getTime() - setupDurationMs
-//       );
-//       payload.setupStartDateAndTime = setupStartDateAndTime;
-//       payload.setupFee = orderExists.setupFee;
-//       console.log(payload);
-//     }
-//   }
-
-//   const result = await Order.findOneAndUpdate(
-//     { _id: id, status: 'pending' },
-//     { ...payload },
-//     { new: true }
-//   );
-
-//   if (!result) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
-//   }
-
-//   //update the order status
-
-//   const { name } = vendorExist.vendor as { name: string };
-
-//   const notificationData = {
-//     userId: customerExist._id,
-//     title: `Order ${payload?.status} by ${name}`,
-//     message: `Order request for ID:${orderExists?.orderId} is ${payload?.status} by ${name}.`,
-//     type: USER_ROLES.CUSTOMER,
-//   };
-//   await sendNotification(
-//     payload?.status === 'rejected' ? 'rejectedOrder' : 'acceptedOrder',
-//     result.customerId as Types.ObjectId,
-//     notificationData
-//   );
-
-//   return result;
-// };
-
 const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   if (payload.status === 'accepted' && !payload.amount) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
@@ -537,7 +435,7 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   const [vendorExist, customerExist] = await Promise.all([
     User.findOne(
       { vendor: orderExists?.vendorId, status: 'active' },
-      { status: 1, needInformation: 1, approvedByAdmin: 1 }
+      { status: 1 }
     ).populate('vendor', { name: 1 }),
     User.findOne({
       customer: orderExists?.customerId,
@@ -602,8 +500,6 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
 
       payload.setupStartDateAndTime = setupStartDateAndTime;
       payload.setupFee = payload.setupFee || orderExists.setupFee;
-
-      console.log('Updated setupStartDateAndTime:', setupStartDateAndTime);
     }
   }
 

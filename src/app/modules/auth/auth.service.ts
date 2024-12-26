@@ -18,20 +18,51 @@ import { ResetToken } from '../resetToken/resetToken.model';
 import { User } from '../user/user.model';
 import { ILoginResponse, IRefreshTokenResponse } from '../../../types/response';
 
+import { Customer } from '../customer/customer.model';
+import { Vendor } from '../vendor/vendor.model';
+import { sendOtp, verifyOtp } from '../../../helpers/twilioHelper';
+import { IVendor } from '../vendor/vendor.interface';
+import { calculateCustomerProfileCompletion } from '../customer/customer.utils';
+import { calculateProfileCompletion } from '../vendor/vendor.utils';
+
 //login
 const loginUserFromDB = async (
   payload: ILoginData
 ): Promise<ILoginResponse> => {
   const { email, password } = payload;
+
   const isExistUser = await User.findOne({ email }).select('+password');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
   if (isExistUser.status === 'restricted') {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Your account has been restricted for security reasons. Please contact admin.'
+    if (
+      isExistUser.restrictionLeftAt &&
+      new Date() < isExistUser.restrictionLeftAt
+    ) {
+      const remainingMinutes = Math.ceil(
+        (isExistUser.restrictionLeftAt.getTime() - Date.now()) / 60000
+      );
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `You are restricted to login for ${remainingMinutes} minutes`
+      );
+    }
+
+    isExistUser.status = 'active';
+    isExistUser.wrongLoginAttempts = 0;
+    isExistUser.restrictionLeftAt = null;
+
+    await User.findByIdAndUpdate(
+      { _id: isExistUser._id },
+      {
+        $set: {
+          status: isExistUser.status,
+          wrongLoginAttempts: isExistUser.wrongLoginAttempts,
+          restrictionLeftAt: isExistUser.restrictionLeftAt,
+        },
+      }
     );
   }
 
@@ -56,6 +87,26 @@ const loginUserFromDB = async (
     password &&
     !(await User.isMatchPassword(password, isExistUser.password))
   ) {
+    isExistUser.wrongLoginAttempts += 1;
+
+    if (isExistUser.wrongLoginAttempts >= 5) {
+      isExistUser.status = 'restricted';
+      isExistUser.restrictionLeftAt = new Date(
+        Date.now() + 24 * 60 * 60 * 1000
+      ); // Restrict for 1 day
+    }
+
+    await User.findByIdAndUpdate(
+      { _id: isExistUser._id },
+      {
+        $set: {
+          wrongLoginAttempts: isExistUser.wrongLoginAttempts,
+          status: isExistUser.status,
+          restrictionLeftAt: isExistUser.restrictionLeftAt,
+        },
+      }
+    );
+
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }
 
@@ -138,6 +189,10 @@ const refreshToken = async (
     config.jwt.jwt_expire_in as string
   );
 
+  //after successful login reset the wrong login attempts
+  isUserExist.wrongLoginAttempts = 0;
+  isUserExist.restrictionLeftAt = null;
+  await isUserExist.save();
   return {
     accessToken: newAccessToken,
   };
@@ -358,6 +413,92 @@ const resendOtp = async (email: string) => {
   await User.findOneAndUpdate({ email }, { $set: { authentication } });
 };
 
+const sendOtpToPhone = async (phone: string) => {
+  await sendOtp(phone);
+};
+
+const verifyOtpForPhone = async (
+  user: JwtPayload,
+  phone: string,
+  otp: string
+) => {
+  const isUserExist = await User.findById(user.id).populate({
+    path: 'vendor',
+    select: { contact: 1, businessContact: 1 },
+  });
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  const isVerified = await verifyOtp(phone, otp);
+  if (!isVerified) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid OTP');
+  }
+
+  if (isUserExist.role === 'CUSTOMER') {
+    // Update customer data
+    const customer = await Customer.findByIdAndUpdate(
+      isUserExist.customer, // Use ObjectId directly
+      { $set: { isContactVerified: true } }
+    );
+
+    if (!customer) {
+      throw new Error('Failed to update customer data.');
+    }
+
+    const profileCompletion = calculateCustomerProfileCompletion(customer);
+    await Customer.findByIdAndUpdate(
+      { _id: customer._id },
+      {
+        $set: {
+          profileCompletion: profileCompletion,
+          verifiedFlag: profileCompletion === 100,
+        },
+      }
+    );
+  } else if (isUserExist.role === 'VENDOR') {
+    let updatedData: Partial<IVendor> = {};
+
+    const vendor = isUserExist.vendor as IVendor;
+
+    if (!vendor) {
+      throw new Error('Vendor data not found.');
+    }
+
+    if (vendor.contact === phone && vendor.businessContact === phone) {
+      updatedData = {
+        isContactVerified: true,
+        isBusinessContactVerified: true,
+      };
+    } else if (vendor.contact === phone) {
+      updatedData = { isContactVerified: true };
+    } else if (vendor.businessContact === phone) {
+      updatedData = { isBusinessContactVerified: true };
+    }
+
+    // Update vendor data
+    const updatedVendor = await Vendor.findByIdAndUpdate(
+      vendor._id, // Use the vendor ObjectId
+      { $set: updatedData }
+    );
+
+    if (!updatedVendor) {
+      throw new Error('Failed to update vendor data.');
+    }
+
+    const profileCompletion = calculateProfileCompletion(vendor);
+    await Vendor.findByIdAndUpdate(
+      { _id: updatedVendor._id },
+      {
+        $set: {
+          profileCompletion: profileCompletion,
+          verifiedFlag: profileCompletion === 100,
+        },
+      }
+    );
+  }
+};
+
 export const AuthService = {
   verifyEmailToDB,
   loginUserFromDB,
@@ -366,4 +507,6 @@ export const AuthService = {
   changePasswordToDB,
   refreshToken,
   resendOtp,
+  sendOtpToPhone,
+  verifyOtpForPhone,
 };

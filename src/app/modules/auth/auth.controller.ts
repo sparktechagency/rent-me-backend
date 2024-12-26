@@ -90,6 +90,31 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const sendOtpToPhone = catchAsync(async (req: Request, res: Response) => {
+  const { phoneNumber } = req.body;
+  const result = await AuthService.sendOtpToPhone(phoneNumber);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'OTP sent successfully',
+    data: result,
+  });
+});
+
+const verifyOtpForPhone = catchAsync(async (req: Request, res: Response) => {
+  const { phoneNumber, otp } = req.body;
+  const user = req.user;
+  const result = await AuthService.verifyOtpForPhone(user, phoneNumber, otp);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'OTP verified successfully',
+    data: result,
+  });
+});
+
 export const AuthController = {
   verifyEmail,
   loginUser,
@@ -98,4 +123,6 @@ export const AuthController = {
   resetPassword,
   resendOtp,
   changePassword,
+  sendOtpToPhone,
+  verifyOtpForPhone,
 };

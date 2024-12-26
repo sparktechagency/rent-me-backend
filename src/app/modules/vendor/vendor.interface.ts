@@ -34,13 +34,17 @@ export type IVendor = {
   name: string;
   email: string;
   contact?: string;
+  isContactVerified?: boolean;
   profileImg?: string;
   address?: IAddress;
   rating?: number;
   totalReviews: number;
-
+  verifiedFlag: boolean;
   orderCompleted?: number;
   isAvailable?: boolean; // order < 10 ? true : false
+
+  stripeId: string;
+  stripeConnected: boolean;
 
   //business information
   businessProfile: string;
@@ -48,24 +52,19 @@ export type IVendor = {
   businessType?: IBusinessType;
   businessAddress?: IAddress;
   businessContact?: string;
+  isBusinessContactVerified: boolean;
   businessEmail?: string;
+  isBusinessEmailVerified: boolean;
   socialLinks: ISocialLink;
   yearsInBusiness?: number;
   servicesOffered?: string[];
   isLicensed?: boolean;
   license?: string;
   description?: string;
-
   availableDays?: string[];
   operationStartTime?: string;
   operationEndTime?: string;
-
-  //bank information
-  bankName?: string;
-  bankAccountName?: string;
-  bankAccountNumber?: string;
-  bankAccountType?: string;
-  bankRoutingNumber?: string;
+  profileCompletion: number;
 
   signatureType?: 'Typed' | 'Digital';
   signature?: string;

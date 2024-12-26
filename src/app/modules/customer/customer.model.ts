@@ -20,6 +20,10 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
     contact: {
       type: String,
     },
+    isContactVerified: {
+      type: Boolean,
+      default: false,
+    },
     profileImg: {
       type: String,
     },
@@ -40,6 +44,14 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
       default: 'Call upon arrival',
     },
     receivePromotionalNotification: {
+      type: Boolean,
+      default: false,
+    },
+    profileCompletion: {
+      type: Number,
+      default: 0,
+    },
+    verifiedFlag: {
       type: Boolean,
       default: false,
     },

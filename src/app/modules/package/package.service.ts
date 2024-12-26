@@ -60,9 +60,13 @@ const updatePackage = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Package does not exist');
   }
 
-  const result = await Package.findOneAndUpdate({ _id: id }, payload, {
-    new: true,
-  });
+  const result = await Package.findOneAndUpdate(
+    { _id: id },
+    { $set: payload },
+    {
+      new: true,
+    }
+  );
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update package');
