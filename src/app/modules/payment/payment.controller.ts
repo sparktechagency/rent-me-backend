@@ -7,7 +7,6 @@ import Stripe from 'stripe';
 import config from '../../../config';
 import { Payment } from './payment.model';
 import { stripe } from './payment.stripe';
-import StripeService from './payment.stripe';
 import { Order } from '../order/order.model';
 import { logger } from '../../../shared/logger';
 import ApiError from '../../../errors/ApiError';
@@ -70,6 +69,20 @@ const addFundToAccount = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getConnectedUserDashboard = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user;
+
+    const result = await PaymentService.getConnectedUserDashboard(user);
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Vendor dashboard retrieved successfully',
+      data: result,
+    });
+  }
+);
+
 const webhooks = catchAsync(async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'] as string;
   const endpointSecret = config.webhook_secret!; // Your webhook secret
@@ -79,8 +92,9 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
   try {
     event = Stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
-    logger.error(`Webhook signature verification failed: ${err.message}`); // Add detailed logging
-    return res.status(400).send(`Webhook error: ${err.message}`);
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    logger.error(`Webhook signature verification failed: ${errorMessage}`); // Add detailed logging
+    return res.status(400).send(`Webhook error: ${errorMessage}`);
   }
 
   // Handle the event
@@ -97,8 +111,10 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
             stripePaymentSessionId: session.id,
           },
           {
-            status: 'succeeded',
-            stripePaymentIntentId: session.payment_intent,
+            $set: {
+              status: 'succeeded',
+              stripePaymentIntentId: session.payment_intent,
+            },
           },
           { new: true }
         );
@@ -108,8 +124,8 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         }
 
         const order = await Order.findOneAndUpdate(
-          { _id: session?.metadata?.orderId, status: 'confirmed' },
-          { status: 'ongoing', paymentStatus: 'full' },
+          { _id: session?.metadata?.orderId, status: 'accepted' },
+          { $set: { status: 'ongoing', paymentStatus: 'full' } },
           { new: true }
         );
 
@@ -129,7 +145,7 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
 
         const payment = await Payment.findOneAndUpdate(
           { orderId: paymentIntent.metadata.orderId },
-          { status: 'failed' },
+          { $set: { status: 'failed' } },
           { new: true }
         );
 
@@ -150,12 +166,10 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         // Handle unexpected event types
         logger.warn(`Received unexpected event type: ${event.type}`);
     }
-  } catch (error) {
-    // Log error and respond with generic message
-    logger.error(`Webhook event processing failed: ${error.message}`);
-    return res
-      .status(500)
-      .send(`Error processing webhook event: ${error.message}`);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    logger.error(`Error handling event: ${errorMessage}`);
+    return res.status(500).send(`Server error: ${errorMessage}`);
   }
 
   // Acknowledge receipt of the event
@@ -168,4 +182,5 @@ export const PaymentController = {
   webhooks,
   transferToVendor,
   addFundToAccount,
+  getConnectedUserDashboard,
 };

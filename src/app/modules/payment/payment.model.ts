@@ -4,8 +4,12 @@ import { IPayment, PaymentModel } from './payment.interface';
 const paymentSchema = new Schema<IPayment, PaymentModel>(
   {
     orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
-    customerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    vendorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    customerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Customer',
+      required: true,
+    },
+    vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
     amount: { type: Number, required: true },
     currency: { type: String, default: 'usd' },
     status: {

@@ -19,7 +19,7 @@ export type IOrder = {
   status: string;
   preference: string;
   paymentId: Types.ObjectId;
-  paymentStatus: 'pending' | 'done';
+  paymentStatus: string;
   offeredAmount: number;
   isDeliveryDecline: boolean;
   isInstantTransfer: boolean;
@@ -50,4 +50,12 @@ export type IOrderFilterableFields = {
   paymentStatus?: 'pending' | 'half' | 'full';
   vendorId?: string;
   serviceDate?: string;
+};
+
+export type IEnrichedOrder = {
+  applicationChargeRate?: number;
+  applicationCharge?: number;
+  vendorReceivable?: number;
+  customerCCCharge?: number;
+  instantTransferChargeRate?: number;
 };

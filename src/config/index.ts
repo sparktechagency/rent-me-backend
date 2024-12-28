@@ -17,6 +17,7 @@ export default {
   },
   delivery_fee: process.env.DELIVERY_FEE,
   application_fee: process.env.APPLICATION_FEE,
+  customer_cc_rate: process.env.CUSTOMER_CC_RATE,
   instant_transfer_fee: process.env.INSTANT_TRANSFER_FEE,
   openAi_api_key: process.env.OPENAI_API_KEY,
   stripe_secret: process.env.STRIPE_SECRET_KEY,

@@ -11,6 +11,12 @@ router.post(
   PaymentController.onboardVendor
 );
 
+router.get(
+  '/dashboard',
+  auth(USER_ROLES.VENDOR),
+  PaymentController.getConnectedUserDashboard
+);
+
 router.post(
   '/checkout/:orderId',
   auth(USER_ROLES.CUSTOMER),
@@ -19,7 +25,7 @@ router.post(
 
 router.post(
   '/transfer-vendor/:orderId',
-  auth(USER_ROLES.CUSTOMER, USER_ROLES.ADMIN),
+  auth(USER_ROLES.VENDOR),
   PaymentController.transferToVendor
 );
 

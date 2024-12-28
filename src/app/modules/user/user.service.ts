@@ -108,11 +108,11 @@ const createUserByRole = async (
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Vendor');
       }
 
-      sendNotification('newVendor', USER_ROLES.ADMIN, {
+      await sendNotification('newVendor', USER_ROLES.ADMIN, {
         title: `${vendor[0].name} has created an account.`,
         message: 'Please take a look into the newly created vendor account.',
         // @ts-expect-error _id exists
-        userId: user._id as Types.ObjectId,
+        userId: user.id as Types.ObjectId,
         type: USER_ROLES.ADMIN,
       });
 

@@ -5,7 +5,11 @@ import { getDuration, validateOrderTime } from './order.utils';
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
 
-import { IOrder, IOrderFilterableFields } from './order.interface';
+import {
+  IEnrichedOrder,
+  IOrder,
+  IOrderFilterableFields,
+} from './order.interface';
 import { Order } from './order.model';
 import { calculateDistance, generateCustomOrderId } from './order.utils';
 import { JwtPayload } from 'jsonwebtoken';
@@ -108,7 +112,7 @@ const createOrder = async (payload: IOrder) => {
 
   const existingOrder = await Order.findOne({
     vendorId: payload.vendorId,
-    status: { $in: ['accepted', 'ongoing', 'confirmed', 'started'] },
+    status: { $in: ['accepted', 'ongoing', 'started'] },
     $and: query,
   });
 
@@ -232,7 +236,13 @@ const getAllOrders = async (
     andConditions.length > 0 ? { $and: andConditions } : {};
   const result = await Order.find(whereConditions)
     .populate('vendorId', { name: 1, email: 1, profileImg: 1, phone: 1 })
-    .populate('customerId', { name: 1, email: 1, profileImg: 1, phone: 1 })
+    .populate('customerId', {
+      name: 1,
+      email: 1,
+      profileImg: 1,
+      phone: 1,
+      address: 1,
+    })
     .skip(skip)
     .sort({ [sortBy]: sortOrder })
     .limit(limit);
@@ -302,11 +312,23 @@ const getAllOrderByUserId = async (
   const whereConditions = andCondition.length > 0 ? { $and: andCondition } : {};
 
   const result = await Order.find(whereConditions)
-    .populate('vendorId', { name: 1, email: 1, phone: 1, address: 1 })
+    .populate('vendorId', {
+      name: 1,
+      email: 1,
+      phone: 1,
+      address: 1,
+      profileImg: 1,
+    })
     .populate('packageId', { title: 1 })
     .populate('serviceId', { title: 1, price: 1 })
     .populate('paymentId')
-    .populate('customerId', { name: 1, email: 1, phone: 1, address: 1 })
+    .populate('customerId', {
+      name: 1,
+      email: 1,
+      phone: 1,
+      address: 1,
+      profileImg: 1,
+    })
     .skip(skip)
     .sort({ [sortBy]: sortOrder })
     .limit(limit)
@@ -318,13 +340,40 @@ const getAllOrderByUserId = async (
 
   const total = await Order.countDocuments(whereConditions);
 
+  const applicationChargeRate = Number(config.application_fee);
+  const ccChargeRate = Number(config.customer_cc_rate);
+
+  const enrichedOrders = result.map(order => {
+    const enrichedOrder: IEnrichedOrder & IOrder = {
+      ...order,
+    };
+
+    if (user.role === USER_ROLES.CUSTOMER) {
+      enrichedOrder.customerCCCharge = order.amount * ccChargeRate;
+    }
+    if (user.role === USER_ROLES.VENDOR) {
+      const applicationCharge = Math.floor(
+        order.amount * applicationChargeRate
+      );
+      enrichedOrder.vendorReceivable = Math.floor(
+        order.amount - (applicationCharge + order.amount * ccChargeRate)
+      );
+      enrichedOrder.applicationChargeRate = applicationChargeRate;
+      enrichedOrder.instantTransferChargeRate = Number(
+        config.instant_transfer_fee
+      );
+    }
+
+    return enrichedOrder;
+  });
+
   return {
     meta: {
       page,
       limit,
       total,
     },
-    data: result,
+    data: enrichedOrders,
   };
 };
 
@@ -346,13 +395,11 @@ const declineOrder = async (
   id: string,
   payload: Pick<IOrder, 'status' | 'deliveryDeclineMessage'>
 ) => {
-  if (payload?.status === 'declined') {
-    if (!payload.deliveryDeclineMessage) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Delivery Decline Message is required'
-      );
-    }
+  if (payload?.status === 'declined' && !payload?.deliveryDeclineMessage) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Delivery Decline Message is required'
+    );
   }
 
   const orderExists = await Order.findById({
@@ -386,14 +433,14 @@ const declineOrder = async (
   if (customerExist._id.toString() !== orderExists.customerId.toString()) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'You are not allowed to decline this order'
+      'You are not allowed to update status of  this order'
     );
   }
 
   //update the order status
   const result = await Order.findOneAndUpdate(
     { _id: id, status: 'accepted' },
-    payload,
+    { $set: { ...payload } },
     { new: true }
   );
 
@@ -505,7 +552,7 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
 
   const result = await Order.findOneAndUpdate(
     { _id: id, status: 'pending' },
-    { ...payload },
+    { $set: { ...payload } },
     { new: true }
   );
 

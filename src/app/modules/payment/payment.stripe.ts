@@ -69,6 +69,12 @@ class StripeService {
 
     return { sessionId: session.id, url: session.url as string };
   }
+
+  // Generate a login link for the connected user's Express Dashboard
+  async createLoginLink(accountId: string): Promise<string> {
+    const loginLink = await stripe.accounts.createLoginLink(accountId);
+    return loginLink.url;
+  }
 }
 
 export default new StripeService();

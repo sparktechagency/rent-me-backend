@@ -8,6 +8,10 @@ import { Order } from '../order/order.model';
 import { Payment } from './payment.model';
 import config from '../../../config';
 import { Transfer } from '../transfer/transfer.model';
+import { Vendor } from '../vendor/vendor.model';
+import { IVendor } from '../vendor/vendor.interface';
+import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import { Types } from 'mongoose';
 
 const onboardVendor = async (user: JwtPayload) => {
   try {
@@ -35,10 +39,12 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
       { vendorId: 1, amount: 1, isInstantTransfer: 1 }
     );
 
-    const vendor = await User.findOne(
-      { vendor: isOrderExists?.vendorId },
-      { stripeId: 1, _id: 1 }
-    );
+    const vendor = await User.findOne({
+      vendor: isOrderExists?.vendorId,
+    }).populate({
+      path: 'vendor',
+      select: 'stripeId',
+    });
 
     if (!isOrderExists) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Order does not exist');
@@ -46,6 +52,22 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
 
     if (!vendor) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
+    }
+
+    const { stripeId, _id } = vendor?.vendor as IVendor & { _id: string };
+
+    if (stripeId === null || !stripeId) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Vendor does not have a connected account'
+      );
+    }
+
+    if (vendor.status !== 'active') {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Requested vendor is not active to accept payments'
+      );
     }
 
     // Check if payment already exists for this order
@@ -63,9 +85,11 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
     // Create payment record
     const paymentData = {
       orderId: orderId,
-      customerId: user.id,
-      vendorId: vendor._id,
-      amount: isOrderExists.amount,
+      customerId: user.userId,
+      vendorId: _id,
+      amount:
+        isOrderExists.amount +
+        Number(config.application_fee) * isOrderExists.amount,
       status: 'initiated',
     };
 
@@ -77,7 +101,8 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
     // Create Stripe checkout session
     const paymentIntent = await StripeService.createCheckoutSession(
       user?.email,
-      isOrderExists.amount,
+      isOrderExists.amount +
+        Number(config.application_fee) * isOrderExists.amount,
       orderId
     );
 
@@ -85,7 +110,7 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
     await payment.save();
 
     return paymentIntent.url;
-  } catch (error) {
+  } catch (error: any) {
     // Handle errors
     throw new ApiError(
       StatusCodes.INTERNAL_SERVER_ERROR,
@@ -94,18 +119,114 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
   }
 };
 
-const transferToVendor = async (user: JwtPayload, orderId: string) => {
+const getConnectedUserDashboard = async (user: JwtPayload) => {
   try {
-    const isAlreadyTransfered = await Transfer.findOne({ orderId });
-    if (isAlreadyTransfered) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Transfer already initiated for this order'
-      );
+    const isVendorExist = await Vendor.findById(user.userId, { stripeId: 1 });
+    if (!isVendorExist) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
     }
 
+    const loginLink = await StripeService.createLoginLink(
+      isVendorExist.stripeId
+    );
+
+    return loginLink;
+  } catch (error: any) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, error.message);
+  }
+};
+
+// const transferToVendor = async (user: JwtPayload, orderId: string) => {
+//   try {
+//     const isAlreadyTransfered = await Transfer.findOne({ orderId });
+//     if (isAlreadyTransfered) {
+//       throw new ApiError(
+//         StatusCodes.BAD_REQUEST,
+//         'Transfer already initiated for this order'
+//       );
+//     }
+
+//     const [isOrderExists, isPaymentExists] = await Promise.all([
+//       Order.findById(orderId, { vendorId: 1, amount: 1, isInstantTransfer: 1 }),
+//       Payment.findOne(
+//         { orderId, status: 'succeeded' },
+//         { amount: 1, stripePaymentIntentId: 1 }
+//       ),
+//     ]);
+
+//     if (!isOrderExists)
+//       throw new ApiError(StatusCodes.BAD_REQUEST, 'Order does not exist');
+//     if (!isPaymentExists)
+//       throw new ApiError(StatusCodes.BAD_REQUEST, 'Payment does not exist');
+
+//     const isUserExists = await User.findOne({ _id: user.id }, { stripeId: 1 });
+//     if (!isUserExists)
+//       throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
+
+//     const applicationFeePercentage = isOrderExists.isInstantTransfer
+//       ? Number(config.instant_transfer_fee)
+//       : Number(config.application_fee);
+//     const applicationFee = Math.floor(
+//       isPaymentExists.amount * applicationFeePercentage
+//     );
+//     const remainingAmount = isPaymentExists.amount - applicationFee;
+
+//     const [transfer, payout] = await Promise.all([
+//       stripe.transfers.create({
+//         amount: Math.floor(remainingAmount * 100),
+//         currency: 'usd',
+//         destination: isUserExists.stripeId,
+//       }),
+//       stripe.payouts.create({
+//         amount: Math.floor(applicationFee * 100),
+//         currency: 'usd',
+//         destination: isUserExists.stripeId,
+//         method: isOrderExists.isInstantTransfer ? 'instant' : 'standard',
+//       }),
+//     ]);
+
+//     const updatePayment = await Payment.findOneAndUpdate(
+//       { _id: isPaymentExists._id },
+//       {
+//         applicationFee,
+//         isInstantTransfer: isOrderExists.isInstantTransfer,
+//       },
+//       { new: true }
+//     );
+
+//     await Transfer.create({
+//       transferId: transfer.id,
+//       payoutId: payout.id,
+//       paymentId: isPaymentExists._id,
+//     });
+
+//     // Update the order status to completed
+//     await Order.findOneAndUpdate(
+//       { _id: orderId, status: 'ongoing' },
+//       { status: 'completed' },
+//       { new: true }
+//     );
+
+//     return { transfer, payout, updatePayment };
+//   } catch (error) {
+//     const errorMessage = (error as Error).message;
+//     throw new ApiError(
+//       StatusCodes.INTERNAL_SERVER_ERROR,
+//       `Transfer failed: ${errorMessage}`
+//     );
+//   }
+// };
+
+const transferToVendor = async (user: JwtPayload, orderId: string) => {
+  try {
+    // Fetch the order and payment details
     const [isOrderExists, isPaymentExists] = await Promise.all([
-      Order.findById(orderId, { vendorId: 1, amount: 1, isInstantTransfer: 1 }),
+      Order.findById(orderId, {
+        vendorId: 1,
+        amount: 1,
+        isInstantTransfer: 1,
+        paymentId: 1,
+      }),
       Payment.findOne(
         { orderId, status: 'succeeded' },
         { amount: 1, stripePaymentIntentId: 1 }
@@ -117,13 +238,23 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
     if (!isPaymentExists)
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Payment does not exist');
 
-    const isUserExists = await User.findOne(
-      { vendor: isOrderExists.vendorId },
-      { stripeId: 1 }
-    );
+    const isAlreadyTransfered = await Transfer.findOne({
+      paymentId: isPaymentExists._id,
+    });
+
+    if (isAlreadyTransfered) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Transfer already initiated for this order'
+      );
+    }
+
+    // Validate the vendor's user
+    const isUserExists = await User.findOne({ _id: user.id }, { stripeId: 1 });
     if (!isUserExists)
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
 
+    // Calculate fees and remaining amount
     const applicationFeePercentage = isOrderExists.isInstantTransfer
       ? Number(config.instant_transfer_fee)
       : Number(config.application_fee);
@@ -132,21 +263,71 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
     );
     const remainingAmount = isPaymentExists.amount - applicationFee;
 
-    const [transfer, payout] = await Promise.all([
-      stripe.transfers.create({
+    // Check Stripe balance
+    const balance = await stripe.balance.retrieve();
+
+    if (balance.available[0].amount < Math.floor(remainingAmount * 100)) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Insufficient funds in platform account for transfer'
+      );
+    }
+
+    // Verify the vendor's Stripe account
+    const account = await stripe.accounts.retrieve(isUserExists.stripeId);
+    if (account.requirements && account.requirements.disabled_reason) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Vendor's Stripe account is not enabled: ${account.requirements.disabled_reason}`
+      );
+    }
+
+    // Retrieve the vendor's external account (e.g., bank account or card)
+    const externalAccounts = await stripe.accounts.listExternalAccounts(
+      isUserExists.stripeId,
+      { object: 'bank_account' } // Use 'card' for cards
+    );
+
+    if (!externalAccounts.data.length) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'No external accounts found for the vendor'
+      );
+    }
+
+    const externalAccount = externalAccounts.data.find(
+      account => account.status === 'verified'
+    );
+
+    if (!externalAccount) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'No verified external accounts found for the vendor'
+      );
+    }
+
+    // Create a transfer to the vendor's Stripe account
+    const transfer = await stripe.transfers.create({
+      amount: Math.floor(remainingAmount * 100),
+      currency: 'usd',
+      destination: isUserExists.stripeId,
+    });
+
+    // Create a payout to the vendor's external account
+    const payout = await stripe.payouts.create(
+      {
         amount: Math.floor(remainingAmount * 100),
         currency: 'usd',
-        destination: isUserExists.stripeId,
-      }),
-      stripe.payouts.create({
-        amount: Math.floor(applicationFee * 100),
-        currency: 'usd',
-        destination: isUserExists.stripeId,
+        destination: externalAccount.id,
         method: isOrderExists.isInstantTransfer ? 'instant' : 'standard',
-      }),
-    ]);
+      },
+      {
+        stripeAccount: isUserExists.stripeId,
+      }
+    );
 
-    const updatePayment = await Payment.findOneAndUpdate(
+    // Update payment details
+    await Payment.findOneAndUpdate(
       { _id: isPaymentExists._id },
       {
         applicationFee,
@@ -155,6 +336,7 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
       { new: true }
     );
 
+    // Log the transfer and payout
     await Transfer.create({
       transferId: transfer.id,
       payoutId: payout.id,
@@ -168,11 +350,24 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
       { new: true }
     );
 
-    return { transfer, payout, updatePayment };
+    //send notification
+    await sendNotification(
+      'paymentReceived',
+      isOrderExists.vendorId as Types.ObjectId,
+      {
+        userId: user.id,
+        title: 'Payment Received',
+        message: `Your payment for order ${orderId} has been received successfully`,
+        type: user.role,
+      }
+    );
+
+    return { transfer, payout };
   } catch (error) {
+    const errorMessage = (error as Error).message;
     throw new ApiError(
       StatusCodes.INTERNAL_SERVER_ERROR,
-      `Transfer failed: ${error.message}`
+      `Transfer failed: ${errorMessage}`
     );
   }
 };
@@ -181,4 +376,80 @@ export const PaymentService = {
   onboardVendor,
   createCheckoutSession,
   transferToVendor,
+  getConnectedUserDashboard,
 };
+
+// exports.transferAndPayouts = async id => {
+//   //booking check
+//   const isExistBooking = await Booking.findById(id);
+//   if (!isExistBooking) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, "Booking doesn't exist!");
+//   }
+
+//   //check bank account
+//   const isExistAccount = await User.isAccountCreated(
+//     new mongoose.Types.ObjectId(isExistBooking?.salon)
+//   );
+//   if (!isExistAccount) {
+//     throw new ApiError(
+//       StatusCodes.BAD_REQUEST,
+//       "Sorry, Salon didn't provide bank information. Please tell the salon owner to create a bank account"
+//     );
+//   }
+
+//   const isExistArtist = await User.findById(
+//     new mongoose.Types.ObjectId(isExistBooking?.salon)
+//   );
+
+//   //check completed payment and artist transfer
+//   if (isExistBooking.status === 'Complete') {
+//     throw new ApiError(
+//       StatusCodes.BAD_REQUEST,
+//       'The payment has already been transferred to your account.'
+//     );
+//   }
+
+//   const { stripeAccountId, externalAccountId } =
+//     isExistArtist?.accountInformation;
+//   const { price } = isExistBooking;
+
+//   const charge = (parseInt(price) * 10) / 100;
+//   const amount = parseInt(price) - charge;
+
+//   const transfer = await stripe.transfers.create({
+//     amount: amount * 100,
+//     currency: 'gbp',
+//     destination: stripeAccountId,
+//   });
+
+//   const payouts = await stripe.payouts.create(
+//     {
+//       amount: amount * 100,
+//       currency: 'gbp',
+//       destination: externalAccountId,
+//     },
+//     {
+//       stripeAccount: stripeAccountId,
+//     }
+//   );
+
+//   if (transfer.id && payouts.id) {
+//     isExistBooking.status = 'Complete';
+//     isExistBooking.payoutPrice = payouts.amount / 100;
+//     await isExistBooking.save();
+
+//     const data = {
+//       title: 'Payment Received',
+//       text: `Your Have Received Payment for service successfully`,
+//       user: isExistArtist?._id,
+//     };
+
+//     const result = await Notification.create(data);
+//     io.emit(`get-notification::${isExistArtist?._id}`, result);
+//   }
+
+//   return {
+//     transfer,
+//     payouts,
+//   };
+// };
