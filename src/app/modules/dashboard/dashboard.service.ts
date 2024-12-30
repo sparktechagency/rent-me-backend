@@ -99,7 +99,7 @@ const totalSaleAndRevenue = async () => {
           totalRevenue: { $sum: '$platformRevenue' },
         },
       },
-      { $sort: { _id: 1 } },
+      { $sort: { _id: 1 as 1 | -1 } },
     ];
 
     const paymentResult = await Payment.aggregate(paymentPipeline);
