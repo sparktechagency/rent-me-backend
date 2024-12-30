@@ -10,6 +10,12 @@ const accountSid = config.twilio.account_sid;
 const authToken = config.twilio.auth_token;
 const twilioPhoneNumber = config.twilio.phone_number;
 const client = twilio(accountSid, authToken);
+import crypto from 'crypto';
+
+// Helper function to hash OTP
+const hashOtp = (otp: string): string => {
+  return crypto.createHash('sha256').update(otp).digest('hex');
+};
 
 export const sendOtp = async (phoneNumber: string): Promise<void> => {
   try {
@@ -43,16 +49,17 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
 
     // Generate a random 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = hashOtp(otp); // Hash the OTP before saving
 
     // Set OTP expiration (e.g., 5 minutes)
     const expiresAt = addMinutes(new Date(), 5);
 
     // Save OTP in the database
     const newOtp = existingOtp
-      ? Object.assign(existingOtp, { otp, expiresAt })
+      ? Object.assign(existingOtp, { otp: hashedOtp, expiresAt })
       : new Otp({
           phoneNumber,
-          otp,
+          otp: hashedOtp,
           createdAt: new Date(),
           expiresAt,
           requestCount: 1,
@@ -62,12 +69,14 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
     await newOtp.save();
 
     // Send the OTP using Twilio
+
     await client.messages.create({
       body: `Your OTP code is ${otp}. It will expire in 5 minutes.`,
       from: twilioPhoneNumber,
       to: phoneNumber,
     });
   } catch (error) {
+    console.error('Error sending OTP:', error);
     throw new Error('Failed to send OTP. Please try again later.');
   }
 };
@@ -89,8 +98,9 @@ export const verifyOtp = async (
       throw new Error('OTP has expired. Please request a new one.');
     }
 
-    // Verify OTP
-    if (existingOtp.otp !== otp) {
+    // Hash the provided OTP and compare with the stored hash
+    const hashedOtp = hashOtp(otp);
+    if (existingOtp.otp !== hashedOtp) {
       throw new Error('Invalid OTP.');
     }
 

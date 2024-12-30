@@ -1,4 +1,4 @@
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 type Point = {
   type: 'Point';
@@ -30,6 +30,7 @@ type ISocialLink = {
 };
 
 export type IVendor = {
+  _id: Types.ObjectId;
   id: string;
   name: string;
   email: string;
@@ -57,7 +58,6 @@ export type IVendor = {
   isBusinessEmailVerified: boolean;
   socialLinks: ISocialLink;
   yearsInBusiness?: number;
-  servicesOffered?: string[];
   isLicensed?: boolean;
   license?: string;
   description?: string;

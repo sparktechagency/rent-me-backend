@@ -92,7 +92,8 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
 
 const sendOtpToPhone = catchAsync(async (req: Request, res: Response) => {
   const { phoneNumber } = req.body;
-  const result = await AuthService.sendOtpToPhone(phoneNumber);
+  const user = req.user;
+  const result = await AuthService.sendOtpToPhone(user, phoneNumber);
 
   sendResponse(res, {
     success: true,
@@ -115,6 +116,17 @@ const verifyOtpForPhone = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const deleteAccount = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { password } = req.body;
+  await AuthService.deleteAccount(user, password);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Account deleted successfully',
+  });
+});
+
 export const AuthController = {
   verifyEmail,
   loginUser,
@@ -125,4 +137,5 @@ export const AuthController = {
   changePassword,
   sendOtpToPhone,
   verifyOtpForPhone,
+  deleteAccount,
 };

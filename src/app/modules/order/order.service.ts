@@ -14,7 +14,10 @@ import { Order } from './order.model';
 import { calculateDistance, generateCustomOrderId } from './order.utils';
 import { JwtPayload } from 'jsonwebtoken';
 import { USER_ROLES } from '../../../enums/user';
-import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import {
+  sendDataWithSocket,
+  sendNotification,
+} from '../../../helpers/sendNotificationHelper';
 import { User } from '../user/user.model';
 import { Types } from 'mongoose';
 
@@ -196,8 +199,11 @@ const createOrder = async (payload: IOrder) => {
   await sendNotification(
     'newOrder',
     payload.vendorId as Types.ObjectId,
-    notificationData
+    notificationData,
+    'order'
   );
+
+  //send new order details to the vendor through socket
 
   return result;
 };
@@ -318,6 +324,11 @@ const getAllOrderByUserId = async (
       phone: 1,
       address: 1,
       profileImg: 1,
+      orderCompleted: 1,
+      rating: 1,
+      totalReviews: 1,
+      verifiedFlag: 1,
+      businessContact: 1,
     })
     .populate('packageId', { title: 1 })
     .populate('serviceId', { title: 1, price: 1 })
@@ -329,6 +340,7 @@ const getAllOrderByUserId = async (
       address: 1,
       profileImg: 1,
     })
+    .populate('review', { rating: 1, comment: 1 })
     .skip(skip)
     .sort({ [sortBy]: sortOrder })
     .limit(limit)
@@ -379,11 +391,29 @@ const getAllOrderByUserId = async (
 
 const getSingleOrder = async (id: string) => {
   const result = await Order.findById(id)
-    .populate('vendorId', { name: 1, email: 1, phone: 1, address: 1 })
+    .populate('vendorId', {
+      name: 1,
+      email: 1,
+      phone: 1,
+      address: 1,
+      profileImg: 1,
+      orderCompleted: 1,
+      rating: 1,
+      totalReviews: 1,
+      verifiedFlag: 1,
+      businessContact: 1,
+    })
     .populate('packageId', { title: 1 })
     .populate('serviceId', { title: 1, price: 1 })
     .populate('paymentId')
-    .populate('customerId', { name: 1, email: 1, phone: 1, address: 1 })
+    .populate('customerId', {
+      name: 1,
+      email: 1,
+      phone: 1,
+      address: 1,
+      profileImg: 1,
+    })
+    .populate('review', { rating: 1, comment: 1 })
     .lean();
   if (!result) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Order does not exist');
@@ -448,7 +478,7 @@ const declineOrder = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
 
-  const { name } = customerExist?.customer as { name: string };
+  const { name } = customerExist?.customer as ICustomer;
 
   const notificationData = {
     userId: vendorExist._id,
@@ -460,8 +490,13 @@ const declineOrder = async (
   await sendNotification(
     payload?.status === 'declined' ? 'declinedOrder' : 'confirmedOrder',
     result.vendorId as Types.ObjectId,
-    notificationData
+    notificationData,
+    'order'
   );
+
+  await sendDataWithSocket('order', orderExists.vendorId as Types.ObjectId, {
+    ...result,
+  });
 
   return result;
 };
@@ -495,6 +530,29 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   }
   if (!customerExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
+  }
+
+  const { stripeId, stripeConnected, verifiedFlag, name } =
+    vendorExist.vendor as IVendor;
+
+  if (
+    !stripeId ||
+    stripeId === '' ||
+    stripeId === null ||
+    stripeId === undefined ||
+    !stripeConnected
+  ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Please add your payment method first'
+    );
+  }
+
+  if (verifiedFlag === false) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You account information is not verified, please verify your account first'
+    );
   }
 
   if (payload.status === 'accepted') {
@@ -559,9 +617,6 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
-
-  // Update the order status
-  const { name } = vendorExist.vendor as { name: string };
 
   const notificationData = {
     userId: customerExist._id,

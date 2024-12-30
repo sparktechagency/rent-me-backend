@@ -4,16 +4,26 @@ import { Bookmark } from './bookmark.model';
 import ApiError from '../../../errors/ApiError';
 import { JwtPayload } from 'jsonwebtoken';
 
-const createBookmark = async (
+const createOrRemoveBookmark = async (
   user: JwtPayload,
   payload: IBookmark
 ): Promise<IBookmark> => {
-  payload.customerId = user.userId;
-  const createBookmark = await Bookmark.create(payload);
-  if (!createBookmark) {
+  const isExist = await Bookmark.findOne({
+    vendorId: payload.vendorId,
+    customerId: user.userId,
+  });
+  if (isExist) {
+    await Bookmark.deleteOne({ _id: isExist._id });
+    return isExist;
+  }
+  const result = await Bookmark.create({
+    customerId: user.userId,
+    vendorId: payload.vendorId,
+  });
+  if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create bookmark');
   }
-  return createBookmark;
+  return result;
 };
 
 const getAllBookmarks = async (id: string): Promise<IBookmark[] | null> => {
@@ -24,22 +34,7 @@ const getAllBookmarks = async (id: string): Promise<IBookmark[] | null> => {
   return result;
 };
 
-const removeBookmark = async (
-  id: string,
-  user: JwtPayload
-): Promise<IBookmark | null> => {
-  const removeBookmark = await Bookmark.findOneAndDelete({
-    _id: id,
-    customerId: user.userId,
-  });
-  if (!removeBookmark) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to remove bookmark');
-  }
-  return removeBookmark;
-};
-
 export const BookmarkService = {
-  createBookmark,
-  removeBookmark,
+  createOrRemoveBookmark,
   getAllBookmarks,
 };

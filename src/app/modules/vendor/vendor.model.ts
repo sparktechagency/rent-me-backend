@@ -84,6 +84,7 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
     },
     stripeId: {
       type: String,
+      select: 0,
     },
     stripeConnected: {
       type: Boolean,

@@ -62,12 +62,8 @@ const updateVendorProfile = async (
 
   const profileCompletion = calculateProfileCompletion(vendor);
 
-  vendor.profileCompletion = profileCompletion;
-
-  vendor.verifiedFlag = profileCompletion === 100;
   await Vendor.findByIdAndUpdate(userId, {
-    verifiedFlag: vendor.verifiedFlag,
-    profileCompletion: vendor.profileCompletion,
+    $set: { profileCompletion, verifiedFlag: profileCompletion === 100 },
   });
   return vendor;
 };
@@ -124,13 +120,7 @@ const getBusinessInformationFromVendor = async (
 };
 
 const getVendorProfile = async (user: JwtPayload) => {
-  const { id, userId } = user;
-
-  const isExistUser = await User.isExistUserById(id);
-  if (!isExistUser) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-  }
-
+  const { userId } = user;
   const result = await Vendor.findById({ _id: userId });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get vendor profile');
@@ -166,17 +156,28 @@ const getVendorProfile = async (user: JwtPayload) => {
   };
 };
 
-const getSingleVendor = async (id: string) => {
-  const [isUserExist, isVendorExist] = await Promise.all([
-    User.findOne({ vendor: id, status: 'active' }),
-    Vendor.findById(id),
-  ]);
+const getSingleVendor = async (id: Types.ObjectId) => {
+  const vendor = await Vendor.findById(id, {
+    _id: 1,
+    verifiedFlag: 1,
+    profileCompletion: 1,
+    businessAddress: 1,
+    socialLinks: 1,
+    rating: 1,
+    totalReviews: 1,
+    location: 1,
+    orderCompleted: 1,
+    profileImg: 1,
+    businessTitle: 1,
+  });
 
-  if (!isUserExist) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'User account is not active!');
+  if (!vendor) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      'Requested vendor account is not active or does not exist.'
+    );
   }
-
-  return isVendorExist;
+  return vendor;
 };
 
 const deleteVendorProfile = async (user: JwtPayload) => {
@@ -346,7 +347,9 @@ const getAllVendor = async (
   const activeVendorIds = activeUserVendors.map(user => user.vendor);
 
   // Get requested customer from the customer collection
-  const requestedCustomer = await Customer.findById(user.userId);
+  const requestedCustomer = await Customer.findById(user.userId, {
+    location: 1,
+  }).lean();
 
   if (!requestedCustomer) {
     throw new Error('Customer not found');
@@ -356,7 +359,7 @@ const getAllVendor = async (
 
   // Get bookmarked vendors for the requested customer
   const bookmarkedVendorIds = await Bookmark.find(
-    { customerId: requestedCustomer._id },
+    { customerId: user.userId, vendorId: { $in: activeVendorIds } },
     'vendorId'
   ).distinct('vendorId');
 
@@ -375,6 +378,8 @@ const getAllVendor = async (
       isAvailable: 1,
       profileImg: 1,
       location: 1,
+      verifiedFlag: 1,
+      businessAddress: 1,
     }
   )
     .sort(
@@ -398,7 +403,9 @@ const getAllVendor = async (
     return {
       ...vendor,
       distance,
-      isBookmarked: bookmarkedVendorIds.includes(vendor._id),
+      isBookmarked: bookmarkedVendorIds
+        .map(id => id.toString())
+        .includes(vendor._id.toString()),
     };
   });
 

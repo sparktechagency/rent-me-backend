@@ -17,7 +17,6 @@ export type IUser = {
   status: 'active' | 'restricted' | 'delete';
 
   verified: boolean;
-  stripeId: string;
   appId: string;
   wrongLoginAttempts: number;
   restrictionLeftAt: Date | null;

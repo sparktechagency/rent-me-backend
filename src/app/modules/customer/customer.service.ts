@@ -13,23 +13,19 @@ import { calculateCustomerProfileCompletion } from './customer.utils';
 const getCustomerProfile = async (id: Types.ObjectId) => {
   const customerId = new Types.ObjectId(id);
 
-  const isUserExist = await User.findOne({ customer: customerId });
+  const isUserExist = await User.findOne({
+    customer: customerId,
+    status: 'active',
+  }).populate('customer');
 
   if (!isUserExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Customer doesn't exist!");
-  }
-  if (isUserExist.status === 'delete') {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Profile has been deleted');
-  }
-
-  const result = await Customer.findById({ _id: id });
-  if (!result) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Failed to get customer profile'
+      "Requested profile doesn't exist!"
     );
   }
-  return result;
+
+  return isUserExist.customer;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,17 +105,17 @@ const getAllCustomer = async (
   };
 };
 
-const getSingleCustomer = async (id: string) => {
-  const isDeleted = await User.findOne({ id: id });
-  if (!isDeleted) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'User has been deleted');
+const getSingleCustomer = async (id: Types.ObjectId) => {
+  const customer = await User.findOne({ customer: id, status: 'active' });
+
+  if (!customer) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      'Requested customer account is not found!'
+    );
   }
 
-  const result = await Customer.findOne({ id: id });
-  if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get customer');
-  }
-  return result;
+  return customer.customer;
 };
 
 export const CustomerService = {

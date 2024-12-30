@@ -60,6 +60,12 @@ const createVerifyOtpForPhoneZodSchema = z.object({
   }),
 });
 
+const deleteAccountZodSchema = z.object({
+  body: z.object({
+    password: z.string({ required_error: 'Password is required' }),
+  }),
+});
+
 export const AuthValidation = {
   createVerifyEmailZodSchema,
   createForgetPasswordZodSchema,
@@ -69,4 +75,5 @@ export const AuthValidation = {
   resendOtpZodSchema,
   createSendOtpToPhoneZodSchema,
   createVerifyOtpForPhoneZodSchema,
+  deleteAccountZodSchema,
 };

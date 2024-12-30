@@ -7,6 +7,7 @@ export type IReview = {
   vendorId: Types.ObjectId;
   rating: number;
   packageId: Types.ObjectId | IPackage;
+  orderId: Types.ObjectId;
   comment: string;
 };
 

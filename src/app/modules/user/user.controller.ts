@@ -6,6 +6,7 @@ import { UserService } from './user.service';
 import { userFilterableFields } from './user.constants';
 import pick from '../../../shared/pick';
 import { paginationFields } from '../../../types/pagination';
+import { Types } from 'mongoose';
 
 const createUser = catchAsync(async (req: Request, res: Response) => {
   const { ...userData } = req.body;
@@ -21,7 +22,7 @@ const createUser = catchAsync(async (req: Request, res: Response) => {
 
 const getUserProfile = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await UserService.getUserProfileFromDB(id);
+  const result = await UserService.getUserProfileFromDB(new Types.ObjectId(id));
 
   sendResponse(res, {
     success: true,
@@ -57,17 +58,6 @@ const getAllUser = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const deleteUser = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const result = await UserService.deleteUser(id);
-  sendResponse(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: 'User deleted successfully',
-    data: result,
-  });
-});
-
 const restrictOrActivateUser = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -87,6 +77,5 @@ export const UserController = {
   getUserProfile,
   updateUser,
   getAllUser,
-  deleteUser,
   restrictOrActivateUser,
 };

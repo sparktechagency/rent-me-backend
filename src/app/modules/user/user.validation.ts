@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { USER_ROLES } from '../../../enums/user';
 
 // Create a Zod schema for user creation
 const createUserZodSchema = z.object({
@@ -15,7 +14,7 @@ const createUserZodSchema = z.object({
 
 // Create a Zod schema for updating a user
 const updateUserZodSchema = z.object({
-  status: z.enum(['active', 'restricted', 'delete']).optional(),
+  status: z.enum(['active', 'restricted']).optional(),
   verified: z.boolean().optional(),
   authentication: z
     .object({

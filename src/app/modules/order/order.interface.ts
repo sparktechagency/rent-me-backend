@@ -32,6 +32,7 @@ export type IOrder = {
   setupDuration: string;
   setupStartDateAndTime: Date;
   deliveryDateAndTime: Date;
+  review: Types.ObjectId;
 };
 
 export type IOrderModel = Model<IOrder>;

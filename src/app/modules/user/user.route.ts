@@ -34,8 +34,6 @@ router.patch(
   UserController.restrictOrActivateUser
 );
 
-router.delete('/delete/:id', auth(USER_ROLES.ADMIN), UserController.deleteUser);
-
 //get all user
 router.get('/', auth(USER_ROLES.ADMIN), UserController.getAllUser);
 

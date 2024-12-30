@@ -9,7 +9,8 @@ import { INotification } from '../app/modules/notification/notification.interfac
 export const sendNotification = async (
   namespace: string,
   recipient: Types.ObjectId | string,
-  data: INotification
+  data: INotification,
+  path?: string
 ) => {
   const result = await Notification.create(data);
   if (!result) {
@@ -18,6 +19,18 @@ export const sendNotification = async (
       'Failed to create notification'
     );
   }
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  //@ts-ignore
+  const socket = global.io;
+
+  socket.emit(`${namespace}::${recipient}`, data, path);
+};
+
+export const sendDataWithSocket = async (
+  namespace: string,
+  recipient: string | Types.ObjectId,
+  data: Record<string, unknown>
+) => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   //@ts-ignore
   const socket = global.io;

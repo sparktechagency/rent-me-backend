@@ -9,6 +9,7 @@ import { Request, Response } from 'express';
 import { vendorFilterableFields } from './vendor.constants';
 import pick from '../../../shared/pick';
 import { Express } from 'express';
+import { Types } from 'mongoose';
 
 const updateVendorProfile = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -86,7 +87,7 @@ const getVendorProfile = catchAsync(async (req: Request, res: Response) => {
 
 const getSingleVendor = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await VendorService.getSingleVendor(id);
+  const result = await VendorService.getSingleVendor(new Types.ObjectId(id));
   sendResponse<IVendor | null>(res, {
     success: true,
     statusCode: StatusCodes.OK,

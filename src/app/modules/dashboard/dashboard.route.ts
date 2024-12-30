@@ -71,4 +71,10 @@ router.get(
   DashboardController.getYearlyActivityData
 );
 
+router.post(
+  '/restrict-active-user/:id',
+  auth(USER_ROLES.ADMIN),
+  DashboardController.restrictOrActivateUserAccount
+);
+
 export const DashboardRoutes = router;

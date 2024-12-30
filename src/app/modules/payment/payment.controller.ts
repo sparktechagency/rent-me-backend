@@ -1,3 +1,4 @@
+import { calculateProfileCompletion } from './../vendor/vendor.utils';
 import { Request, Response } from 'express';
 import catchAsync from '../../../shared/catchAsync';
 import { StatusCodes } from 'http-status-codes';
@@ -10,6 +11,7 @@ import { stripe } from './payment.stripe';
 import { Order } from '../order/order.model';
 import { logger } from '../../../shared/logger';
 import ApiError from '../../../errors/ApiError';
+import { Vendor } from '../vendor/vendor.model';
 
 const onboardVendor = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -18,7 +20,7 @@ const onboardVendor = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
-    message: 'Vendor onboarded successfully',
+    message: 'Vendor onboarded link fetched successfully',
     data: result,
   });
 });
@@ -159,6 +161,29 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         logger.info(
           `Payment failed for orderId: ${paymentIntent.metadata.orderId}`
         );
+        break;
+      }
+      case 'account.external_account.created': {
+        const createdAccount = event.data.object;
+        const result = await Vendor.findOneAndUpdate(
+          { stripeId: createdAccount.account },
+          { $set: { stripeConnected: true } },
+          { new: true }
+        );
+
+        const profileCompletion = calculateProfileCompletion(result!);
+
+        await Vendor.findOneAndUpdate(
+          { stripeId: createdAccount.account },
+          {
+            $set: {
+              profileCompletion: profileCompletion,
+              verifiedFlag: profileCompletion === 100,
+            },
+          },
+          { new: true }
+        );
+
         break;
       }
 

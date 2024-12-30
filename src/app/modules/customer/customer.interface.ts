@@ -1,4 +1,4 @@
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 type Point = {
   type: 'Point';
   coordinates: [number, number]; // [longitude, latitude]
@@ -16,6 +16,7 @@ type IAddress = {
 type IDeliveryOption = 'Leave at the front door' | 'Call upon arrival';
 
 export type ICustomer = {
+  _id: Types.ObjectId;
   id: string;
   name: string;
   email: string;

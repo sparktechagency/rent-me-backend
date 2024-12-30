@@ -1,6 +1,7 @@
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 export type IAdmin = {
+  _id: Types.ObjectId;
   id: string;
   name: string;
   email: string;

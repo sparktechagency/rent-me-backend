@@ -134,10 +134,11 @@ const getAllPackageByServiceId = async (id: string): Promise<IPackage[]> => {
 };
 
 const getAllServiceByVendorId = async (id: string): Promise<IService[]> => {
-  const result = await Service.find({ vendorId: id })
-  .populate('packages', {
+  const result = await Service.find({ vendorId: id }).populate('packages', {
     title: 1,
     features: 1,
+    setupFee: 1,
+    setupDuration: 1,
   });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get services');

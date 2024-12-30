@@ -88,6 +88,10 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
     deliveryDeclineMessage: {
       type: String,
     },
+    review: {
+      type: Schema.Types.ObjectId,
+      ref: 'Review',
+    },
   },
   { timestamps: true, toJSON: { virtuals: true } }
 );

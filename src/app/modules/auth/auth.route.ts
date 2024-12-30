@@ -61,4 +61,11 @@ router.post(
   AuthController.verifyOtpForPhone
 );
 
+router.delete(
+  '/delete-account',
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  validateRequest(AuthValidation.deleteAccountZodSchema),
+  AuthController.deleteAccount
+);
+
 export const AuthRoutes = router;

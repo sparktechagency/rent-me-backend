@@ -6,6 +6,7 @@ import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
 import { paginationFields } from '../../../types/pagination';
 import pick from '../../../shared/pick';
+import { Types } from 'mongoose';
 
 const getCustomerProfile = catchAsync(async (req: Request, res: Response) => {
   const { userId } = req.user;
@@ -73,7 +74,9 @@ const getAllCustomer = catchAsync(async (req: Request, res: Response) => {
 
 const getSingleCustomer = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await CustomerService.getSingleCustomer(id);
+  const result = await CustomerService.getSingleCustomer(
+    new Types.ObjectId(id)
+  );
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

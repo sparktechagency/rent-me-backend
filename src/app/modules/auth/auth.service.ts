@@ -24,6 +24,8 @@ import { sendOtp, verifyOtp } from '../../../helpers/twilioHelper';
 import { IVendor } from '../vendor/vendor.interface';
 import { calculateCustomerProfileCompletion } from '../customer/customer.utils';
 import { calculateProfileCompletion } from '../vendor/vendor.utils';
+import { ICustomer } from '../customer/customer.interface';
+import { USER_ROLES } from '../../../enums/user';
 
 //login
 const loginUserFromDB = async (
@@ -413,7 +415,48 @@ const resendOtp = async (email: string) => {
   await User.findOneAndUpdate({ email }, { $set: { authentication } });
 };
 
-const sendOtpToPhone = async (phone: string) => {
+const sendOtpToPhone = async (user: JwtPayload, phone: string) => {
+  const isUserExist = await User.findById(user.id)
+    .populate({
+      path: 'vendor',
+      select: {
+        contact: 1,
+        businessContact: 1,
+        isBusinessContactVerified: 1,
+        isContactVerified: 1,
+      },
+    })
+    .populate({
+      path: 'customer',
+      select: { contact: 1, isContactVerified: 1 },
+    });
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  if (isUserExist.role === USER_ROLES.CUSTOMER) {
+    const { isContactVerified } = isUserExist.customer as ICustomer;
+
+    if (isContactVerified) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Phone number is already verified'
+      );
+    }
+  }
+
+  if (isUserExist.role === USER_ROLES.VENDOR) {
+    const { isContactVerified, isBusinessContactVerified } =
+      isUserExist.vendor as IVendor;
+
+    if (isContactVerified && isBusinessContactVerified) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Phone number is already verified'
+      );
+    }
+  }
+
   await sendOtp(phone);
 };
 
@@ -422,10 +465,15 @@ const verifyOtpForPhone = async (
   phone: string,
   otp: string
 ) => {
-  const isUserExist = await User.findById(user.id).populate({
-    path: 'vendor',
-    select: { contact: 1, businessContact: 1 },
-  });
+  const isUserExist = await User.findById(user.id)
+    .populate({
+      path: 'vendor',
+      select: { contact: 1, businessContact: 1 },
+    })
+    .populate({
+      path: 'customer',
+      select: { contact: 1 },
+    });
   if (!isUserExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -465,7 +513,7 @@ const verifyOtpForPhone = async (
       throw new Error('Vendor data not found.');
     }
 
-    if (vendor.contact === phone && vendor.businessContact === phone) {
+    if (vendor.contact == phone && vendor.businessContact == phone) {
       updatedData = {
         isContactVerified: true,
         isBusinessContactVerified: true,
@@ -479,14 +527,14 @@ const verifyOtpForPhone = async (
     // Update vendor data
     const updatedVendor = await Vendor.findByIdAndUpdate(
       vendor._id, // Use the vendor ObjectId
-      { $set: updatedData }
+      { $set: { updatedData } }
     );
 
     if (!updatedVendor) {
       throw new Error('Failed to update vendor data.');
     }
 
-    const profileCompletion = calculateProfileCompletion(vendor);
+    const profileCompletion = calculateProfileCompletion(updatedVendor);
     await Vendor.findByIdAndUpdate(
       { _id: updatedVendor._id },
       {
@@ -499,6 +547,30 @@ const verifyOtpForPhone = async (
   }
 };
 
+const deleteAccount = async (user: JwtPayload, password: string) => {
+  const isUserExist = await User.findById(user.id);
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  const isPasswordMatched = await bcrypt.compare(
+    password,
+    isUserExist.password
+  );
+  if (!isPasswordMatched) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect');
+  }
+
+  if (isUserExist.status === 'delete') {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User already deleted!');
+  }
+
+  isUserExist.status = 'delete';
+  await isUserExist.save();
+
+  return isUserExist;
+};
+
 export const AuthService = {
   verifyEmailToDB,
   loginUserFromDB,
@@ -509,4 +581,5 @@ export const AuthService = {
   resendOtp,
   sendOtpToPhone,
   verifyOtpForPhone,
+  deleteAccount,
 };

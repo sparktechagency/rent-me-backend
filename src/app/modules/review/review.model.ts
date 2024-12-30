@@ -10,6 +10,7 @@ const reviewSchema = new Schema<IReview, IReviewModel>(
     },
     vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
     packageId: { type: Schema.Types.ObjectId, ref: 'Package', required: true },
+    orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
     rating: { type: Number, required: true },
     comment: { type: String, required: true },
   },

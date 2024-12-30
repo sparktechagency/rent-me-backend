@@ -56,8 +56,7 @@ class StripeService {
         },
       ],
       mode: 'payment',
-      success_url:
-        'https://yourapp.com/success?session_id={CHECKOUT_SESSION_ID}',
+      success_url: 'https://yourapp.com/success',
       cancel_url: 'https://yourapp.com/cancel',
       payment_intent_data: {},
       metadata: {

@@ -8,6 +8,9 @@ import { Vendor } from '../vendor/vendor.model';
 import { User } from '../user/user.model';
 import { Service } from '../service/service.model';
 import { IOrderFilterableFields } from '../order/order.interface';
+import config from '../../../config';
+import { Payment } from '../payment/payment.model';
+import { Types } from 'mongoose';
 
 const RANGE_MAPPING: Record<IRange, number> = {
   '1-week': 7,
@@ -17,11 +20,6 @@ const RANGE_MAPPING: Record<IRange, number> = {
   '1-year': 365,
   'all-time': 0, // Indicates no limit
 };
-
-type SalesAndRevenue = Record<
-  string,
-  { totalSales: number; totalRevenue: number }
->;
 
 const generalStatForAdminDashboard = async () => {
   try {
@@ -57,62 +55,82 @@ const generalStatForAdminDashboard = async () => {
   }
 };
 
-const totalSaleAndRevenue = async (
-  range: IRange = '1-week'
-): Promise<SalesAndRevenue> => {
+const totalSaleAndRevenue = async () => {
   try {
-    // Calculate the start date only if range is not "all-time" (0 days)
-    const days = RANGE_MAPPING[range];
-    const startDate =
-      days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : null;
+    const days = 7; // Fixed to 7 days
 
-    // MongoDB aggregation pipeline
-    const aggregationPipeline: any[] = [
-      // Filter by date range only if range is not "all-time"
-      ...(days > 0
-        ? [
-            {
-              $match: {
-                status: 'completed',
-                createdAt: { $gte: startDate },
-              },
-            },
-          ]
-        : [
-            {
-              $match: {
-                status: 'completed',
-              },
-            },
-          ]),
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const endDate = new Date();
 
-      // Group data by day and calculate total sales and revenue
+    // Aggregation pipeline for payments
+    const paymentPipeline = [
       {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          totalSales: { $sum: 1 },
-          totalRevenue: { $sum: '$amount' },
+        $match: {
+          status: 'succeeded',
+          createdAt: { $gte: startDate, $lte: endDate },
         },
       },
-
-      // Sort by date in ascending order
       {
-        $sort: { _id: 1 },
+        $addFields: {
+          platformRevenue: {
+            $cond: {
+              if: { $eq: ['$isInstantTransfer', true] },
+              then: {
+                // Corrected to directly access the config value
+                $multiply: ['$amount', Number(config.instant_transfer_fee)],
+              },
+              else: {
+                // Corrected to directly access the config value
+                $multiply: ['$amount', Number(config.application_fee)],
+              },
+            },
+          },
+        },
       },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: '$createdAt',
+            },
+          },
+          totalSales: { $sum: '$amount' },
+          totalRevenue: { $sum: '$platformRevenue' },
+        },
+      },
+      { $sort: { _id: 1 } },
     ];
 
-    const result = await Order.aggregate(aggregationPipeline);
+    const paymentResult = await Payment.aggregate(paymentPipeline);
 
-    // Transform the result into a keyed object
-    const salesAndRevenue: SalesAndRevenue = result.reduce(
-      (acc, { _id, totalSales, totalRevenue }) => {
-        acc[_id] = { totalSales, totalRevenue };
-        return acc;
-      },
-      {} as SalesAndRevenue
-    );
+    // Initialize combined data for 7 days
+    const combinedData: {
+      [key: string]: { totalSales: number; totalRevenue: number };
+    } = {};
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      const formattedDate = date.toISOString().split('T')[0];
+      combinedData[formattedDate] = { totalSales: 0, totalRevenue: 0 };
+    }
 
-    return salesAndRevenue;
+    // Populate results from payment aggregation
+    paymentResult.forEach(({ _id, totalSales, totalRevenue }) => {
+      if (combinedData[_id]) {
+        combinedData[_id].totalSales += totalSales;
+        combinedData[_id].totalRevenue += totalRevenue;
+      }
+    });
+
+    // Format data for chart
+    const aggregatedData = Object.keys(combinedData).map(date => ({
+      date,
+      totalSales: combinedData[date].totalSales,
+      totalRevenue: parseFloat(combinedData[date].totalRevenue.toFixed(1)),
+    }));
+
+    return aggregatedData;
   } catch (error) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -120,6 +138,8 @@ const totalSaleAndRevenue = async (
     );
   }
 };
+
+// API to get sales and revenue data for charts (including setupFee and deliveryFee)
 
 const getAllOrders = async (filtersData: IOrderFilterableFields) => {
   const andCondition: any[] = [];
@@ -883,23 +903,23 @@ const getYearlyActivityData = async (year: number) => {
       ]),
 
       // Fetch order stats grouped by month
-      Order.aggregate([
+      Payment.aggregate([
         { $match: { createdAt: { $gte: startDate, $lt: endDate } } },
         {
           $group: {
             _id: { $month: '$createdAt' }, // Group by month (1-12)
-            orderCount: { $sum: 1 },
+            paymentCount: { $sum: 1 },
           },
         },
         { $sort: { _id: 1 } },
       ]),
 
       // Fetch revenue stats grouped by month
-      Order.aggregate([
+      Payment.aggregate([
         {
           $match: {
             createdAt: { $gte: startDate, $lt: endDate },
-            status: 'completed',
+            status: 'succeeded',
           },
         },
         {
@@ -928,10 +948,6 @@ const getYearlyActivityData = async (year: number) => {
       'December',
     ];
 
-    // Generate random values for userCount, orderCount, and revenue
-    const getRandomValue = (min: number, max: number) =>
-      Math.floor(Math.random() * (max - min + 1)) + min;
-
     // Combine results into a single array
     const yearlyData = Array.from({ length: 12 }, (_, i) => {
       const month = i + 1; // MongoDB $month returns 1-12
@@ -939,13 +955,13 @@ const getYearlyActivityData = async (year: number) => {
         month: monthNames[i],
         orderCount:
           orderStats.find((stat: { _id: number }) => stat._id === month)
-            ?.orderCount || getRandomValue(10, 100), // Random orderCount
+            ?.orderCount || 0,
         userCount:
           userStats.find((stat: { _id: number }) => stat._id === month)
-            ?.userCount || getRandomValue(5, 50), // Random userCount
+            ?.userCount || 0,
         revenue:
           revenueStats.find((stat: { _id: number }) => stat._id === month)
-            ?.revenue || getRandomValue(1000, 10000), // Random revenue
+            ?.revenue || 0,
       };
     });
 
@@ -957,6 +973,28 @@ const getYearlyActivityData = async (year: number) => {
     );
   }
 };
+
+const restrictOrActivateUserAccount = async (id: Types.ObjectId) => {
+  const user = await User.findOne({ _id: id });
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
+  }
+  let status = null;
+  if (user.status === 'active') {
+    await User.findByIdAndUpdate(id, {
+      status: 'restricted',
+    });
+    status = 'restricted';
+  } else {
+    await User.findByIdAndUpdate(id, {
+      status: 'active',
+    });
+    status = 'active';
+  }
+
+  return `User status updated to ${status}`;
+};
+
 export const DashboardService = {
   generalStatForAdminDashboard,
   totalSaleAndRevenue,
@@ -970,4 +1008,5 @@ export const DashboardService = {
   getCustomerRetentionData,
   getRevenue,
   getYearlyActivityData,
+  restrictOrActivateUserAccount,
 };

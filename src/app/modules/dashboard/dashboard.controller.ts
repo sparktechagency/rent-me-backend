@@ -5,6 +5,7 @@ import catchAsync from '../../../shared/catchAsync';
 import { DashboardService } from './dashboard.service';
 import sendResponse from '../../../shared/sendResponse';
 import pick from '../../../shared/pick';
+import { Types } from 'mongoose';
 
 const generalStatForAdminDashboard = catchAsync(
   async (req: Request, res: Response) => {
@@ -20,8 +21,7 @@ const generalStatForAdminDashboard = catchAsync(
 );
 
 const totalSaleAndRevenue = catchAsync(async (req: Request, res: Response) => {
-  const range = req.query.range as IRange;
-  const result = await DashboardService.totalSaleAndRevenue(range);
+  const result = await DashboardService.totalSaleAndRevenue();
 
   sendResponse(res, {
     success: true,
@@ -145,6 +145,20 @@ const getYearlyActivityData = catchAsync(
   }
 );
 
+const restrictOrActivateUserAccount = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await DashboardService.restrictOrActivateUserAccount(
+      new Types.ObjectId(id)
+    );
+    sendResponse(res, {
+      success: true,
+      statusCode: 200,
+      message: result,
+    });
+  }
+);
+
 export const DashboardController = {
   generalStatForAdminDashboard,
   totalSaleAndRevenue,
@@ -158,4 +172,5 @@ export const DashboardController = {
   getCustomerRetentionData,
   getRevenue,
   getYearlyActivityData,
+  restrictOrActivateUserAccount,
 };

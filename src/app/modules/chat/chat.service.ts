@@ -88,6 +88,79 @@ const accessChat = async (
   };
 };
 
+// const getChatListByUserId = async (
+//   user: JwtPayload,
+//   paginationOptions: IPaginationOptions,
+//   searchTerm?: string
+// ) => {
+//   const { page, limit, skip, sortBy, sortOrder } =
+//     paginationHelper.calculatePagination(paginationOptions);
+
+//   // Define the base query
+//   const baseQuery = {
+//     participants: { $in: [user.id] },
+//   };
+
+//   // Fetch chats with the base query, population, sorting, and pagination
+//   const chats = await Chat.find(baseQuery)
+//     .populate({
+//       path: 'participants',
+//       select: 'vendor customer',
+//       populate: [
+//         { path: 'customer', select: 'name profileImg' },
+//         { path: 'vendor', select: 'name profileImg' },
+//       ],
+//     })
+//     .sort({ [sortBy]: sortOrder })
+//     .skip(skip)
+//     .limit(limit)
+//     .lean();
+
+//   if (!chats) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get chat list');
+//   }
+
+//   // Filter the chats based on the search term
+//   const filteredChats = chats.filter(chat =>
+//     searchTerm
+//       ? chat.participants.some(
+//           participant =>
+//             participant.customer?.name
+//               ?.toLowerCase()
+//               .includes(searchTerm.toLowerCase()) ||
+//             participant.vendor?.name
+//               ?.toLowerCase()
+//               .includes(searchTerm.toLowerCase())
+//         )
+//       : true
+//   );
+
+//   // Map and format the result
+//   const result = filteredChats.map(chat => {
+//     const otherParticipant = chat.participants.find(
+//       participant => participant._id.toString() !== user.id
+//     );
+
+//     return {
+//       chatId: chat._id,
+//       ...otherParticipant,
+//     };
+//   });
+
+//   // Count total chats matching the base query
+//   const total = await Chat.countDocuments(baseQuery);
+
+//   return {
+//     meta: {
+//       page,
+//       limit,
+//       total,
+//       totalPage: Math.ceil(total / limit),
+//     },
+//     data: result,
+//   };
+// };
+
 const getChatListByUserId = async (
   user: JwtPayload,
   paginationOptions: IPaginationOptions,

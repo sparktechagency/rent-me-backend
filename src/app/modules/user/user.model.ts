@@ -47,10 +47,6 @@ const userSchema = new Schema<IUser, UserModel>(
       enum: ['active', 'restricted', 'delete'],
       default: 'active',
     },
-    stripeId: {
-      type: String,
-      select: 0,
-    },
     appId: {
       type: String,
       select: 0,

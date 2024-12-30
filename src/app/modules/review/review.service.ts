@@ -8,6 +8,7 @@ import { Vendor } from '../vendor/vendor.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
+import { Order } from '../order/order.model';
 
 const createReview = async (payload: IReview): Promise<IReview | null> => {
   const session = await mongoose.startSession();
@@ -43,6 +44,12 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
     vendor.rating = vendorRating || payload.rating;
     vendor.totalReviews = vendor.totalReviews + 1;
 
+    await Order.updateOne(
+      { _id: payload.orderId },
+      { $set: { review: createReview._id } },
+      { session }
+    );
+
     await vendor.save({ session });
 
     await session.commitTransaction();
@@ -70,12 +77,10 @@ const getAllReviewsForVendorById = async (
   }
 
   // Find reviews based on the constructed filter
-  const result = await Review.find(filter)
+  const result = await Review.find(filter, { rating: 1, comment: 1 })
     .sort({ [sortBy]: sortOrder })
     .skip(skip)
-    .limit(limit)
-    .populate('customerId')
-    .populate('vendorId');
+    .limit(limit);
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get all reviews');

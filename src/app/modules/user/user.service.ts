@@ -16,7 +16,7 @@ import { userSearchableFields } from './user.constants';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
-import StripeService from '../payment/payment.stripe';
+// import StripeService from '../payment/payment.stripe';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
@@ -101,8 +101,8 @@ const createUserByRole = async (
       return customer;
     }
     case USER_ROLES.VENDOR: {
-      const account = await StripeService.createConnectedAccount(user.email!);
-      user.stripeId = account.id;
+      // const account = await StripeService.createConnectedAccount(user.email!);
+      // user.stripeId = account.id;
       const vendor = await Vendor.create([user], { session });
       if (!vendor?.length) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Vendor');
@@ -219,21 +219,6 @@ const getAllUser = async (
   };
 };
 
-const deleteUser = async (id: string): Promise<IUser | null> => {
-  const isUserExists = await User.findOne({ id: id });
-  if (!isUserExists) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
-  }
-  const updatedData = {
-    status: 'delete',
-  };
-
-  const result = await User.findOneAndUpdate({ id: id }, updatedData, {
-    new: true,
-  });
-  return result;
-};
-
 const restrictOrActivateUserToDB = async (
   id: string,
   payload: 'restricted' | 'active'
@@ -261,6 +246,6 @@ export const UserService = {
   getUserProfileFromDB,
   updateUser,
   getAllUser,
-  deleteUser,
+
   restrictOrActivateUserToDB,
 };

@@ -25,25 +25,41 @@ router.patch(
   auth(USER_ROLES.VENDOR),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
-    req.body.data
-      ? (req.body = ServiceValidation.updateServiceZodSchema.parse(
-          JSON.parse(req.body.data)
-        ))
-      : {};
+    if (req.body.data) {
+      req.body = ServiceValidation.updateServiceZodSchema.parse(
+        JSON.parse(req.body.data)
+      );
+    }
     return ServiceController.updateService(req, res, next);
   }
 );
 router.delete('/:id', auth(USER_ROLES.VENDOR), ServiceController.deleteService);
 
 //get service
-router.get('/:id', ServiceController.getSingleService);
+router.get(
+  '/:id',
+  auth(USER_ROLES.VENDOR, USER_ROLES.CUSTOMER, USER_ROLES.ADMIN),
+  ServiceController.getSingleService
+);
 
 //get packages by service Id
-router.get('/package/:id', ServiceController.getAllPackageByServiceId);
+router.get(
+  '/package/:id',
+  auth(USER_ROLES.VENDOR, USER_ROLES.CUSTOMER, USER_ROLES.ADMIN),
+  ServiceController.getAllPackageByServiceId
+);
 
 //by Vendor Id
-router.get('/vendor/:id', ServiceController.getAllServiceByVendorId);
+router.get(
+  '/vendor/:id',
+  auth(USER_ROLES.VENDOR, USER_ROLES.CUSTOMER, USER_ROLES.ADMIN),
+  ServiceController.getAllServiceByVendorId
+);
 
-router.get('/', ServiceController.getAllService);
+router.get(
+  '/',
+  auth(USER_ROLES.VENDOR, USER_ROLES.CUSTOMER, USER_ROLES.ADMIN),
+  ServiceController.getAllService
+);
 
 export const ServiceRoutes = router;
