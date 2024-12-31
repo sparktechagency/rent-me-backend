@@ -59,7 +59,7 @@ const createOrder = async (payload: IOrder) => {
   if (deliveryDateAndTime < currentDate) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Cannot create an order for a past time.'
+      'The requested delivery date and time must be in the future.'
     );
   }
 
@@ -97,6 +97,17 @@ const createOrder = async (payload: IOrder) => {
 
   const { availableDays, operationStartTime, operationEndTime, location } =
     vendorExist.vendor as IVendor;
+
+  // Check vendor's available days
+  const requestedDay = deliveryDateAndTime.toLocaleDateString('en-US', {
+    weekday: 'long',
+  });
+  if (!availableDays!.includes(requestedDay)) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Vendor is not available on the requested day.'
+    );
+  }
 
   // Check for conflicting orders
   const query = payload.isSetup
@@ -148,17 +159,16 @@ const createOrder = async (payload: IOrder) => {
       operationStartTime!,
       operationEndTime!
     );
-  }
-
-  // Check vendor's available days
-  const requestedDay = deliveryDateAndTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-  });
-  if (!availableDays!.includes(requestedDay)) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Vendor is not available on the requested day.'
+    const distance = calculateDistance(
+      [location.coordinates[0], location.coordinates[1]],
+      [
+        payload.deliveryLocation.coordinates[0],
+        payload.deliveryLocation.coordinates[1],
+      ]
     );
+
+    const fee = (distance * Number(config.delivery_fee)).toFixed(2);
+    payload.deliveryFee = Number(fee);
   }
 
   // Calculate fees if setup is included
@@ -192,7 +202,7 @@ const createOrder = async (payload: IOrder) => {
   const notificationData = {
     userId: vendorExist._id,
     title: `Order request from ${name}`,
-    message: `${name} has placed an order. Please accept or decline the order. Order ID: ${orderId}`,
+    message: `${name} has placed an order. Please accept or reject the order. Order ID: ${orderId}`,
     type: USER_ROLES.VENDOR,
   };
 

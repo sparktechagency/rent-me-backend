@@ -15,13 +15,15 @@ import { Types } from 'mongoose';
 
 const onboardVendor = async (user: JwtPayload) => {
   try {
-    const isUserExists = await User.findById(user.id).populate('vendor');
+    const isUserExists = await User.findById(user.id).populate('vendor', {
+      stripeId: 1,
+    });
     if (!isUserExists) {
       throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
     }
 
     const { stripeId } = isUserExists.vendor as IVendor;
-
+    let newStripeId = null;
     if (!stripeId) {
       const account = await StripeService.createConnectedAccount(user?.email);
       if (!account) {
@@ -31,6 +33,7 @@ const onboardVendor = async (user: JwtPayload) => {
         );
       }
 
+      newStripeId = account.id;
       await Vendor.findByIdAndUpdate(
         { _id: user.userId },
         { $set: { stripeId: account.id } },
@@ -39,7 +42,7 @@ const onboardVendor = async (user: JwtPayload) => {
     }
 
     const onboardingUrl = await StripeService.createAccountLink(
-      stripeId,
+      newStripeId || stripeId,
       'https://yourapp.com/onboarding-success', // Replace with your URL
       'https://yourapp.com/onboarding-failed' // Replace with your URL
     );

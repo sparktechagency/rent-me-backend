@@ -101,18 +101,17 @@ const createUserByRole = async (
       return customer;
     }
     case USER_ROLES.VENDOR: {
-      // const account = await StripeService.createConnectedAccount(user.email!);
-      // user.stripeId = account.id;
       const vendor = await Vendor.create([user], { session });
       if (!vendor?.length) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Vendor');
       }
 
+      const admin = await Admin.findOne({ role: USER_ROLES.ADMIN });
+
       await sendNotification('newVendor', USER_ROLES.ADMIN, {
         title: `${vendor[0].name} has created an account.`,
         message: 'Please take a look into the newly created vendor account.',
-        // @ts-expect-error _id exists
-        userId: user.id as Types.ObjectId,
+        userId: admin!._id || new Types.ObjectId('675129b45d9982726dc7f082'),
         type: USER_ROLES.ADMIN,
       });
 

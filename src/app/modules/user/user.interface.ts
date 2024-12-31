@@ -7,6 +7,7 @@ import { IAdmin } from '../admin/admin.interface';
 import { USER_ROLES } from '../../../enums/user';
 
 export type IUser = {
+  _id: Types.ObjectId;
   id: string;
   email: string;
   password: string;

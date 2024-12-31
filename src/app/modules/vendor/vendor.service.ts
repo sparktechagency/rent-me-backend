@@ -169,6 +169,14 @@ const getSingleVendor = async (id: Types.ObjectId) => {
     orderCompleted: 1,
     profileImg: 1,
     businessTitle: 1,
+    availableDays: 1,
+    description: 1,
+    yearsInBusiness: 1,
+    businessContact: 1,
+    businessEmail: 1,
+    businessType: 1,
+    operationStartTime: 1,
+    operationEndTime: 1,
   });
 
   if (!vendor) {
@@ -330,7 +338,7 @@ const getAllVendor = async (
         $geoWithin: {
           $centerSphere: [
             [Number(customerLng), Number(customerLat)], // [lng, lat] format for GeoJSON
-            radius / 6378.1, // Radius in radians (6378.1 is Earth's radius in kilometers)
+            radius / 3959, // Radius in radians (6378.1 is Earth's radius in kilometers)
           ],
         },
       },
@@ -380,6 +388,14 @@ const getAllVendor = async (
       location: 1,
       verifiedFlag: 1,
       businessAddress: 1,
+      availableDays: 1,
+      description: 1,
+      yearsInBusiness: 1,
+      businessContact: 1,
+      businessEmail: 1,
+      businessType: 1,
+      operationStartTime: 1,
+      operationEndTime: 1,
     }
   )
     .sort(
