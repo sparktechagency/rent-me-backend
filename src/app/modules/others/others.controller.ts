@@ -126,7 +126,7 @@ const getTermsAndConditions = catchAsync(
 const getFaQs = catchAsync(async (req: Request, res: Response) => {
   const { type } = req.params;
   const result = await OthersService.getFaQs(type);
-  sendResponse<IFaQs | null>(res, {
+  sendResponse<IFaQs | unknown>(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'FaQs retrieved successfully',

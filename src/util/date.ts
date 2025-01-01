@@ -1,5 +1,4 @@
 export const getStartDate = (range: string) => {
-  console.log(range);
   const now = new Date();
   switch (range) {
     case 'weekly':

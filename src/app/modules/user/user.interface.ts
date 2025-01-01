@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-unused-vars */
 import { Model, Types } from 'mongoose';
 import { ICustomer } from '../customer/customer.interface';
@@ -30,8 +29,8 @@ export type IUser = {
 };
 
 export type UserModel = {
-  isExistUserById(id: string): any;
-  isExistUserByEmail(email: string): any;
+  isExistUserById(id: string): Promise<IUser | null>;
+  isExistUserByEmail(email: string): Promise<IUser | null>;
   isMatchPassword(password: string, hashPassword: string): boolean;
 } & Model<IUser>;
 

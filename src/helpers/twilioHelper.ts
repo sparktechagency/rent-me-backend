@@ -76,7 +76,6 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
       to: phoneNumber,
     });
   } catch (error) {
-    console.error('Error sending OTP:', error);
     throw new Error('Failed to send OTP. Please try again later.');
   }
 };

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
 import { IReview } from './review.interface';
@@ -68,7 +67,7 @@ const getAllReviewsForVendorById = async (
   paginationOptions: IPaginationOptions,
   packageId?: string
 ): Promise<IGenericResponse<IReview[]> | null> => {
-  const filter: any = { vendorId: id };
+  const filter: { vendorId: string; packageId?: string } = { vendorId: id };
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
 

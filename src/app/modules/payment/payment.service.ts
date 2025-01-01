@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { JwtPayload } from 'jsonwebtoken';
 import StripeService, { stripe } from './payment.stripe';
 import { StatusCodes } from 'http-status-codes';
@@ -7,7 +6,7 @@ import { User } from '../user/user.model';
 import { Order } from '../order/order.model';
 import { Payment } from './payment.model';
 import config from '../../../config';
-import { Transfer } from '../transfer/transfer.model';
+
 import { Vendor } from '../vendor/vendor.model';
 import { IVendor } from '../vendor/vendor.interface';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
@@ -48,8 +47,8 @@ const onboardVendor = async (user: JwtPayload) => {
     );
 
     return onboardingUrl;
-  } catch (error: any) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, error.message);
+  } catch (error: unknown) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, (error as Error).message);
   }
 };
 
@@ -131,11 +130,12 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
     await payment.save();
 
     return paymentIntent.url;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle errors
     throw new ApiError(
       StatusCodes.INTERNAL_SERVER_ERROR,
-      error?.message || 'An error occurred while creating the checkout session'
+      (error as Error).message ||
+        'An error occurred while creating the checkout session'
     );
   }
 };
@@ -152,8 +152,8 @@ const getConnectedUserDashboard = async (user: JwtPayload) => {
     );
 
     return loginLink;
-  } catch (error: any) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, error.message);
+  } catch (error: unknown) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, (error as Error).message);
   }
 };
 
@@ -177,17 +177,6 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Order does not exist');
     if (!isPaymentExists)
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Payment does not exist');
-
-    const isAlreadyTransfered = await Transfer.findOne({
-      paymentId: isPaymentExists._id,
-    });
-
-    if (isAlreadyTransfered) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Transfer already initiated for this order'
-      );
-    }
 
     // Validate the vendor's user
     const isUserExists = await User.findOne({ _id: user.id }).populate({
@@ -281,13 +270,6 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
       { new: true }
     );
 
-    // Log the transfer and payout
-    await Transfer.create({
-      transferId: transfer.id,
-      payoutId: payout.id,
-      paymentId: isPaymentExists._id,
-    });
-
     // Update the order status to completed
     await Order.findOneAndUpdate(
       { _id: orderId, status: 'ongoing' },
@@ -323,78 +305,3 @@ export const PaymentService = {
   transferToVendor,
   getConnectedUserDashboard,
 };
-
-// exports.transferAndPayouts = async id => {
-//   //booking check
-//   const isExistBooking = await Booking.findById(id);
-//   if (!isExistBooking) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, "Booking doesn't exist!");
-//   }
-
-//   //check bank account
-//   const isExistAccount = await User.isAccountCreated(
-//     new mongoose.Types.ObjectId(isExistBooking?.salon)
-//   );
-//   if (!isExistAccount) {
-//     throw new ApiError(
-//       StatusCodes.BAD_REQUEST,
-//       "Sorry, Salon didn't provide bank information. Please tell the salon owner to create a bank account"
-//     );
-//   }
-
-//   const isExistArtist = await User.findById(
-//     new mongoose.Types.ObjectId(isExistBooking?.salon)
-//   );
-
-//   //check completed payment and artist transfer
-//   if (isExistBooking.status === 'Complete') {
-//     throw new ApiError(
-//       StatusCodes.BAD_REQUEST,
-//       'The payment has already been transferred to your account.'
-//     );
-//   }
-
-//   const { stripeAccountId, externalAccountId } =
-//     isExistArtist?.accountInformation;
-//   const { price } = isExistBooking;
-
-//   const charge = (parseInt(price) * 10) / 100;
-//   const amount = parseInt(price) - charge;
-
-//   const transfer = await stripe.transfers.create({
-//     amount: amount * 100,
-//     currency: 'gbp',
-//     destination: stripeAccountId,
-//   });
-
-//   const payouts = await stripe.payouts.create(
-//     {
-//       amount: amount * 100,
-//       currency: 'gbp',
-//       destination: externalAccountId,
-//     },
-//     {
-//       stripeAccount: stripeAccountId,
-//     }
-//   );
-
-//   if (transfer.id && payouts.id) {
-//     isExistBooking.status = 'Complete';
-//     isExistBooking.payoutPrice = payouts.amount / 100;
-//     await isExistBooking.save();
-
-//     const data = {
-//       title: 'Payment Received',
-//       text: `Your Have Received Payment for service successfully`,
-//       user: isExistArtist?._id,
-//     };
-
-//     const result = await Notification.create(data);
-//     io.emit(`get-notification::${isExistArtist?._id}`, result);
-//   }
-
-//   return {
-//     transfer,
-//     payouts,
-//   };
-// };

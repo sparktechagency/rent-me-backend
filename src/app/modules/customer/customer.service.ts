@@ -25,7 +25,7 @@ const getCustomerProfile = async (id: Types.ObjectId) => {
     );
   }
 
-  return isUserExist.customer;
+  return isUserExist.customer as ICustomer;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

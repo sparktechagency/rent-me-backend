@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-asserted-optional-chain */
 import { StatusCodes } from 'http-status-codes';
 import { USER_ROLES } from '../../../enums/user';
 import ApiError from '../../../errors/ApiError';
@@ -16,7 +15,6 @@ import { userSearchableFields } from './user.constants';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
-// import StripeService from '../payment/payment.stripe';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {

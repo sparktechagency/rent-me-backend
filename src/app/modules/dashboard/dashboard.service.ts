@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { StatusCodes } from 'http-status-codes';
 import { orderFilterableFields } from './dashboard.constants';
 import { IRange } from './dashboard.interface';
@@ -10,7 +9,7 @@ import { Service } from '../service/service.model';
 import { IOrderFilterableFields } from '../order/order.interface';
 import config from '../../../config';
 import { Payment } from '../payment/payment.model';
-import { Types } from 'mongoose';
+import { Types, PipelineStage } from 'mongoose';
 
 const RANGE_MAPPING: Record<IRange, number> = {
   '1-week': 7,
@@ -142,7 +141,7 @@ const totalSaleAndRevenue = async () => {
 // API to get sales and revenue data for charts (including setupFee and deliveryFee)
 
 const getAllOrders = async (filtersData: IOrderFilterableFields) => {
-  const andCondition: any[] = [];
+  const andCondition: Record<string, unknown>[] = [];
 
   for (const [key, value] of Object.entries(filtersData)) {
     if (orderFilterableFields.includes(key) && value) {
@@ -193,7 +192,7 @@ const getVendorsOrderConversionRate = async (range: IRange = '1-week') => {
     days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : null;
 
   try {
-    const pipeline: any[] = [
+    const pipeline: PipelineStage[] = [
       // Join orders with vendors
       {
         $lookup: {
@@ -277,7 +276,7 @@ const getVendorsOrderConversionRate = async (range: IRange = '1-week') => {
 const getOrdersProgress = async () => {
   try {
     // Aggregation pipeline
-    const pipeline: any[] = [
+    const pipeline: PipelineStage[] = [
       // Group orders by status categories
       {
         $group: {
@@ -404,7 +403,7 @@ const getUserEngagement = async (range: IRange = '1-week') => {
     days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : null;
 
   try {
-    const pipeline: any[] = [
+    const pipeline: PipelineStage[] = [
       // Optional date filter
       ...(startDate ? [{ $match: { createdAt: { $gte: startDate } } }] : []),
 
@@ -463,7 +462,7 @@ const getUserActivityTrend = async (range: IRange = '1-week') => {
 
   try {
     // Initialize aggregation pipeline
-    const pipeline: any[] = [
+    const pipeline: PipelineStage[] = [
       // Step 1: Filter orders based on the specified date range
       ...(startDate ? [{ $match: { createdAt: { $gte: startDate } } }] : []),
 
@@ -516,7 +515,7 @@ const getUserActivityTrend = async (range: IRange = '1-week') => {
 const getBestServices = async () => {
   try {
     // MongoDB Aggregation Pipeline to get the top 3 services based on order count
-    const pipeline: any[] = [
+    const pipeline: PipelineStage[] = [
       // Step 1: Group orders by serviceId and count the number of orders
       {
         $group: {
@@ -640,7 +639,7 @@ const getOrderRetentionRate = async (range: IRange = '1-week') => {
     const matchStage = startDate ? { createdAt: { $gte: startDate } } : {};
 
     // MongoDB aggregation pipeline
-    const pipeline: any[] = [
+    const pipeline: PipelineStage[] = [
       // Step 1: Filter by date range
       { $match: matchStage },
 
@@ -733,7 +732,7 @@ const getOrderRetentionRate = async (range: IRange = '1-week') => {
 const getCustomerRetentionData = async () => {
   try {
     // MongoDB Aggregation Pipeline
-    const pipeline: any[] = [
+    const pipeline: PipelineStage[] = [
       // Step 1: Group orders by customerId and count the orders for each customer
       {
         $group: {
@@ -811,7 +810,7 @@ const getRevenue = async (range: IRange = '1-week') => {
     const startDate =
       days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : null;
 
-    const pipeline: any[] = [
+    const pipeline: PipelineStage[] = [
       // Step 1: Filter orders by createdAt date if a range is specified
 
       {

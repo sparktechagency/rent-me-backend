@@ -1,6 +1,4 @@
 import { getDuration, validateOrderTime } from './order.utils';
-/* eslint-disable no-unused-expressions */
-/* eslint-disable no-undef */
 
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
@@ -321,9 +319,11 @@ const getAllOrderByUserId = async (
 
   const { role } = user;
 
-  role === USER_ROLES.CUSTOMER
-    ? andCondition.push({ customerId: user.userId })
-    : andCondition.push({ vendorId: user.userId });
+  if (role === USER_ROLES.CUSTOMER) {
+    andCondition.push({ customerId: user.userId });
+  } else {
+    andCondition.push({ vendorId: user.userId });
+  }
 
   const whereConditions = andCondition.length > 0 ? { $and: andCondition } : {};
 

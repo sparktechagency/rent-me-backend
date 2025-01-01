@@ -14,13 +14,6 @@ type IAddress = {
   country: string;
 };
 
-type IBusinessType =
-  | 'Party Rentals'
-  | 'Event Planning'
-  | 'Catering'
-  | 'Entertainment'
-  | 'Other';
-
 type ISocialLink = {
   facebook?: string;
   instagram?: string;
@@ -50,7 +43,7 @@ export type IVendor = {
   //business information
   businessProfile: string;
   businessTitle?: string;
-  businessType?: IBusinessType;
+  businessType?: [Types.ObjectId];
   businessAddress?: IAddress;
   businessContact?: string;
   isBusinessContactVerified: boolean;

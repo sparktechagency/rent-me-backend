@@ -9,6 +9,7 @@ import {
   PrivacyPolicyModel,
   TermsAndConditionsModel,
 } from './others.interface';
+import { USER_ROLES } from '../../../enums/user';
 
 const privacyPolicySchema = new Schema<IPrivacyPolicy, PrivacyPolicyModel>(
   {
@@ -18,7 +19,7 @@ const privacyPolicySchema = new Schema<IPrivacyPolicy, PrivacyPolicyModel>(
     },
     userType: {
       type: String,
-      enum: ['CUSTOMER', 'VENDOR', 'USER'],
+      enum: [USER_ROLES.CUSTOMER, USER_ROLES.VENDOR, 'USER'],
       required: true,
     },
   },
@@ -36,7 +37,7 @@ const termsAndConditionSchema = new Schema<
     },
     userType: {
       type: String,
-      enum: ['CUSTOMER', 'VENDOR', 'USER'],
+      enum: [USER_ROLES.CUSTOMER, USER_ROLES.VENDOR, 'USER'],
       required: true,
     },
   },
@@ -51,7 +52,7 @@ const faqsSchema = new Schema<IFaQs, FaQsModel>(
     },
     userType: {
       type: String,
-      enum: ['CUSTOMER', 'VENDOR'],
+      enum: [USER_ROLES.CUSTOMER, USER_ROLES.VENDOR],
       required: true,
     },
   },

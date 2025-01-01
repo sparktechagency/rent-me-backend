@@ -1,4 +1,4 @@
-import { model, Schema } from 'mongoose';
+import { model, Schema, Types } from 'mongoose';
 import { IVendor, VendorModel } from './vendor.interface';
 
 const vendorSchema = new Schema<IVendor, VendorModel>(
@@ -69,14 +69,8 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
       type: String,
     },
     businessType: {
-      type: String,
-      enum: [
-        'Party Rentals',
-        'Event Planning',
-        'Catering',
-        'Entertainment',
-        'Other',
-      ],
+      type: [Types.ObjectId],
+      ref: 'Category',
     },
     profileCompletion: {
       type: Number,
@@ -169,5 +163,11 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
   }
 );
 vendorSchema.index({ location: '2dsphere' });
+vendorSchema.index({ businessType: 1 });
+vendorSchema.index({
+  name: 'text',
+  businessTitle: 'text',
+  description: 'text',
+});
 
 export const Vendor = model<IVendor, VendorModel>('Vendor', vendorSchema);
