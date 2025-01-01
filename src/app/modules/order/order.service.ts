@@ -195,6 +195,10 @@ const createOrder = async (payload: IOrder) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order.');
   }
 
+  await sendDataWithSocket('newOrder', payload.vendorId as Types.ObjectId, {
+    ...result,
+  });
+
   // Send notification to the vendor
   const { name } = customerExist.customer as ICustomer;
   const notificationData = {
@@ -205,7 +209,7 @@ const createOrder = async (payload: IOrder) => {
   };
 
   await sendNotification(
-    'newOrder',
+    'getNotification',
     payload.vendorId as Types.ObjectId,
     notificationData,
     'order'
@@ -497,16 +501,20 @@ const declineOrder = async (
     type: USER_ROLES.VENDOR,
   };
 
+  await sendDataWithSocket(
+    'declinedOrder',
+    orderExists.vendorId as Types.ObjectId,
+    {
+      ...result,
+    }
+  );
+
   await sendNotification(
     payload?.status === 'declined' ? 'declinedOrder' : 'confirmedOrder',
     result.vendorId as Types.ObjectId,
     notificationData,
-    'order'
+    'getNotification'
   );
-
-  await sendDataWithSocket('order', orderExists.vendorId as Types.ObjectId, {
-    ...result,
-  });
 
   return result;
 };
@@ -635,8 +643,16 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     type: USER_ROLES.CUSTOMER,
   };
 
+  await sendDataWithSocket(
+    payload?.status === 'accepted' ? 'acceptedOrder' : 'rejectedOrder',
+    orderExists.customerId as Types.ObjectId,
+    {
+      ...result,
+    }
+  );
+
   await sendNotification(
-    payload?.status === 'rejected' ? 'rejectedOrder' : 'acceptedOrder',
+    'getNotification',
     result.customerId as Types.ObjectId,
     notificationData
   );

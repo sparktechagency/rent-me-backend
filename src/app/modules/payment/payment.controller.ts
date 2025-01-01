@@ -12,6 +12,8 @@ import { Order } from '../order/order.model';
 import { logger } from '../../../shared/logger';
 import ApiError from '../../../errors/ApiError';
 import { Vendor } from '../vendor/vendor.model';
+import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import { USER_ROLES } from '../../../enums/user';
 
 const onboardVendor = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -134,6 +136,13 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         if (!order) {
           throw new ApiError(400, 'Order status update failed');
         }
+
+        await sendNotification('getNotification', order?.vendorId._id, {
+          userId: order.vendorId._id,
+          title: `Customer payment received for order ${order.id} please proceed with the order`,
+          message: `We have received the payment for order ${order.id} please proceed with the order, after completion you will receive the payment.`,
+          type: USER_ROLES.VENDOR,
+        });
 
         logger.info(
           `Payment and Order updated successfully for orderId: ${session.metadata?.orderId}`

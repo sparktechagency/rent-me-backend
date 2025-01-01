@@ -93,9 +93,7 @@ const loginUserFromDB = async (
 
     if (isExistUser.wrongLoginAttempts >= 5) {
       isExistUser.status = 'restricted';
-      isExistUser.restrictionLeftAt = new Date(
-        Date.now() + 24 * 60 * 60 * 1000
-      ); // Restrict for 1 day
+      isExistUser.restrictionLeftAt = new Date(Date.now() + 10 * 60 * 1000); // Restrict for 1 day
     }
 
     await User.findByIdAndUpdate(
@@ -185,16 +183,11 @@ const refreshToken = async (
           : isUserExist.admin,
       email: isUserExist.email,
       role: isUserExist.role,
-      isSubscribe: isUserExist.isSubscribe,
     },
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string
   );
 
-  //after successful login reset the wrong login attempts
-  isUserExist.wrongLoginAttempts = 0;
-  isUserExist.restrictionLeftAt = null;
-  await isUserExist.save();
   return {
     accessToken: newAccessToken,
   };
@@ -392,7 +385,9 @@ const changePasswordToDB = async (
 };
 
 const resendOtp = async (email: string) => {
-  const isExistUser = await User.isExistUserByEmail(email);
+  const isExistUser = await User.findOne({ email: email })
+    .populate({ path: 'customer', select: { name: 1 } })
+    .populate({ path: 'vendor', select: { name: 1 } });
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -400,7 +395,16 @@ const resendOtp = async (email: string) => {
   //send mail
   const otp = generateOTP();
   const value = {
-    name: isExistUser.name,
+    name:
+      isExistUser.role === USER_ROLES.CUSTOMER &&
+      isExistUser.customer &&
+      'name' in isExistUser.customer
+        ? isExistUser.customer.name
+        : isExistUser.role === USER_ROLES.VENDOR &&
+          isExistUser.vendor &&
+          'name' in isExistUser.vendor
+        ? isExistUser.vendor.name
+        : '',
     otp,
     email: isExistUser.email,
   };

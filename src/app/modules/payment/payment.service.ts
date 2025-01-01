@@ -162,6 +162,7 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
     // Fetch the order and payment details
     const [isOrderExists, isPaymentExists] = await Promise.all([
       Order.findById(orderId, {
+        id: 1,
         vendorId: 1,
         amount: 1,
         isInstantTransfer: 1,
@@ -279,12 +280,12 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
 
     //send notification
     await sendNotification(
-      'paymentReceived',
+      'getNotification',
       isOrderExists.vendorId as Types.ObjectId,
       {
         userId: user.id,
-        title: 'Payment Received',
-        message: `Your payment for order ${orderId} has been received successfully`,
+        title: `Payment received for order ${isOrderExists.id}`,
+        message: `You have received a payment of $${remainingAmount} for order ${isOrderExists.id}`,
         type: user.role,
       }
     );

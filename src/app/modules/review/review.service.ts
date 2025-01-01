@@ -8,6 +8,8 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
 import { Order } from '../order/order.model';
+import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import { USER_ROLES } from '../../../enums/user';
 
 const createReview = async (payload: IReview): Promise<IReview | null> => {
   const session = await mongoose.startSession();
@@ -50,6 +52,16 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
     );
 
     await vendor.save({ session });
+
+    const notificationData = {
+      userId: vendorId,
+      title: 'New Review',
+      message: 'You have received a new review',
+      type: USER_ROLES.VENDOR,
+    };
+
+    // sendNotification('notification', vendorId, notificationData);
+    await sendNotification('getNotification', vendorId, notificationData);
 
     await session.commitTransaction();
     session.endSession();
