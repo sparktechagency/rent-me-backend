@@ -25,11 +25,11 @@ router.patch(
   auth(USER_ROLES.ADMIN, USER_ROLES.VENDOR),
   fileUploadHandler(),
   (req: Request, res: Response, next: NextFunction) => {
-    req.body.data
-      ? (req.body = CategoryValidation.updateCategoryZodSchema.parse(
-          JSON.parse(req?.body?.data)
-        ))
-      : req.body;
+    if (req.body.data) {
+      req.body = CategoryValidation.updateCategoryZodSchema.parse(
+        JSON.parse(req?.body?.data)
+      );
+    }
 
     return CategoryController.updateCategoryById(req, res, next);
   }

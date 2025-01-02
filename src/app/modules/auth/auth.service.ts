@@ -26,6 +26,7 @@ import { calculateCustomerProfileCompletion } from '../customer/customer.utils';
 import { calculateProfileCompletion } from '../vendor/vendor.utils';
 import { ICustomer } from '../customer/customer.interface';
 import { USER_ROLES } from '../../../enums/user';
+import { Order } from '../order/order.model';
 
 //login
 const loginUserFromDB = async (
@@ -552,25 +553,43 @@ const verifyOtpForPhone = async (
 };
 
 const deleteAccount = async (user: JwtPayload, password: string) => {
-  const isUserExist = await User.findById(user.id);
+  const isUserExist = await User.findById(user.id, '+password');
   if (!isUserExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  const isPasswordMatched = await bcrypt.compare(
+  const isPasswordMatched = await User.isMatchPassword(
     password,
     isUserExist.password
   );
+
   if (!isPasswordMatched) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect');
+  }
+
+  if (isUserExist.role === USER_ROLES.VENDOR) {
+    // Check for running orders
+    const hasRunningOrder = await Order.exists({
+      vendorId: isUserExist.vendor,
+      status: { $in: ['ongoing', 'accepted'] },
+    });
+
+    if (hasRunningOrder) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'You have ongoing orders. Please complete them before deleting your profile.'
+      );
+    }
   }
 
   if (isUserExist.status === 'delete') {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User already deleted!');
   }
 
-  isUserExist.status = 'delete';
-  await isUserExist.save();
+  await User.findByIdAndUpdate(
+    { _id: user.id },
+    { $set: { status: 'delete' } }
+  );
 
   return isUserExist;
 };
