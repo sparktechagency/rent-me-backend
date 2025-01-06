@@ -12,7 +12,10 @@ import { Order } from '../order/order.model';
 import { logger } from '../../../shared/logger';
 import ApiError from '../../../errors/ApiError';
 import { Vendor } from '../vendor/vendor.model';
-import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import {
+  sendDataWithSocket,
+  sendNotification,
+} from '../../../helpers/sendNotificationHelper';
 import { USER_ROLES } from '../../../enums/user';
 
 const onboardVendor = catchAsync(async (req: Request, res: Response) => {
@@ -136,6 +139,10 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         if (!order) {
           throw new ApiError(400, 'Order status update failed');
         }
+
+        await sendDataWithSocket('orderPayment', order?._id, {
+          ...order,
+        });
 
         await sendNotification('getNotification', order?.vendorId._id, {
           userId: order.vendorId._id,

@@ -9,7 +9,10 @@ import config from '../../../config';
 
 import { Vendor } from '../vendor/vendor.model';
 import { IVendor } from '../vendor/vendor.interface';
-import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import {
+  sendDataWithSocket,
+  sendNotification,
+} from '../../../helpers/sendNotificationHelper';
 import { Types } from 'mongoose';
 
 const onboardVendor = async (user: JwtPayload) => {
@@ -280,10 +283,16 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
     );
 
     // Update the order status to completed
-    await Order.findOneAndUpdate(
+    const updatedOrder = await Order.findOneAndUpdate(
       { _id: orderId, status: 'ongoing' },
       { status: 'completed' },
       { new: true }
+    );
+
+    await sendDataWithSocket(
+      'completeOrder',
+      isOrderExists._id as Types.ObjectId,
+      { ...updatedOrder }
     );
 
     //send notification
