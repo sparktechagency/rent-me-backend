@@ -65,32 +65,45 @@ export function calculateDistance(
       Math.sin(dLon / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in kilometers
+  const distance = R * c; // Distance in miles
 
   return Number(distance.toFixed(2));
 }
 
 export const validateOrderTime = (
-  serviceEndDateTime: Date,
+  serviceEndDateTime: Date | string,
   vendorOperationStart: string,
   vendorOperationEnd: string
 ) => {
-  // Convert service times to UTC
+  // Convert serviceEndDateTime to a Date object
+  const serviceEndUTC = new Date(serviceEndDateTime);
 
-  const serviceEndUTC = new Date(serviceEndDateTime.toISOString());
+  // Check if the parsed date is valid
+  if (isNaN(serviceEndUTC.getTime())) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Invalid service end date and time format.'
+    );
+  }
 
-  // Convert vendor operation times to 24-hour format and then to UTC
+  // Convert vendor operation times to 24-hour format
   const { hour: startHour, minute: startMinute } =
-    convertTo24Hour(vendorOperationStart);
+    convertTo24Hour(vendorOperationStart); // "09:00 AM" -> { hour: 9, minute: 0 }
   const { hour: endHour, minute: endMinute } =
-    convertTo24Hour(vendorOperationEnd);
+    convertTo24Hour(vendorOperationEnd); // "05:00 PM" -> { hour: 17, minute: 0 }
 
+  // Create Date objects for operationStart and operationEnd
   const operationStart = new Date(serviceEndUTC);
   const operationEnd = new Date(serviceEndUTC);
 
   // Set vendor's operation hours in UTC
   operationStart.setUTCHours(startHour, startMinute, 0, 0);
   operationEnd.setUTCHours(endHour, endMinute, 0, 0);
+
+  // Handle cases where operationEnd crosses midnight
+  if (operationEnd < operationStart) {
+    operationEnd.setUTCDate(operationEnd.getUTCDate() + 1);
+  }
 
   // Validate that the order time falls within the vendor's operation hours
   if (serviceEndUTC < operationStart || serviceEndUTC > operationEnd) {

@@ -3,10 +3,20 @@ import { z } from 'zod';
 const createOrderZodSchema = z.object({
   body: z.object({
     vendorId: z.string().nonempty('Vendor ID is required'), // Expecting ObjectId as a string
-    serviceId: z.string().nonempty('Service ID is required'), // Expecting ObjectId as a string
-    packageId: z.string().nonempty('Package ID is required'), // Expecting ObjectId as a string
+    serviceId: z.string().nonempty().optional(), // Expecting ObjectId as a string
+    packageId: z.string().nonempty().optional(), // Expecting ObjectId as a string
     // amount: z.number().min(0, 'Amount must be a positive number'),
     preference: z.string().optional(),
+    isCustomOrder: z.boolean().optional(),
+    products: z
+      .array(
+        z.object({
+          productId: z.string(),
+          price: z.number(),
+          quantity: z.number(),
+        })
+      )
+      .optional(),
     offeredAmount: z
       .number()
       .min(0, 'Offered amount must be a positive number'),

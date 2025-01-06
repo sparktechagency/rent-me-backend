@@ -1,3 +1,4 @@
+import { USER_ROLES } from './../../../enums/user';
 import bcrypt from 'bcrypt';
 import { StatusCodes } from 'http-status-codes';
 import { JwtPayload, Secret } from 'jsonwebtoken';
@@ -25,7 +26,6 @@ import { IVendor } from '../vendor/vendor.interface';
 import { calculateCustomerProfileCompletion } from '../customer/customer.utils';
 import { calculateProfileCompletion } from '../vendor/vendor.utils';
 import { ICustomer } from '../customer/customer.interface';
-import { USER_ROLES } from '../../../enums/user';
 import { Order } from '../order/order.model';
 
 //login
@@ -117,9 +117,9 @@ const loginUserFromDB = async (
       id: isExistUser._id, //user collection id
       userCustomId: isExistUser.id, // user custom id
       userId:
-        isExistUser.role === 'CUSTOMER'
+        isExistUser.role === USER_ROLES.CUSTOMER
           ? isExistUser.customer
-          : isExistUser.role === 'VENDOR'
+          : isExistUser.role === USER_ROLES.VENDOR
           ? isExistUser.vendor
           : isExistUser.admin,
       role: isExistUser.role,
@@ -134,9 +134,9 @@ const loginUserFromDB = async (
       id: isExistUser._id, //user collection id
       userCustomId: isExistUser.id, // user custom id
       userId:
-        isExistUser.role === 'CUSTOMER'
+        isExistUser.role === USER_ROLES.CUSTOMER
           ? isExistUser.customer
-          : isExistUser.role === 'VENDOR'
+          : isExistUser.role === USER_ROLES.VENDOR
           ? isExistUser.vendor
           : isExistUser.admin,
       role: isExistUser.role,
@@ -177,9 +177,9 @@ const refreshToken = async (
     {
       id: isUserExist._id,
       userId:
-        isUserExist.role === 'CUSTOMER'
+        isUserExist.role === USER_ROLES.CUSTOMER
           ? isUserExist.customer
-          : isUserExist.role === 'VENDOR'
+          : isUserExist.role === USER_ROLES.VENDOR
           ? isUserExist.vendor
           : isUserExist.admin,
       email: isUserExist.email,
@@ -488,7 +488,7 @@ const verifyOtpForPhone = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid OTP');
   }
 
-  if (isUserExist.role === 'CUSTOMER') {
+  if (isUserExist.role === USER_ROLES.CUSTOMER) {
     // Update customer data
     const customer = await Customer.findByIdAndUpdate(
       isUserExist.customer, // Use ObjectId directly
@@ -509,7 +509,7 @@ const verifyOtpForPhone = async (
         },
       }
     );
-  } else if (isUserExist.role === 'VENDOR') {
+  } else if (isUserExist.role === USER_ROLES.VENDOR) {
     let updatedData: Partial<IVendor> = {};
 
     const vendor = isUserExist.vendor as IVendor;
@@ -550,6 +550,23 @@ const verifyOtpForPhone = async (
       }
     );
   }
+};
+
+const updateUserAppId = async (user: JwtPayload, appId: string) => {
+  const isUserExist = await User.findById(user.id);
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  if (isUserExist.appId === appId) {
+    return;
+  }
+
+  await User.findOneAndUpdate(
+    { _id: user.id },
+    { $set: { appId } },
+    { new: true }
+  );
 };
 
 const deleteAccount = async (user: JwtPayload, password: string) => {
@@ -605,4 +622,5 @@ export const AuthService = {
   sendOtpToPhone,
   verifyOtpForPhone,
   deleteAccount,
+  updateUserAppId,
 };

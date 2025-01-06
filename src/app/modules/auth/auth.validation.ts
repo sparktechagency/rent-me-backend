@@ -66,6 +66,11 @@ const deleteAccountZodSchema = z.object({
   }),
 });
 
+const updateUserAppIdZodSchema = z.object({
+  body: z.object({
+    appId: z.string({ required_error: 'App Id is required' }),
+  }),
+});
 export const AuthValidation = {
   createVerifyEmailZodSchema,
   createForgetPasswordZodSchema,
@@ -76,4 +81,5 @@ export const AuthValidation = {
   createSendOtpToPhoneZodSchema,
   createVerifyOtpForPhoneZodSchema,
   deleteAccountZodSchema,
+  updateUserAppIdZodSchema,
 };

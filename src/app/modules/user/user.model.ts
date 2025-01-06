@@ -125,4 +125,8 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
+userSchema.index({ email: 1 });
+userSchema.index({ vendor: 1 });
+userSchema.index({ customer: 1 });
+
 export const User = model<IUser, UserModel>('User', userSchema);

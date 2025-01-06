@@ -102,14 +102,20 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
       );
     }
 
+    const finalAmount =
+      Number(isOrderExists.amount) +
+        Number(config.application_fee) * Number(isOrderExists.amount) +
+        Number(isOrderExists.deliveryFee) +
+        Number(config.customer_cc_rate) * Number(isOrderExists.amount) +
+        isOrderExists?.setupFee && Number(isOrderExists?.setupFee);
+
     // Create payment record
     const paymentData = {
       orderId: orderId,
       customerId: user.userId,
       vendorId: _id,
-      amount:
-        isOrderExists.amount +
-        Number(config.application_fee) * isOrderExists.amount,
+      amount: finalAmount,
+
       status: 'initiated',
     };
 
@@ -121,8 +127,10 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
     // Create Stripe checkout session
     const paymentIntent = await StripeService.createCheckoutSession(
       user?.email,
-      isOrderExists.amount +
-        Number(config.application_fee) * isOrderExists.amount,
+      Number(isOrderExists.amount) +
+        Number(config.application_fee) * Number(isOrderExists.amount) +
+        Number(isOrderExists.deliveryFee) +
+        Number(config.customer_cc_rate) * Number(isOrderExists.amount),
       orderId
     );
 

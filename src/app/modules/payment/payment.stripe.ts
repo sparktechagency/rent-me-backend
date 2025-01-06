@@ -50,7 +50,7 @@ class StripeService {
               name: 'Service Payment',
               description: 'Payment for vendor service',
             },
-            unit_amount: amount * 100, // Amount in cents
+            unit_amount: Math.round(Number(amount) * 100), // Amount in cents
           },
           quantity: 1,
         },
@@ -61,7 +61,7 @@ class StripeService {
       payment_intent_data: {},
       metadata: {
         customer_email: customerEmail,
-        amount: amount.toString(),
+        amount: Math.round(Number(amount)).toString(),
         orderId: orderId,
       },
     });

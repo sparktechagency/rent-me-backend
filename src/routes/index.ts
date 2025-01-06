@@ -1,4 +1,5 @@
-import express from 'express';
+import { ProductRoutes } from '../app/modules/product/product.route';
+import express, { Router } from 'express';
 import { AuthRoutes } from '../app/modules/auth/auth.route';
 import { UserRoutes } from '../app/modules/user/user.route';
 import { ServiceRoutes } from '../app/modules/service/service.route';
@@ -20,7 +21,7 @@ import { AdminRoutes } from '../app/modules/admin/admin.route';
 import { DashboardRoutes } from '../app/modules/dashboard/dashboard.route';
 const router = express.Router();
 
-const apiRoutes = [
+const apiRoutes: { path: string; route: Router }[] = [
   {
     path: '/auth',
     route: AuthRoutes,
@@ -93,6 +94,7 @@ const apiRoutes = [
     path: '/others',
     route: OthersRoutes,
   },
+  { path: '/product', route: ProductRoutes },
 ];
 
 apiRoutes.forEach(route => router.use(route.path, route.route));

@@ -100,6 +100,18 @@ const getDeliveryCharge = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const startOrderDelivery = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await OrderService.startOrderDelivery(id);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Order delivery started successfully',
+    data: result,
+  });
+});
+
 export const OrderController = {
   createOrder,
   getAllOrders,
@@ -108,4 +120,5 @@ export const OrderController = {
   declineOrder,
   rejectOrAcceptOrder,
   getDeliveryCharge,
+  startOrderDelivery,
 };

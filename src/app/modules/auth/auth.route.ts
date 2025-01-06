@@ -68,4 +68,11 @@ router.delete(
   AuthController.deleteAccount
 );
 
+router.patch(
+  '/app-id',
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  validateRequest(AuthValidation.updateUserAppIdZodSchema),
+  AuthController.updateUserAppId
+);
+
 export const AuthRoutes = router;
