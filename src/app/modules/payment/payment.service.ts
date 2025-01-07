@@ -59,7 +59,14 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
   try {
     const isOrderExists = await Order.findById(
       { _id: orderId, status: 'accepted', paymentStatus: 'pending' },
-      { vendorId: 1, amount: 1, isInstantTransfer: 1 }
+      {
+        vendorId: 1,
+        amount: 1,
+        isInstantTransfer: 1,
+        deliveryFee: 1,
+        setupFee: 1,
+        isSetup: 1,
+      }
     );
 
     const vendor = await User.findOne({
@@ -105,12 +112,15 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
       );
     }
 
-    const finalAmount =
-      Number(isOrderExists.amount) +
-        Number(config.application_fee) * Number(isOrderExists.amount) +
-        Number(isOrderExists.deliveryFee) +
-        Number(config.customer_cc_rate) * Number(isOrderExists.amount) +
-        isOrderExists?.setupFee && Number(isOrderExists?.setupFee);
+    let finalAmount = Number(isOrderExists.amount) || 0;
+
+    if (isOrderExists?.setupFee) {
+      finalAmount += Number(isOrderExists.setupFee) || 0;
+    }
+
+    finalAmount +=
+      Number(isOrderExists.deliveryFee) +
+      Number(config.customer_cc_rate) * Number(isOrderExists.amount);
 
     // Create payment record
     const paymentData = {
@@ -118,7 +128,6 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
       customerId: user.userId,
       vendorId: _id,
       amount: finalAmount,
-
       status: 'initiated',
     };
 
@@ -130,10 +139,7 @@ const createCheckoutSession = async (user: JwtPayload, orderId: string) => {
     // Create Stripe checkout session
     const paymentIntent = await StripeService.createCheckoutSession(
       user?.email,
-      Number(isOrderExists.amount) +
-        Number(config.application_fee) * Number(isOrderExists.amount) +
-        Number(isOrderExists.deliveryFee) +
-        Number(config.customer_cc_rate) * Number(isOrderExists.amount),
+      finalAmount,
       orderId
     );
 
@@ -171,6 +177,7 @@ const getConnectedUserDashboard = async (user: JwtPayload) => {
 const transferToVendor = async (user: JwtPayload, orderId: string) => {
   try {
     // Fetch the order and payment details
+
     const [isOrderExists, isPaymentExists] = await Promise.all([
       Order.findById(orderId, {
         id: 1,
@@ -180,7 +187,7 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
         paymentId: 1,
       }),
       Payment.findOne(
-        { orderId, status: 'succeeded' },
+        { orderId: orderId, status: 'succeeded' },
         { amount: 1, stripePaymentIntentId: 1 }
       ),
     ]);

@@ -449,6 +449,7 @@ const getAllOrderByUserId = async (
       totalReviews: 1,
       verifiedFlag: 1,
       businessContact: 1,
+      location: 1,
     })
     .populate('packageId', { title: 1 })
     .populate('serviceId', { title: 1, price: 1 })

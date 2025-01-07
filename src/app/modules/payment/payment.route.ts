@@ -25,7 +25,7 @@ router.post(
 
 router.post(
   '/transfer-vendor/:orderId',
-  auth(USER_ROLES.VENDOR),
+  auth(USER_ROLES.CUSTOMER),
   PaymentController.transferToVendor
 );
 

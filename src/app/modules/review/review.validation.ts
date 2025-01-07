@@ -6,6 +6,7 @@ const createReviewZodSchema = z.object({
     comment: z.string({
       required_error: 'Comment is required',
     }),
+    orderId: z.string({ required_error: 'Order ID is required' }),
   }),
 });
 

@@ -27,7 +27,10 @@ const socket = (io: Server) => {
           return;
         }
         // Emit live tracking data
-        io.emit(`orderTracking::${orderId}`, { longitude, latitude });
+        io.emit(`orderTracking::${orderId}`, {
+          longitude: longitude,
+          latitude: latitude,
+        });
       } catch (error) {
         if (error instanceof Error) {
           logger.error(`Error in liveTracking: ${error.message}`);

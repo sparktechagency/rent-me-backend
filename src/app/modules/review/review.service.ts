@@ -17,7 +17,13 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
   try {
     session.startTransaction();
 
-    const vendor = await Vendor.findById(payload.vendorId);
+    const order = await Order.findById(payload.orderId);
+
+    if (!order) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
+    }
+
+    const vendor = await Vendor.findById(order.vendorId);
 
     if (!vendor) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Vendor not found');
@@ -25,8 +31,21 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
 
     const vendorId = vendor._id;
 
-    const createReview = await Review.create(payload);
-    if (!createReview) {
+    const createdReview = await Review.create(
+      [
+        {
+          customerId: order.customerId,
+          vendorId: order.vendorId,
+          serviceId: order.serviceId,
+          packageId: order.packageId,
+          orderId: order._id,
+          rating: payload.rating,
+          comment: payload.comment,
+        },
+      ],
+      { session }
+    );
+    if (!createdReview.length) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create review');
     }
     const avgRating = await Review.aggregate([
@@ -46,17 +65,21 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
     vendor.totalReviews = vendor.totalReviews + 1;
 
     await Order.updateOne(
-      { _id: payload.orderId },
-      { $set: { review: createReview._id } },
+      { _id: order._id },
+      { $set: { review: createdReview[0]._id } },
       { session }
     );
 
-    await vendor.save({ session });
+    await Vendor.findByIdAndUpdate(
+      vendorId,
+      { $set: { rating: vendor.rating, totalReviews: vendor.totalReviews } },
+      { session }
+    );
 
     const notificationData = {
       userId: vendorId,
-      title: 'New Review',
-      message: 'You have received a new review',
+      title: `For order #${order.orderId}, a new review has been received with a rating of ${payload.rating}.`,
+      message: `Customer message: ${payload.comment}`,
       type: USER_ROLES.VENDOR,
     };
 
@@ -66,7 +89,7 @@ const createReview = async (payload: IReview): Promise<IReview | null> => {
     await session.commitTransaction();
     session.endSession();
 
-    return createReview;
+    return createdReview[0];
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
