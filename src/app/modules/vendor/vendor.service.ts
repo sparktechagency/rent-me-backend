@@ -23,6 +23,7 @@ import { parse } from 'date-fns';
 import { calculateDistance } from '../order/order.utils';
 import { Bookmark } from '../bookmark/bookmark.model';
 import { Customer } from '../customer/customer.model';
+import { Product } from '../product/product.model';
 
 const updateVendorProfile = async (
   user: JwtPayload,
@@ -257,13 +258,28 @@ const getAllVendor = async (
   const andCondition = [];
 
   if (searchTerm) {
-    andCondition.push({
+    // Search vendor fields
+    const vendorSearchCondition = {
       $or: userSearchableFields.map(field => ({
         [field]: {
           $regex: searchTerm,
           $options: 'i',
         },
       })),
+    };
+
+    // Search product names
+    const productVendorIds = await Product.find(
+      { name: { $regex: searchTerm, $options: 'i' } },
+      'vendor'
+    ).distinct('vendor');
+
+    // Combine both conditions
+    andCondition.push({
+      $or: [
+        vendorSearchCondition,
+        { _id: { $in: productVendorIds } }, // Match vendors who have products with matching names
+      ],
     });
   }
 

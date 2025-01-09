@@ -52,13 +52,12 @@ const updateCustomerProfile = async (id: Types.ObjectId, payload: any) => {
   }
 
   const profileCompletion = calculateCustomerProfileCompletion(customer);
-  await User.findByIdAndUpdate(
-    { _id: customer._id },
-    {
-      profileCompletion: profileCompletion,
-      verifiedFlag: profileCompletion === 100,
-    }
-  );
+  await User.findByIdAndUpdate(customer._id, {
+    profileCompletion: profileCompletion,
+    verifiedFlag: customer.verifiedFlag
+      ? customer.verifiedFlag // Keep it as is if already true
+      : profileCompletion === 100, // Update to true only if completion is 100%
+  });
 
   return customer;
 };
@@ -68,10 +67,7 @@ const deleteCustomerProfile = async (id: Types.ObjectId) => {
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
-  const result = await User.findByIdAndUpdate(
-    { _id: id },
-    { status: 'delete' }
-  );
+  const result = await User.findByIdAndUpdate(id, { status: 'delete' });
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete customer');

@@ -81,7 +81,7 @@ const loginUserFromDB = async (
   if (isExistUser.status === 'delete') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'You don’t have permission to access this content.It looks like your account has been deactivated.'
+      'Account with this email does not exist or has been deleted. Please register again.'
     );
   }
 
@@ -500,15 +500,14 @@ const verifyOtpForPhone = async (
     }
 
     const profileCompletion = calculateCustomerProfileCompletion(customer);
-    await Customer.findByIdAndUpdate(
-      { _id: customer._id },
-      {
-        $set: {
-          profileCompletion: profileCompletion,
-          verifiedFlag: profileCompletion === 100,
-        },
-      }
-    );
+    await Customer.findByIdAndUpdate(customer._id, {
+      $set: {
+        profileCompletion: profileCompletion,
+        verifiedFlag: customer.verifiedFlag
+          ? customer.verifiedFlag // Keep it as is if already true
+          : profileCompletion === 100, // Update to true only if completion is 100%
+      },
+    });
   } else if (isUserExist.role === USER_ROLES.VENDOR) {
     let updatedData: Partial<IVendor> = {};
 
@@ -540,15 +539,14 @@ const verifyOtpForPhone = async (
     }
 
     const profileCompletion = calculateProfileCompletion(updatedVendor);
-    await Vendor.findByIdAndUpdate(
-      { _id: updatedVendor._id },
-      {
-        $set: {
-          profileCompletion: profileCompletion,
-          verifiedFlag: profileCompletion === 100,
-        },
-      }
-    );
+    await Vendor.findByIdAndUpdate(updatedVendor._id, {
+      $set: {
+        profileCompletion: profileCompletion,
+        verifiedFlag: vendor.verifiedFlag
+          ? vendor.verifiedFlag // Keep it as is if already true
+          : profileCompletion === 100, // Update to true only if completion is 100%
+      },
+    });
   }
 };
 
