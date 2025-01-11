@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { JwtPayload } from 'jsonwebtoken';
 import { IMessage } from './message.interface';
 import { USER_ROLES } from '../../../enums/user';
@@ -75,9 +74,8 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
     { latestMessage: result._id, latestMessageTime: new Date() },
     { new: true }
   );
-  // Emit message to socket
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+
+  //@ts-expect-error globalThis
   global.io?.emit(`messageReceived::${payload.chatId}`, populatedResult);
 
   if (!chatUpdate) {

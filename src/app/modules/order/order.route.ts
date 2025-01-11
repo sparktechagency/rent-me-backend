@@ -51,4 +51,9 @@ router.get(
   OrderController.getAllOrders
 );
 
+router.patch(
+  '/start-delivery/:id',
+  auth(USER_ROLES.VENDOR),
+  OrderController.startOrderDelivery
+);
 export const OrderRoutes = router;

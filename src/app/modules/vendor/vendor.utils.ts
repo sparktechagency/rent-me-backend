@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { parse, format } from 'date-fns';
 import { Order } from '../order/order.model';
 import { Service } from '../service/service.model';
@@ -38,7 +37,7 @@ export const findVendorsByBudget = async (
   minBudget?: number,
   maxBudget?: number
 ) => {
-  const budgetConditions: any = {};
+  const budgetConditions: { estBudget?: { $gte?: number; $lte?: number } } = {};
 
   if (minBudget !== undefined) {
     budgetConditions.estBudget = { $gte: minBudget };
@@ -56,7 +55,7 @@ export const findVendorsByBudget = async (
 };
 
 export const buildRangeFilter = (field: string, min?: number, max?: number) => {
-  const rangeFilter: any = {};
+  const rangeFilter: { $gte?: number; $lte?: number } = {};
   if (min !== undefined) rangeFilter.$gte = min;
   if (max !== undefined) rangeFilter.$lte = max;
   return Object.keys(rangeFilter).length > 0 ? { [field]: rangeFilter } : null;
@@ -101,8 +100,8 @@ export const mapDataToIntervals = (
 };
 
 export const handleObjectUpdate = (
-  payload: Record<string, any>,
-  updatedData: Record<string, any>,
+  payload: Record<string, unknown>,
+  updatedData: Record<string, unknown>,
   prefix: string
 ) => {
   if (payload && Object.keys(payload).length > 0) {

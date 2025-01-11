@@ -1,18 +1,19 @@
 import { Model, Types } from 'mongoose';
+import { USER_ROLES } from '../../../enums/user';
 
 export type IPrivacyPolicy = {
   content: string;
-  userType: 'CUSTOMER' | 'VENDOR' | 'USER';
+  userType: USER_ROLES.CUSTOMER | USER_ROLES.VENDOR | 'USER';
 };
 
 export type ITermsAndConditions = {
   content: string;
-  userType: 'CUSTOMER' | 'VENDOR' | 'USER';
+  userType: USER_ROLES.CUSTOMER | USER_ROLES.VENDOR | 'USER';
 };
 
 export type IFaQs = {
   content: string;
-  userType: 'CUSTOMER' | 'VENDOR' | 'USER';
+  userType: USER_ROLES.CUSTOMER | USER_ROLES.VENDOR | 'USER';
 };
 
 export type IBanner = {

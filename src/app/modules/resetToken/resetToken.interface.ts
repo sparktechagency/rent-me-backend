@@ -7,6 +7,6 @@ export type IResetToken = {
 };
 
 export type ResetTokenModel = {
-  isExistToken(token: string): any;
+  isExistToken(token: string): Promise<IResetToken | null>;
   isExpireToken(token: string): boolean;
 } & Model<IResetToken>;

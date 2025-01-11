@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { Types } from 'mongoose';
 import { Notification } from '../app/modules/notification/notification.model';
 import ApiError from '../errors/ApiError';
@@ -19,8 +18,7 @@ export const sendNotification = async (
       'Failed to create notification'
     );
   }
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  //@ts-ignore
+  //@ts-expect-error globalThis
   const socket = global.io;
 
   socket.emit(`${namespace}::${recipient}`, data, path);
@@ -31,8 +29,7 @@ export const sendDataWithSocket = async (
   recipient: string | Types.ObjectId,
   data: Record<string, unknown>
 ) => {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  //@ts-ignore
+  //@ts-expect-error globalThis
   const socket = global.io;
 
   socket.emit(`${namespace}::${recipient}`, data);

@@ -13,15 +13,23 @@ export type IOrder = {
   orderId: string; // custom order id
   customerId: Types.ObjectId | ICustomer;
   vendorId: Types.ObjectId | IVendor;
-  serviceId: Types.ObjectId | IService;
-  packageId: Types.ObjectId | IPackage;
+  serviceId?: Types.ObjectId | IService;
+  packageId?: Types.ObjectId | IPackage;
+  isCustomOrder: boolean;
+  products: [
+    {
+      productId: Types.ObjectId;
+      price: number;
+      quantity: number;
+    }
+  ];
   amount: number; // final amount
   status: string;
   preference: string;
   paymentId: Types.ObjectId;
   paymentStatus: string;
-  offeredAmount: number;
-  isDeliveryDecline: boolean;
+  offeredAmount?: number;
+  isDeliveryDecline?: boolean;
   isInstantTransfer: boolean;
   deliveryDeclineMessage: string;
   deliveryAddress: string;
@@ -57,6 +65,9 @@ export type IEnrichedOrder = {
   applicationChargeRate?: number;
   applicationCharge?: number;
   vendorReceivable?: number;
+  customerCCChargeRate?: number;
   customerCCCharge?: number;
   instantTransferChargeRate?: number;
+  instantTransferCharge?: number;
+  subTotal?: number;
 };

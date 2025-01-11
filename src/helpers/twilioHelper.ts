@@ -3,7 +3,7 @@ import twilio from 'twilio';
 import { addMinutes } from 'date-fns';
 import config from '../config';
 import { Otp } from '../app/modules/otp/otp.model';
-import ApiError from '../errors/ApiError';
+
 import { StatusCodes } from 'http-status-codes';
 
 const accountSid = config.twilio.account_sid;
@@ -11,6 +11,7 @@ const authToken = config.twilio.auth_token;
 const twilioPhoneNumber = config.twilio.phone_number;
 const client = twilio(accountSid, authToken);
 import crypto from 'crypto';
+import ApiError from '../errors/ApiError';
 
 // Helper function to hash OTP
 const hashOtp = (otp: string): string => {
@@ -21,7 +22,10 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
   try {
     // Validate phone number format (E.164)
     if (!/^\+?[1-9]\d{1,14}$/.test(phoneNumber)) {
-      throw new Error('Invalid phone number format.');
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Invalid phone number format.'
+      );
     }
 
     // Rate limiting: Check OTP request count
@@ -33,7 +37,10 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
       const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
 
       if (timeElapsed < tenMinutes && existingOtp.requestCount >= 3) {
-        throw new Error('Too many OTP requests. Please try again later.');
+        throw new ApiError(
+          StatusCodes.TOO_MANY_REQUESTS,
+          'Too many OTP requests. Please try again later.'
+        );
       }
 
       // Increment request count or reset if outside the 10-minute window
@@ -76,8 +83,10 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
       to: phoneNumber,
     });
   } catch (error) {
-    console.error('Error sending OTP:', error);
-    throw new Error('Failed to send OTP. Please try again later.');
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Failed to send OTP. Please try again later.'
+    );
   }
 };
 
@@ -89,19 +98,25 @@ export const verifyOtp = async (
     const existingOtp = await Otp.findOne({ phoneNumber });
 
     if (!existingOtp) {
-      throw new Error('No OTP found for this phone number.');
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'No OTP found for this phone number.'
+      );
     }
 
     // Check if OTP is expired
     if (new Date() > new Date(existingOtp.expiresAt)) {
       await existingOtp.deleteOne();
-      throw new Error('OTP has expired. Please request a new one.');
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'OTP has expired. Please request a new one.'
+      );
     }
 
     // Hash the provided OTP and compare with the stored hash
     const hashedOtp = hashOtp(otp);
     if (existingOtp.otp !== hashedOtp) {
-      throw new Error('Invalid OTP.');
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid OTP.');
     }
 
     // Delete OTP after successful verification

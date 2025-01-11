@@ -97,7 +97,10 @@ userSchema.statics.isExistUserById = async (id: string) => {
 };
 
 userSchema.statics.isExistUserByEmail = async (email: string) => {
-  const isExist = await User.findOne({ email });
+  const isExist = await User.findOne({
+    email,
+    status: { $in: ['active', 'restricted'] },
+  });
   return isExist;
 };
 
@@ -112,9 +115,15 @@ userSchema.statics.isMatchPassword = async (
 //check user
 userSchema.pre('save', async function (next) {
   //check user
-  const isExist = await User.findOne({ email: this.email });
+  const isExist = await User.findOne({
+    email: this.email,
+    status: { $in: ['active', 'restricted'] },
+  });
   if (isExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Email already exist!');
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'An account with this email already exist. Please login to continue.'
+    );
   }
 
   //password hash
@@ -124,5 +133,9 @@ userSchema.pre('save', async function (next) {
   );
   next();
 });
+
+userSchema.index({ email: 1, status: 1 });
+userSchema.index({ vendor: 1 });
+userSchema.index({ customer: 1 });
 
 export const User = model<IUser, UserModel>('User', userSchema);

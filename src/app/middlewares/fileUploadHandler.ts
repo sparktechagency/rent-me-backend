@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request } from 'express';
 import fs from 'fs';
 import { StatusCodes } from 'http-status-codes';

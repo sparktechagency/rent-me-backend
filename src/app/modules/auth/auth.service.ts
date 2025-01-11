@@ -1,3 +1,4 @@
+import { USER_ROLES } from './../../../enums/user';
 import bcrypt from 'bcrypt';
 import { StatusCodes } from 'http-status-codes';
 import { JwtPayload, Secret } from 'jsonwebtoken';
@@ -25,7 +26,7 @@ import { IVendor } from '../vendor/vendor.interface';
 import { calculateCustomerProfileCompletion } from '../customer/customer.utils';
 import { calculateProfileCompletion } from '../vendor/vendor.utils';
 import { ICustomer } from '../customer/customer.interface';
-import { USER_ROLES } from '../../../enums/user';
+import { Order } from '../order/order.model';
 
 //login
 const loginUserFromDB = async (
@@ -80,7 +81,7 @@ const loginUserFromDB = async (
   if (isExistUser.status === 'delete') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'You don’t have permission to access this content.It looks like your account has been deactivated.'
+      'Account with this email does not exist or has been deleted. Please register again.'
     );
   }
 
@@ -93,9 +94,7 @@ const loginUserFromDB = async (
 
     if (isExistUser.wrongLoginAttempts >= 5) {
       isExistUser.status = 'restricted';
-      isExistUser.restrictionLeftAt = new Date(
-        Date.now() + 24 * 60 * 60 * 1000
-      ); // Restrict for 1 day
+      isExistUser.restrictionLeftAt = new Date(Date.now() + 10 * 60 * 1000); // Restrict for 1 day
     }
 
     await User.findByIdAndUpdate(
@@ -118,9 +117,9 @@ const loginUserFromDB = async (
       id: isExistUser._id, //user collection id
       userCustomId: isExistUser.id, // user custom id
       userId:
-        isExistUser.role === 'CUSTOMER'
+        isExistUser.role === USER_ROLES.CUSTOMER
           ? isExistUser.customer
-          : isExistUser.role === 'VENDOR'
+          : isExistUser.role === USER_ROLES.VENDOR
           ? isExistUser.vendor
           : isExistUser.admin,
       role: isExistUser.role,
@@ -135,9 +134,9 @@ const loginUserFromDB = async (
       id: isExistUser._id, //user collection id
       userCustomId: isExistUser.id, // user custom id
       userId:
-        isExistUser.role === 'CUSTOMER'
+        isExistUser.role === USER_ROLES.CUSTOMER
           ? isExistUser.customer
-          : isExistUser.role === 'VENDOR'
+          : isExistUser.role === USER_ROLES.VENDOR
           ? isExistUser.vendor
           : isExistUser.admin,
       role: isExistUser.role,
@@ -178,23 +177,18 @@ const refreshToken = async (
     {
       id: isUserExist._id,
       userId:
-        isUserExist.role === 'CUSTOMER'
+        isUserExist.role === USER_ROLES.CUSTOMER
           ? isUserExist.customer
-          : isUserExist.role === 'VENDOR'
+          : isUserExist.role === USER_ROLES.VENDOR
           ? isUserExist.vendor
           : isUserExist.admin,
       email: isUserExist.email,
       role: isUserExist.role,
-      isSubscribe: isUserExist.isSubscribe,
     },
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string
   );
 
-  //after successful login reset the wrong login attempts
-  isUserExist.wrongLoginAttempts = 0;
-  isUserExist.restrictionLeftAt = null;
-  await isUserExist.save();
   return {
     accessToken: newAccessToken,
   };
@@ -392,7 +386,9 @@ const changePasswordToDB = async (
 };
 
 const resendOtp = async (email: string) => {
-  const isExistUser = await User.isExistUserByEmail(email);
+  const isExistUser = await User.findOne({ email: email })
+    .populate({ path: 'customer', select: { name: 1 } })
+    .populate({ path: 'vendor', select: { name: 1 } });
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -400,7 +396,16 @@ const resendOtp = async (email: string) => {
   //send mail
   const otp = generateOTP();
   const value = {
-    name: isExistUser.name,
+    name:
+      isExistUser.role === USER_ROLES.CUSTOMER &&
+      isExistUser.customer &&
+      'name' in isExistUser.customer
+        ? isExistUser.customer.name
+        : isExistUser.role === USER_ROLES.VENDOR &&
+          isExistUser.vendor &&
+          'name' in isExistUser.vendor
+        ? isExistUser.vendor.name
+        : '',
     otp,
     email: isExistUser.email,
   };
@@ -483,7 +488,7 @@ const verifyOtpForPhone = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid OTP');
   }
 
-  if (isUserExist.role === 'CUSTOMER') {
+  if (isUserExist.role === USER_ROLES.CUSTOMER) {
     // Update customer data
     const customer = await Customer.findByIdAndUpdate(
       isUserExist.customer, // Use ObjectId directly
@@ -495,16 +500,15 @@ const verifyOtpForPhone = async (
     }
 
     const profileCompletion = calculateCustomerProfileCompletion(customer);
-    await Customer.findByIdAndUpdate(
-      { _id: customer._id },
-      {
-        $set: {
-          profileCompletion: profileCompletion,
-          verifiedFlag: profileCompletion === 100,
-        },
-      }
-    );
-  } else if (isUserExist.role === 'VENDOR') {
+    await Customer.findByIdAndUpdate(customer._id, {
+      $set: {
+        profileCompletion: profileCompletion,
+        verifiedFlag: customer.verifiedFlag
+          ? customer.verifiedFlag // Keep it as is if already true
+          : profileCompletion === 100, // Update to true only if completion is 100%
+      },
+    });
+  } else if (isUserExist.role === USER_ROLES.VENDOR) {
     let updatedData: Partial<IVendor> = {};
 
     const vendor = isUserExist.vendor as IVendor;
@@ -535,38 +539,72 @@ const verifyOtpForPhone = async (
     }
 
     const profileCompletion = calculateProfileCompletion(updatedVendor);
-    await Vendor.findByIdAndUpdate(
-      { _id: updatedVendor._id },
-      {
-        $set: {
-          profileCompletion: profileCompletion,
-          verifiedFlag: profileCompletion === 100,
-        },
-      }
-    );
+    await Vendor.findByIdAndUpdate(updatedVendor._id, {
+      $set: {
+        profileCompletion: profileCompletion,
+        verifiedFlag: vendor.verifiedFlag
+          ? vendor.verifiedFlag // Keep it as is if already true
+          : profileCompletion === 100, // Update to true only if completion is 100%
+      },
+    });
   }
 };
 
-const deleteAccount = async (user: JwtPayload, password: string) => {
+const updateUserAppId = async (user: JwtPayload, appId: string) => {
   const isUserExist = await User.findById(user.id);
   if (!isUserExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  const isPasswordMatched = await bcrypt.compare(
+  if (isUserExist.appId === appId) {
+    return;
+  }
+
+  await User.findOneAndUpdate(
+    { _id: user.id },
+    { $set: { appId } },
+    { new: true }
+  );
+};
+
+const deleteAccount = async (user: JwtPayload, password: string) => {
+  const isUserExist = await User.findById(user.id, '+password');
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  const isPasswordMatched = await User.isMatchPassword(
     password,
     isUserExist.password
   );
+
   if (!isPasswordMatched) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect');
+  }
+
+  if (isUserExist.role === USER_ROLES.VENDOR) {
+    // Check for running orders
+    const hasRunningOrder = await Order.exists({
+      vendorId: isUserExist.vendor,
+      status: { $in: ['ongoing', 'accepted'] },
+    });
+
+    if (hasRunningOrder) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'You have ongoing orders. Please complete them before deleting your profile.'
+      );
+    }
   }
 
   if (isUserExist.status === 'delete') {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User already deleted!');
   }
 
-  isUserExist.status = 'delete';
-  await isUserExist.save();
+  await User.findByIdAndUpdate(
+    { _id: user.id },
+    { $set: { status: 'delete' } }
+  );
 
   return isUserExist;
 };
@@ -582,4 +620,5 @@ export const AuthService = {
   sendOtpToPhone,
   verifyOtpForPhone,
   deleteAccount,
+  updateUserAppId,
 };

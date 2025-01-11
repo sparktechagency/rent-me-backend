@@ -44,15 +44,7 @@ const updateVendorZodSchema = z.object({
 const getBusinessInformationFromVendor = z.object({
   // Business Information
   businessTitle: z.string().optional(),
-  businessType: z
-    .enum([
-      'Party Rentals',
-      'Event Planning',
-      'Catering',
-      'Entertainment',
-      'Other',
-    ])
-    .optional(),
+  businessType: z.array(z.string()).optional(),
   businessAddress: updateAddressSchema.optional(),
   businessContact: z.string().optional(),
   businessEmail: z.string().email('Invalid email address').optional(),

@@ -127,6 +127,17 @@ const deleteAccount = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateUserAppId = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+  const { appId } = req.body;
+  await AuthService.updateUserAppId(user, appId);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'App Id updated successfully',
+  });
+});
+
 export const AuthController = {
   verifyEmail,
   loginUser,
@@ -138,4 +149,5 @@ export const AuthController = {
   sendOtpToPhone,
   verifyOtpForPhone,
   deleteAccount,
+  updateUserAppId,
 };

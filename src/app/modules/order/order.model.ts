@@ -21,12 +21,32 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
     serviceId: {
       type: Schema.Types.ObjectId,
       ref: 'Service',
-      required: true,
     },
     packageId: {
       type: Schema.Types.ObjectId,
       ref: 'Package',
-      required: true,
+    },
+    isCustomOrder: {
+      type: Boolean,
+      default: false,
+    },
+    products: {
+      type: [
+        {
+          productId: {
+            type: Schema.Types.ObjectId,
+            ref: 'Product',
+          },
+          quantity: {
+            type: Number,
+            default: 1,
+          },
+          price: {
+            type: Number,
+            default: 0,
+          },
+        },
+      ],
     },
     amount: {
       type: Number,
@@ -60,7 +80,6 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
     },
     offeredAmount: {
       type: Number,
-      required: true,
     },
     deliveryLocation: {
       type: { type: String, default: 'Point', enum: ['Point'] },
