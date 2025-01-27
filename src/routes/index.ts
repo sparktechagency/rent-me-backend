@@ -1,3 +1,4 @@
+import { CartRoutes } from '../app/modules/cart/cart.route';
 import { ProductRoutes } from '../app/modules/product/product.route';
 import express, { Router } from 'express';
 import { AuthRoutes } from '../app/modules/auth/auth.route';
@@ -95,6 +96,7 @@ const apiRoutes: { path: string; route: Router }[] = [
     route: OthersRoutes,
   },
   { path: '/product', route: ProductRoutes },
+  { path: '/cart', route: CartRoutes }
 ];
 
 apiRoutes.forEach(route => router.use(route.path, route.route));

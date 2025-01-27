@@ -71,6 +71,7 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
       oneTimeCode: otp,
       expireAt: new Date(Date.now() + 3 * 60000),
     };
+
     await User.findOneAndUpdate(
       { _id: newUserData!._id },
       { $set: { authentication } }
