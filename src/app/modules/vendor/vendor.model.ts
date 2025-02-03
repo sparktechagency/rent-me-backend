@@ -21,6 +21,10 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
       type: String,
       default: '',
     },
+    countryCode: {
+      type: String,
+      default: 'US',
+    },
     isContactVerified: {
       type: Boolean,
       default: false,

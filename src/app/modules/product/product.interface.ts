@@ -10,7 +10,7 @@ export type IProduct = {
   dailyRate: number;
   minDays: number;
   quantity?: number;
-  categories: [Types.ObjectId];
+  // categories: [Types.ObjectId];
   vendor: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;

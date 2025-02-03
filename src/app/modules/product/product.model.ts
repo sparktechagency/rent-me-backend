@@ -10,9 +10,9 @@ const productSchema = new Schema<IProduct, ProductModel>({
   dailyRate: { type: Number, required: true },
   minDays: { type: Number, required: true },
   quantity: { type: Number },
-  categories: [
-    { type: Schema.Types.ObjectId, ref: 'Category', required: true },
-  ],
+  // categories: [
+  //   { type: Schema.Types.ObjectId, ref: 'Category', required: true },
+  // ],
   vendor: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
 });
 

@@ -19,9 +19,9 @@ const createProductZodSchema = z.object({
   }),
 
   quantity: z.number().optional(),
-  categories: z.array(z.string(), {
-    required_error: 'Categories are required',
-  }),
+  // categories: z.array(z.string(), {
+  //   required_error: 'Categories are required',
+  // }),
 });
 
 const updateProductZodSchema = z.object({
@@ -32,7 +32,7 @@ const updateProductZodSchema = z.object({
   dailyRate: z.number().optional(),
   minDays: z.number().optional(),
   quantity: z.number().optional(),
-  categories: z.array(z.string()).optional(),
+  // categories: z.array(z.string()).optional(),
 });
 export const ProductValidations = {
   createProductZodSchema,

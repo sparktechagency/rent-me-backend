@@ -20,6 +20,10 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
     contact: {
       type: String,
     },
+    countryCode: {
+      type: String,
+      default: 'US',
+    },
     isContactVerified: {
       type: Boolean,
       default: false,

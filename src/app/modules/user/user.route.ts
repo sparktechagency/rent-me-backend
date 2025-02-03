@@ -6,6 +6,12 @@ import { UserController } from './user.controller';
 import { UserValidation } from './user.validation';
 const router = express.Router();
 
+//create and update user profile
+router.post('/',
+  validateRequest(UserValidation.createUserZodSchema),
+  UserController.createUser
+);
+
 //get user profile
 router.get(
   '/profile/:id',
@@ -13,12 +19,7 @@ router.get(
   UserController.getUserProfile
 );
 
-//create and update user profile
-router.post(
-  '/',
-  validateRequest(UserValidation.createUserZodSchema),
-  UserController.createUser
-);
+
 
 //update user
 router.patch(

@@ -22,16 +22,13 @@ const updateProductToDB = async (
   user: JwtPayload,
   payload: IProduct
 ) => {
-  const isProductExist = await Product.findOne({
-    _id: productId,
-    vendor: user.userId,
-  });
+  const isProductExist = await Product.findById(productId);
   if (!isProductExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Product not found');
   }
 
-  const product = await Product.findOneAndUpdate(
-    { _id: payload._id },
+  const product = await Product.findByIdAndUpdate(
+    productId,
     { $set: { ...payload } },
     {
       new: true,
@@ -98,6 +95,7 @@ const getAllProductFromDB = async (
       total,
       page,
       limit,
+      totalPage: Math.ceil(total / limit),
     },
     data: products,
   };

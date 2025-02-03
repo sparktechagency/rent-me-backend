@@ -52,7 +52,7 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
     await session.commitTransaction();
 
     if (newUserData) {
-      newUserData = await User.findOne({ _id: newUserData._id })
+      newUserData = await User.findOne({ _id: newUserData?._id })
         .populate('admin')
         .populate('customer')
         .populate('vendor');
@@ -73,7 +73,7 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
     };
 
     await User.findOneAndUpdate(
-      { _id: newUserData!._id },
+      { _id: newUserData?._id },
       { $set: { authentication } }
     );
 
@@ -122,7 +122,7 @@ const createUserByRole = async (
       await sendNotification('newVendor', USER_ROLES.ADMIN, {
         title: `${vendor[0].name} has created an account.`,
         message: 'Please take a look into the newly created vendor account.',
-        userId: admin!._id || new Types.ObjectId('675129b45d9982726dc7f082'),
+        userId: admin?._id || new Types.ObjectId('675129b45d9982726dc7f082'),
         type: USER_ROLES.ADMIN,
       });
 
