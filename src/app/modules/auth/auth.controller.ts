@@ -104,9 +104,9 @@ const sendOtpToPhone = catchAsync(async (req: Request, res: Response) => {
 });
 
 const verifyOtpForPhone = catchAsync(async (req: Request, res: Response) => {
-  const { phoneNumber, otp } = req.body;
+  const { phoneNumber, otp, countryCode, isoCode, type } = req.body;
   const user = req.user;
-  const result = await AuthService.verifyOtpForPhone(user, phoneNumber, otp);
+  const result = await AuthService.verifyOtpForPhone(user, phoneNumber,countryCode, isoCode,otp,type);
 
   sendResponse(res, {
     success: true,

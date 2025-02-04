@@ -62,7 +62,7 @@ const getAllProductFromDB = async (
   filters: IProductFilterableFields,
   paginationOptions: IPaginationOptions
 ) => {
-  const { searchTerm, ...filtersData } = filters;
+  const { searchTerm,vendor, ...filtersData } = filters;
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(paginationOptions);
 
@@ -76,6 +76,10 @@ const getAllProductFromDB = async (
       ],
     });
   }
+
+if(vendor){
+  andConditions.push({vendor: new Types.ObjectId(vendor)})
+}
 
   const products = await Product.find({
     $and: andConditions,

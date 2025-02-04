@@ -56,6 +56,8 @@ const createSendOtpToPhoneZodSchema = z.object({
 const createVerifyOtpForPhoneZodSchema = z.object({
   body: z.object({
     phoneNumber: z.string({ required_error: 'Phone number is required' }),
+    countryCode: z.string({ required_error: 'Country code is required' }),
+    isoCode: z.string({ required_error: 'ISO code is required' }),
     otp: z.string({ required_error: 'OTP is required' }),
   }),
 });

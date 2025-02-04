@@ -19,7 +19,8 @@ export const sendNotification = async (
     );
   }
   //@ts-expect-error globalThis
-  const socket = global.io;
+
+const socket = global.io; 
 
   socket.emit(`${namespace}::${recipient}`, data, path);
 };

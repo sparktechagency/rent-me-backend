@@ -19,5 +19,6 @@ export type IProduct = {
 export type IProductFilterableFields = {
   searchTerm?: string;
   categories?: string[];
+  vendor?: string;
 };
 export type ProductModel = Model<IProduct>;

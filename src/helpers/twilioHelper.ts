@@ -34,7 +34,7 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
     if (existingOtp) {
       const timeElapsed =
         Date.now() - new Date(existingOtp.lastRequestAt).getTime();
-      const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
+      const tenMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
 
       if (timeElapsed < tenMinutes && existingOtp.requestCount >= 3) {
         throw new ApiError(
@@ -43,7 +43,7 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
         );
       }
 
-      // Increment request count or reset if outside the 10-minute window
+      // Increment request count or reset if outside the 30-minute window
       if (timeElapsed >= tenMinutes) {
         existingOtp.requestCount = 1;
         existingOtp.lastRequestAt = new Date();
@@ -75,6 +75,7 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
 
     await newOtp.save();
 
+
     // Send the OTP using Twilio
 
     await client.messages.create({
@@ -94,6 +95,8 @@ export const verifyOtp = async (
   phoneNumber: string,
   otp: string
 ): Promise<boolean> => {
+
+
   try {
     const existingOtp = await Otp.findOne({ phoneNumber });
 

@@ -421,28 +421,38 @@ const resendOtp = async (email: string) => {
 };
 
 const sendOtpToPhone = async (user: JwtPayload, phone: string) => {
-  const isUserExist = await User.findById(user.id)
+  // Fetch user with necessary fields
+  const userDoc = await User.findById(user.id)
+    .select('role customer vendor')
     .populate({
       path: 'vendor',
-      select: {
-        contact: 1,
-        businessContact: 1,
-        isBusinessContactVerified: 1,
-        isContactVerified: 1,
-      },
+      select: 'contact businessContact isBusinessContactVerified isContactVerified',
     })
     .populate({
       path: 'customer',
-      select: { contact: 1, isContactVerified: 1 },
-    });
-  if (!isUserExist) {
+      select: 'contact isContactVerified',
+    })
+    .lean();
+
+  if (!userDoc) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  if (isUserExist.role === USER_ROLES.CUSTOMER) {
-    const { isContactVerified } = isUserExist.customer as ICustomer;
+  // Check if the phone number is already verified based on the user's role
+  if (userDoc.role === USER_ROLES.CUSTOMER) {
+    const { isContactVerified, contact } = userDoc.customer as ICustomer;
 
-    if (isContactVerified) {
+    if (contact === phone && isContactVerified) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Phone number is already verified, please choose another number and try again.'
+      );
+    }
+
+  } else if (userDoc.role === USER_ROLES.VENDOR) {
+    const { isContactVerified, businessContact, contact, isBusinessContactVerified } = userDoc.vendor as IVendor;
+
+    if ((contact === phone && isContactVerified) || (businessContact === phone && isBusinessContactVerified)) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
         'Phone number is already verified'
@@ -450,88 +460,81 @@ const sendOtpToPhone = async (user: JwtPayload, phone: string) => {
     }
   }
 
-  if (isUserExist.role === USER_ROLES.VENDOR) {
-    const { isContactVerified, isBusinessContactVerified } =
-      isUserExist.vendor as IVendor;
-
-    if (isContactVerified && isBusinessContactVerified) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Phone number is already verified'
-      );
-    }
-  }
-
+  // Send OTP to the phone
   await sendOtp(phone);
 };
 
 const verifyOtpForPhone = async (
   user: JwtPayload,
   phone: string,
-  otp: string
+  countryCode: string,
+  isoCode: string,
+  otp: string,
+  type?: string
 ) => {
-  const isUserExist = await User.findById(user.id)
+  // Fetch user with necessary fields
+  const userDoc = await User.findById(user.id)
+    .select('role customer vendor')
     .populate({
       path: 'vendor',
-      select: { contact: 1, businessContact: 1 },
+      select: 'contact businessContact isBusinessContactVerified businessContactCountryCode contactCountryCode',
     })
     .populate({
       path: 'customer',
-      select: { contact: 1 },
-    });
-  if (!isUserExist) {
+      select: 'contact isContactVerified contactCountryCode',
+    })
+    .lean();
+
+  if (!userDoc) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  const isVerified = await verifyOtp(phone, otp);
+  // Verify OTP
+  const isVerified = await verifyOtp((countryCode + phone), otp);
   if (!isVerified) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid OTP');
   }
 
-  if (isUserExist.role === USER_ROLES.CUSTOMER) {
-    // Update customer data
-    const customer = await Customer.findByIdAndUpdate(
-      isUserExist.customer, // Use ObjectId directly
-      { $set: { isContactVerified: true } }
+  // Update user data based on role
+  if (userDoc.role === USER_ROLES.CUSTOMER) {
+    const customerUpdate = {
+      isContactVerified: true,
+      contact: phone,
+      contactCountryCode: isoCode,
+    };
+
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      userDoc.customer,
+      { $set: customerUpdate },
+      { new: true }
     );
 
-    if (!customer) {
+    if (!updatedCustomer) {
       throw new Error('Failed to update customer data.');
     }
 
-    const profileCompletion = calculateCustomerProfileCompletion(customer);
-    await Customer.findByIdAndUpdate(customer._id, {
+    const profileCompletion = calculateCustomerProfileCompletion(updatedCustomer);
+    await Customer.findByIdAndUpdate(updatedCustomer._id, {
       $set: {
         profileCompletion: profileCompletion,
-        verifiedFlag: customer.verifiedFlag
-          ? customer.verifiedFlag // Keep it as is if already true
-          : profileCompletion === 100, // Update to true only if completion is 100%
+        verifiedFlag: updatedCustomer.verifiedFlag || profileCompletion === 100,
       },
     });
-  } else if (isUserExist.role === USER_ROLES.VENDOR) {
-    let updatedData: Partial<IVendor> = {};
 
-    const vendor = isUserExist.vendor as IVendor;
-
+  } else if (userDoc.role === USER_ROLES.VENDOR) {
+    const vendor = userDoc.vendor as IVendor;
     if (!vendor) {
       throw new Error('Vendor data not found.');
     }
 
-    if (vendor.contact == phone && vendor.businessContact == phone) {
-      updatedData = {
-        isContactVerified: true,
-        isBusinessContactVerified: true,
-      };
-    } else if (vendor.contact === phone) {
-      updatedData = { isContactVerified: true };
-    } else if (vendor.businessContact === phone) {
-      updatedData = { isBusinessContactVerified: true };
-    }
+    const vendorUpdate = type === 'business'
+      ? { isBusinessContactVerified: true, businessContact: phone, businessContactCountryCode: isoCode }
+      : { isContactVerified: true, contact: phone, contactCountryCode: isoCode };
 
-    // Update vendor data
     const updatedVendor = await Vendor.findByIdAndUpdate(
-      vendor._id, // Use the vendor ObjectId
-      { $set: { updatedData } }
+      vendor._id,
+      { $set: vendorUpdate },
+      { new: true }
     );
 
     if (!updatedVendor) {
@@ -542,9 +545,7 @@ const verifyOtpForPhone = async (
     await Vendor.findByIdAndUpdate(updatedVendor._id, {
       $set: {
         profileCompletion: profileCompletion,
-        verifiedFlag: vendor.verifiedFlag
-          ? vendor.verifiedFlag // Keep it as is if already true
-          : profileCompletion === 100, // Update to true only if completion is 100%
+        verifiedFlag: updatedVendor.verifiedFlag || profileCompletion === 100,
       },
     });
   }

@@ -19,6 +19,7 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
     },
     contact: {
       type: String,
+      default: '',
     },
     countryCode: {
       type: String,

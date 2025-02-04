@@ -21,7 +21,7 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
       type: String,
       default: '',
     },
-    countryCode: {
+    contactCountryCode: {
       type: String,
       default: 'US',
     },
@@ -102,6 +102,10 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
     businessContact: {
       type: String,
     },
+    businessContactCountryCode: {
+      type: String,
+      default: 'US',
+    },
     isBusinessContactVerified: {
       type: Boolean,
       default: false,
@@ -145,7 +149,6 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
     operationEndTime: {
       type: String,
     },
-
     signatureType: {
       type: String,
       enum: ['Typed', 'Digital'],

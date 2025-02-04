@@ -30,7 +30,9 @@ const otpSchema = new Schema<IOtp>(
     timestamps: true,
   }
 );
-otpSchema.index({ email: 1 });
-otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+otpSchema.index({ phoneNumber: 1 });
+otpSchema.index({ lastRequestAt: 1 }); // Index for quick lookup of rate-limiting info
+
+
 
 export const Otp = model('Otp', otpSchema);

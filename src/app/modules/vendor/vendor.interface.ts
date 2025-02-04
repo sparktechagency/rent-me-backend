@@ -28,6 +28,7 @@ export type IVendor = {
   name: string;
   email: string;
   contact?: string;
+  contactCountryCode?: string;
   isContactVerified?: boolean;
   profileImg?: string;
   address?: IAddress;
@@ -36,7 +37,7 @@ export type IVendor = {
   verifiedFlag: boolean;
   orderCompleted?: number;
   isAvailable?: boolean; // order < 10 ? true : false
-  countryCode?: string;
+
   stripeId: string;
   stripeConnected: boolean;
 
@@ -47,6 +48,7 @@ export type IVendor = {
   businessAddress?: IAddress;
   businessContact?: string;
   isBusinessContactVerified: boolean;
+  businessContactCountryCode?: string;
   businessEmail?: string;
   isBusinessEmailVerified: boolean;
   socialLinks: ISocialLink;
