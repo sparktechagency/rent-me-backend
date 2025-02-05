@@ -7,18 +7,27 @@ const cartSchema = new Schema<ICart, CartModel>({
     ref: 'Customer',
     required: true,
   },
-  products: [
+  items: [ // This is an array, not a tuple
     {
-      productId: {
+      vendorId: {
         type: Schema.Types.ObjectId,
-        ref: 'Product',
+        ref: 'Vendor',
         required: true,
       },
-      quantity: { type: Number, required: true },
-      price: { type: Number, required: true },
+      products: [
+        {
+          product: {
+            type: Schema.Types.ObjectId,
+            ref: 'Product',
+            required: true,
+          },
+          quantity: {
+            type: Number,
+            required: true,
+          },
+        },
+      ],
     },
   ],
-  
-},{timestamps:true});
-
+}, { timestamps: true });
 export const Cart = model<ICart, CartModel>('Cart', cartSchema);

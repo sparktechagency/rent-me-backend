@@ -1,17 +1,21 @@
 import { Model, Types } from 'mongoose';
 
-type ICartProduct = {
-  productId: Types.ObjectId;
+export type ICartProduct = {
+  product: Types.ObjectId;
   quantity: number;
 };
 
 export type ICart = {
   _id: Types.ObjectId;
+  items: Array<{
+    vendorId: Types.ObjectId;
+    products: ICartProduct[];
+  }>;
   customerId: Types.ObjectId;
-  products: ICartProduct[];
   createdAt: Date;
   updatedAt: Date;
-
 };
 
 export type CartModel = Model<ICart>;
+
+
