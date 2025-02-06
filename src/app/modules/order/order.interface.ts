@@ -18,8 +18,7 @@ export type IOrder = {
   isCustomOrder: boolean;
   products: [
     {
-      productId: Types.ObjectId;
-      price: number;
+      product: Types.ObjectId;
       quantity: number;
     }
   ];

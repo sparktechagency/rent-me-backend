@@ -19,3 +19,7 @@ export type ICart = {
 export type CartModel = Model<ICart>;
 
 
+export type ICartPayload = {
+  vendorId: string;
+  products: ICartProduct[];
+};

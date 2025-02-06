@@ -11,8 +11,7 @@ const createOrderZodSchema = z.object({
     products: z
       .array(
         z.object({
-          productId: z.string(),
-          price: z.number(),
+          product: z.string(),
           quantity: z.number(),
         })
       )

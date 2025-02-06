@@ -132,13 +132,17 @@ const accessChat = async (
   if (!participantData) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Participant not found in chat.');
   }
-
-  return {
+  const returnData = {
     chatId: newChat._id,
     name: participantData.customer?.name || participantData.vendor?.name,
     profileImg: participantData.customer?.profileImg || participantData.vendor?.profileImg,
     latestMessageTime: newChat.latestMessageTime,
   };
+//@ts-expect-error globalThis
+  const socket = global.io;
+  socket.emit(`accessChat::${user.userId}`, returnData)
+
+  return returnData;
 };
 
 // Get Chat List by User ID Function

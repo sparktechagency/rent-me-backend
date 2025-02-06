@@ -33,7 +33,7 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
     products: {
       type: [
         {
-          productId: {
+          product: {
             type: Schema.Types.ObjectId,
             ref: 'Product',
           },

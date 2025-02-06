@@ -29,8 +29,9 @@ import { Vendor } from '../vendor/vendor.model';
 import { Package } from '../package/package.model';
 
 const createOrder = async (payload: IOrder) => {
-  const oderId = await generateCustomOrderId();
-  payload.orderId = oderId;
+  const orderId = await generateCustomOrderId();
+  payload.orderId = orderId;
+
   const {
     deliveryDateAndTime,
     vendorId,
@@ -38,9 +39,9 @@ const createOrder = async (payload: IOrder) => {
     isSetup,
     setupDuration,
     isCustomOrder,
-    products,
   } = payload;
 
+  // Fetch vendor, customer, and package details
   const [vendorExist, customerExist, packageExist] = await Promise.all([
     User.findOne({ vendor: vendorId, status: 'active' }).populate('vendor', {
       name: 1,
@@ -60,24 +61,21 @@ const createOrder = async (payload: IOrder) => {
       : Promise.resolve(null), // Skip querying the package if isCustomOrder is true
   ]);
 
+  // Validate vendor, customer, and package existence
   if (!vendorExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
   }
-
   if (!customerExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer does not exist');
   }
-
   if (!packageExist && !isCustomOrder) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Package does not exist');
   }
 
-  //check if the deliveryDate and time falls under vendor operation days
-
+  // Validate delivery date and time
   const { operationStartTime, operationEndTime, availableDays, location } =
     vendorExist.vendor as IVendor;
 
-  //check if the deliveryDate and time falls under vendor operation hours
   const requestedDay = new Date(deliveryDateAndTime).toLocaleDateString(
     'en-US',
     {
@@ -85,7 +83,6 @@ const createOrder = async (payload: IOrder) => {
     }
   );
 
-  //prevent past order creation
   const deliveryDate = new Date(deliveryDateAndTime);
   const currentDate = new Date();
   const offsetMs = currentDate.getTimezoneOffset() * 60 * 1000;
@@ -105,6 +102,7 @@ const createOrder = async (payload: IOrder) => {
     );
   }
 
+  // Calculate delivery fee and product price for custom orders
   if (isCustomOrder) {
     validateOrderTime(
       deliveryDateAndTime,
@@ -126,126 +124,28 @@ const createOrder = async (payload: IOrder) => {
 
     payload.deliveryFee = Number(fee);
 
-    if (products.length > 0) {
-      //calculate product price and set it to the payload
+  }
 
-      const productPrice = products.reduce(
-        (total, product) =>
-          total + Number(product.price) * Number(product.quantity),
-        0
-      );
-      payload.amount = Number(productPrice.toFixed(2));
-    }
-
-    //check for existing order
-
-    const query = [
-      {
-        setupStartDateAndTime: { $lt: deliveryDateAndTime },
-        deliveryDateAndTime: { $gt: deliveryDateAndTime },
-      },
-    ];
-
-    const existingOrder = await Order.findOne({
-      vendorId: payload.vendorId,
-      status: { $in: ['accepted', 'ongoing', 'started'] },
-      $and: query,
-    });
-
-    if (existingOrder) {
+  // Validate setup duration and calculate setup start time
+  if (isSetup) {
+    const setupDurationMs = getDuration(setupDuration);
+    if (
+      isNaN(setupDurationMs) ||
+      isNaN(new Date(deliveryDateAndTime).getTime())
+    ) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'The vendor is already busy during this time slot.'
+        'Invalid setup duration or delivery date.'
       );
     }
 
-    //check if the customer already have an order place with customer
-
-    const customerExistingOrder = await Order.findOne({
-      customerId: payload.customerId,
-      vendorId: payload.vendorId,
-      status: { $in: ['pending', 'accepted', 'ongoing', 'started'] },
-      $and: query,
-    });
-
-    if (customerExistingOrder) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'You have already placed an order with this vendor during this time slot.'
-      );
-    }
-
-    const result = await Order.create([payload]);
-    if (result.length === 0) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order.');
-    }
-
-    //send new order details to the vendor through socket
-    await sendDataWithSocket('newOrder', payload.vendorId as Types.ObjectId, {
-      ...result,
-    });
-
-    const { name } = customerExist.customer as ICustomer;
-    const notificationData = {
-      userId: vendorExist._id,
-      title: `Order request from ${name}`,
-      message: `${name} has placed an order. Please accept or reject the order. Order ID: ${payload.orderId}`,
-      type: USER_ROLES.VENDOR,
-    };
-
-    // Send notification to the vendor
-    await sendNotification(
-      'getNotification',
-      payload.vendorId as Types.ObjectId,
-      notificationData,
-      'order'
+    const setupStartDateAndTime = new Date(
+      new Date(deliveryDateAndTime).getTime() - setupDurationMs
     );
-
-    return result;
-  } else {
-    if (!isSetup) {
-      validateOrderTime(
-        deliveryDateAndTime,
-        operationStartTime!,
-        operationEndTime!
-      );
-      const fee = payload.deliveryFee
-        ? Number(payload.deliveryFee)
-        : Number(
-            calculateDistance(
-              [location.coordinates[0], location.coordinates[1]],
-              [
-                payload.deliveryLocation.coordinates[0],
-                payload.deliveryLocation.coordinates[1],
-              ]
-            ) * Number(config.delivery_fee)
-          ).toFixed(2);
-
-      payload.deliveryFee = Number(fee);
+    if (packageExist) {
+      payload.setupFee = packageExist.setupFee;
     }
-
-    if (isSetup) {
-      const setupDurationMs = getDuration(setupDuration);
-      if (
-        isNaN(setupDurationMs) ||
-        isNaN(new Date(deliveryDateAndTime).getTime())
-      ) {
-        {
-          throw new ApiError(
-            StatusCodes.BAD_REQUEST,
-            'Invalid setup duration or delivery date.'
-          );
-        }
-      }
-
-      const setupStartDateAndTime = new Date(
-        new Date(deliveryDateAndTime).getTime() - setupDurationMs
-      );
-      if (packageExist) {
-        payload.setupFee = packageExist.setupFee;
-      }
-      payload.setupStartDateAndTime = setupStartDateAndTime;
-    }
+    payload.setupStartDateAndTime = setupStartDateAndTime;
 
     if (payload.setupStartDateAndTime.getTime() < currentLocalDate.getTime()) {
       throw new ApiError(
@@ -253,80 +153,91 @@ const createOrder = async (payload: IOrder) => {
         `${payload.setupStartDateAndTime.toString()} conflict with current time.`
       );
     }
-
-    //check for existing order
-
-    const query = isSetup
-      ? [
-          {
-            setupStartDateAndTime: { $lt: deliveryDateAndTime },
-            deliveryDateAndTime: { $gt: payload.setupStartDateAndTime },
-          },
-        ]
-      : [
-          {
-            setupStartDateAndTime: { $lt: deliveryDateAndTime },
-            deliveryDateAndTime: { $gt: deliveryDateAndTime },
-          },
-        ];
-
-    const existingOrder = await Order.findOne({
-      vendorId: payload.vendorId,
-      status: { $in: ['accepted', 'ongoing', 'started'] },
-      $and: query,
-    });
-
-    if (existingOrder) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'The vendor is already busy during this time slot.'
-      );
-    }
-
-    //check if the customer already have an order place with customer
-
-    const customerExistingOrder = await Order.findOne({
-      customerId: payload.customerId,
-      vendorId: payload.vendorId,
-      status: { $in: ['pending', 'accepted', 'ongoing', 'started'] },
-      $and: query,
-    });
-
-    if (customerExistingOrder) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'You have already placed an order with this vendor during this time slot.'
-      );
-    }
-
-    const result = await Order.create([payload]);
-    if (result.length === 0) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order.');
-    }
-
-    //send new order details to the vendor through socket
-    await sendDataWithSocket('newOrder', payload.vendorId as Types.ObjectId, {
-      ...result,
-    });
-
-    const { name } = customerExist.customer as ICustomer;
-    const notificationData = {
-      userId: vendorExist._id,
-      title: `Order request from ${name}`,
-      message: `${name} has placed an order. Please accept or reject the order. Order ID: ${payload.orderId}`,
-      type: USER_ROLES.VENDOR,
-    };
-
-    // Send notification to the vendor
-    await sendNotification(
-      'getNotification',
-      payload.vendorId as Types.ObjectId,
-      notificationData,
-      'order'
-    );
-
-    return result;
   }
+
+  // Check for existing orders
+  const query = isSetup
+    ? [
+        {
+          setupStartDateAndTime: { $lt: deliveryDateAndTime },
+          deliveryDateAndTime: { $gt: payload.setupStartDateAndTime },
+        },
+      ]
+    : [
+        {
+          setupStartDateAndTime: { $lt: deliveryDateAndTime },
+          deliveryDateAndTime: { $gt: deliveryDateAndTime },
+        },
+      ];
+
+  const existingOrder = await Order.findOne({
+    vendorId: payload.vendorId,
+    status: { $in: ['accepted', 'ongoing', 'started'] },
+    $and: query,
+  });
+
+  if (existingOrder) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'The vendor is already busy during this time slot.'
+    );
+  }
+
+  const customerExistingOrder = await Order.findOne({
+    customerId: payload.customerId,
+    vendorId: payload.vendorId,
+    status: { $in: ['pending', 'accepted', 'ongoing', 'started'] },
+    $and: query,
+  });
+
+  if (customerExistingOrder) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You have already placed an order with this vendor during this time slot.'
+    );
+  }
+
+  // Create the order
+  const result = await Order.create([payload]);
+  if (result.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order.');
+  }
+
+  // Send notification and socket event
+  await sendOrderNotificationAndSocketEvent(
+    payload.vendorId as Types.ObjectId,
+    customerExist.customer as ICustomer,
+    payload.orderId,
+    result
+  );
+
+  return result;
+};
+
+// Helper function to send notification and socket event
+const sendOrderNotificationAndSocketEvent = async (
+  vendorId: Types.ObjectId,
+  customer: ICustomer,
+  orderId: string,
+  orderDetails: IOrder[]
+) => {
+  await sendDataWithSocket('newOrder', vendorId, {
+    ...orderDetails,
+  });
+
+  const notificationData = {
+    userId: vendorId,
+    title: `Order request from ${customer.name}`,
+    message: `${customer.name} has placed an order. Please accept or reject the order. Order ID: ${orderId}`,
+    type: USER_ROLES.VENDOR,
+  };
+
+  await sendNotification(
+    'getNotification',
+    vendorId,
+    notificationData,
+    'order'
+  );
 };
 
 const getAllOrders = async (

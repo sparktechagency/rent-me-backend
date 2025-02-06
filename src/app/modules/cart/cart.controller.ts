@@ -7,8 +7,8 @@ import { StatusCodes } from 'http-status-codes';
 const manageCart = catchAsync(
     async (req: Request, res: Response) => {
         const user = req.user;
-        const { productId, quantity, vendorId } = req.body;
-        await CartServices.manageCartProduct(user, productId, quantity, vendorId);
+            
+        await CartServices.addOrUpdateCart(user, req.body);
         sendResponse(res, {
             success: true,
             statusCode: StatusCodes.OK,

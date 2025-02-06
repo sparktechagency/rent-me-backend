@@ -4,92 +4,77 @@ import { Cart } from "./cart.model";
 import ApiError from "../../../errors/ApiError";
 import { StatusCodes } from "http-status-codes";
 import { Types } from "mongoose";
-import { ICartProduct } from "./cart.interface";
+import {  ICartPayload,  } from "./cart.interface";
 
 
-const manageCartProduct = async (user: JwtPayload, productId: Types.ObjectId, quantity: number, vendorId: Types.ObjectId) => {
-    let cart = await Cart.findOne({ customerId: user.userId });
-
-    if (!cart) {
-        // Create new cart
-        cart = await Cart.create({
-            customerId: user.userId,
-            items: [{
-                vendorId,
-                products: [{ product: productId, quantity }]
-            }]
-        });
-
-        if (!cart) {
-            throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create cart');
-        }
-        return cart; // ✅ Return newly created cart
+const addOrUpdateCart = async (user:JwtPayload, payload:ICartPayload) => {
+    // Destructure the payload
+    const { vendorId, products } = payload;
+  
+    // Find the existing cart for the customer
+    const existingCart = await Cart.findOne({ customerId: user.userId });
+  
+    if (!existingCart) {
+      //create new cart
+      const cartData = await Cart.create({
+        customerId: user.userId,
+        items: [{
+          vendorId: new Types.ObjectId(vendorId),
+          products
+        }]
+      });
+      return cartData;
     }
-
-    let vendorExists = false;
-
-    const updatedItems = cart.items.map(item => {
-        if (item.vendorId === vendorId) {
-            vendorExists = true;
-            const products = item.products.filter(p => p.product !== productId);
-
-            if (quantity > 0) {
-                products.push({ product: productId , quantity });
-            }
-
-            return products.length > 0 ? { vendorId: item.vendorId, products } : null;
-        }
-        return item;
-    }).filter(Boolean); // Remove null values (vendors with no products)
-
-    // If vendor doesn't exist, add new vendor with product
-    if (!vendorExists && quantity > 0) {
-        updatedItems.push({ vendorId, products: [{ product: productId, quantity }] });
-    }
-
-    // Update the cart in DB
-    const updatedCart = await Cart.findOneAndUpdate(
-        { customerId: user.userId },
-        { items: updatedItems },
-        { new: true }
+  
+    // Check if the vendor already exists in the cart
+    const vendorIndex = existingCart.items.findIndex(
+      (item) => item.vendorId.toString() === vendorId
     );
-
-    if (!updatedCart) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update cart');
-    }
-
-    return updatedCart; // ✅ Return the updated cart
-};
-
-const removeProductFromCart = async (
-    user: JwtPayload,
-    productId: Types.ObjectId,
-    vendorId: Types.ObjectId
-  ) => {
-    const cart = await Cart.findOne({ customerId: user.userId });
   
-    if (!cart) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'Cart not found');
-    }
+    if (vendorIndex === -1) {
+      // If the vendor does not exist, add a new vendor entry
+      existingCart.items.push({
+        vendorId: new Types.ObjectId(vendorId),
+        products,
+      });
+    } else {
+      // If the vendor exists, update the products
+      const existingVendor = existingCart.items[vendorIndex];
   
-    // Filter out the product from the vendor
-    const updatedItems = cart.items
-      .map((item) => {
-        if (item.vendorId.toString() === vendorId.toString()) {
-          const products = item.products.filter(
-            (p) => p.product.toString() !== productId.toString()
-          );
-          return products.length > 0 ? { vendorId: item.vendorId, products } : null;
+      // Loop through the products in the payload
+      products.forEach((newProduct) => {
+        const productIndex = existingVendor.products.findIndex(
+          (existingProduct) =>
+            existingProduct.product.toString() === newProduct.product.toString()
+        );
+  
+        if (productIndex === -1) {
+          // If the product does not exist, add it
+          existingVendor.products.push({
+            product: new Types.ObjectId(newProduct.product),
+            quantity: newProduct.quantity,
+          });
+        } else {
+          // If the product exists, update the quantity
+          if (newProduct.quantity === 0) {
+            // Remove the product if the quantity is 0
+            existingVendor.products.splice(productIndex, 1);
+          } else {
+            // Update the quantity
+            existingVendor.products[productIndex].quantity = newProduct.quantity;
+          }
         }
-        return item;
-      })
-      .filter((item): item is { vendorId: Types.ObjectId; products: ICartProduct[] } => item !== null); // Type assertion to fix TypeScript error
+      });
   
-    // Assign the updated items to the cart
-    cart.items = updatedItems;
+      // Remove the vendor entry if no products are left
+      if (existingVendor.products.length === 0) {
+        existingCart.items.splice(vendorIndex, 1);
+      }
+    }
   
     // Save the updated cart
-    const updatedCart = await cart.save();
+    const updatedCart = await existingCart.save();
+  
     if (!updatedCart) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update cart');
     }
@@ -99,10 +84,11 @@ const removeProductFromCart = async (
 
 
 
+
 const getCart = async (user: JwtPayload) => {
     const isCartExist = await Cart.findOne({ customerId: user.userId })
         .populate('items.products.product') // ✅ Corrected product path
-        .populate('items.vendorId', { businessContact: 1, name: 1, businessTitle: 1 });
+        .populate('items.vendorId', { businessContact: 1, name: 1, businessTitle: 1, profileImg: 1, businessAddress: 1 });
 
     if (!isCartExist) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Cart not found');
@@ -168,4 +154,4 @@ const deleteCart = async (user:JwtPayload) => {
     }
     return;
 }
-export const CartServices = { manageCartProduct, getCart, deleteCart, removeProductFromCart };
+export const CartServices = { addOrUpdateCart, getCart, deleteCart };
