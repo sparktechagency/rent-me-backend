@@ -70,16 +70,62 @@ export function calculateDistance(
   return Number(distance.toFixed(2));
 }
 
+// export const validateOrderTime = (
+//   serviceEndDateTime: Date | string,
+//   vendorOperationStart: string,
+//   vendorOperationEnd: string
+// ) => {
+//   // Convert serviceEndDateTime to a Date object
+//   const serviceEndUTC = new Date(serviceEndDateTime);
+
+//   // Check if the parsed date is valid
+//   if (isNaN(serviceEndUTC.getTime())) {
+//     throw new ApiError(
+//       StatusCodes.BAD_REQUEST,
+//       'Invalid service end date and time format.'
+//     );
+//   }
+
+//   // Convert vendor operation times to 24-hour format
+//   const { hour: startHour, minute: startMinute } =
+//     convertTo24Hour(vendorOperationStart); // "09:00 AM" -> { hour: 9, minute: 0 }
+//   const { hour: endHour, minute: endMinute } =
+//     convertTo24Hour(vendorOperationEnd); // "05:00 PM" -> { hour: 17, minute: 0 }
+
+//   // Create Date objects for operationStart and operationEnd
+//   const operationStart = new Date(serviceEndUTC);
+//   const operationEnd = new Date(serviceEndUTC);
+
+//   // Set vendor's operation hours in UTC
+//   operationStart.setUTCHours(startHour, startMinute, 0, 0);
+//   operationEnd.setUTCHours(endHour, endMinute, 0, 0);
+
+//   console.log(operationStart, operationEnd, serviceEndUTC, vendorOperationStart, vendorOperationEnd);
+
+//   // Handle cases where operationEnd crosses midnight
+//   if (operationEnd < operationStart) {
+//     operationEnd.setUTCDate(operationEnd.getUTCDate() + 1);
+//   }
+
+//   // Validate that the order time falls within the vendor's operation hours
+//   if (serviceEndUTC < operationStart || serviceEndUTC > operationEnd) {
+//     throw new ApiError(
+//       StatusCodes.BAD_REQUEST,
+//       `Order time must be between ${vendorOperationStart} and ${vendorOperationEnd}`
+//     );
+//   }
+// };
+
 export const validateOrderTime = (
   serviceEndDateTime: Date | string,
   vendorOperationStart: string,
   vendorOperationEnd: string
 ) => {
   // Convert serviceEndDateTime to a Date object
-  const serviceEndUTC = new Date(serviceEndDateTime);
+  const serviceEndLocal = new Date(serviceEndDateTime);
 
   // Check if the parsed date is valid
-  if (isNaN(serviceEndUTC.getTime())) {
+  if (isNaN(serviceEndLocal.getTime())) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Invalid service end date and time format.'
@@ -92,27 +138,38 @@ export const validateOrderTime = (
   const { hour: endHour, minute: endMinute } =
     convertTo24Hour(vendorOperationEnd); // "05:00 PM" -> { hour: 17, minute: 0 }
 
-  // Create Date objects for operationStart and operationEnd
-  const operationStart = new Date(serviceEndUTC);
-  const operationEnd = new Date(serviceEndUTC);
+  // Create Date objects for operationStart and operationEnd in LOCAL TIME
+  const operationStart = new Date(serviceEndLocal);
+  const operationEnd = new Date(serviceEndLocal);
 
-  // Set vendor's operation hours in UTC
-  operationStart.setUTCHours(startHour, startMinute, 0, 0);
-  operationEnd.setUTCHours(endHour, endMinute, 0, 0);
+  // Set vendor's operation hours in LOCAL TIME
+  operationStart.setHours(startHour, startMinute, 0, 0);
+  operationEnd.setHours(endHour, endMinute, 0, 0);
+
+  console.log(
+    'Operation Start (Local):',
+    operationStart.toLocaleString(),
+    'Operation End (Local):',
+    operationEnd.toLocaleString(),
+    'Service End (Local):',
+    serviceEndLocal.toLocaleString()
+  );
 
   // Handle cases where operationEnd crosses midnight
   if (operationEnd < operationStart) {
-    operationEnd.setUTCDate(operationEnd.getUTCDate() + 1);
+    operationEnd.setDate(operationEnd.getDate() + 1);
   }
 
   // Validate that the order time falls within the vendor's operation hours
-  if (serviceEndUTC < operationStart || serviceEndUTC > operationEnd) {
+  if (serviceEndLocal < operationStart || serviceEndLocal > operationEnd) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       `Order time must be between ${vendorOperationStart} and ${vendorOperationEnd}`
     );
   }
 };
+
+
 
 export const parseDuration = (duration: string): number => {
   const timeUnits: { [key: string]: number } = {

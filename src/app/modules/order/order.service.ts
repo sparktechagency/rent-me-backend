@@ -27,6 +27,8 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { orderSearchableFields } from './order.constant';
 import { Vendor } from '../vendor/vendor.model';
 import { Package } from '../package/package.model';
+import { Cart } from '../cart/cart.model';
+
 
 const createOrder = async (payload: IOrder) => {
   const orderId = await generateCustomOrderId();
@@ -203,6 +205,12 @@ const createOrder = async (payload: IOrder) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order.');
   }
 
+
+  await Cart.findOneAndUpdate(
+    { customerId: payload.customerId },
+    { $pull: { items: { vendorId: payload.vendorId } } }
+  );
+
   // Send notification and socket event
   await sendOrderNotificationAndSocketEvent(
     payload.vendorId as Types.ObjectId,
@@ -273,7 +281,16 @@ const getAllOrders = async (
   const whereConditions =
     andConditions.length > 0 ? { $and: andConditions } : {};
   const result = await Order.find(whereConditions)
-    .populate('vendorId', { name: 1, email: 1, profileImg: 1, phone: 1 })
+    .populate('vendorId', {
+      name: 1,
+      email: 1,
+      profileImg: 1,
+      phone: 1,
+      businessContact: 1,
+      businessTitle: 1,
+      businessAddress: 1,
+      businessContactCountryCode: 1,
+    })
     .populate('customerId', {
       name: 1,
       email: 1,
@@ -360,6 +377,7 @@ const getAllOrderByUserId = async (
       totalReviews: 1,
       verifiedFlag: 1,
       businessContact: 1,
+      businessContactCountryCode: 1,
       location: 1,
     })
     .populate('packageId', { title: 1 })
@@ -371,6 +389,14 @@ const getAllOrderByUserId = async (
       phone: 1,
       address: 1,
       profileImg: 1,
+    })
+    .populate({
+      path: 'products',
+      select: 'quantity',
+      populate: {
+        path: 'product',
+        select: 'name dailyRate hourlyRate',
+      },
     })
     .populate('review', { rating: 1, comment: 1 })
     .skip(skip)

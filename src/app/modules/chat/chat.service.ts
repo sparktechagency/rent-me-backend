@@ -138,7 +138,7 @@ const accessChat = async (
     profileImg: participantData.customer?.profileImg || participantData.vendor?.profileImg,
     latestMessageTime: newChat.latestMessageTime,
   };
-//@ts-expect-error globalThis
+//@ts-expect-error global This
   const socket = global.io;
   socket.emit(`accessChat::${user.userId}`, returnData)
 
