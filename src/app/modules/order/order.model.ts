@@ -37,13 +37,13 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
             type: Schema.Types.ObjectId,
             ref: 'Product',
           },
-          quantity: {
-            type: Number,
-            default: 1,
-          },
           price: {
             type: Number,
             default: 0,
+          },
+          quantity: {
+            type: Number,
+            default: 1,
           },
         },
       ],
@@ -89,7 +89,13 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
       type: String,
       required: true,
     },
-
+    customOrderDuration: {
+      type: String,
+    },
+    priceType: {
+      type: String,
+      enum: ['hourly', 'daily'],
+    },
     isSetup: { type: Boolean, default: false },
     setupFee: { type: Number },
     setupDuration: { type: String },
@@ -100,7 +106,7 @@ const orderSchema = new Schema<IOrder, IOrderModel>(
       type: Boolean,
       default: false,
     },
-    isDeliveryDecline: {
+    isDeliveryDecline: {  
       type: Boolean,
       default: false,
     },

@@ -126,6 +126,8 @@ const createOrder = async (payload: IOrder) => {
 
     payload.deliveryFee = Number(fee);
 
+
+
   }
 
   // Validate setup duration and calculate setup start time

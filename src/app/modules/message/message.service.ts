@@ -1,7 +1,5 @@
 import { JwtPayload } from 'jsonwebtoken';
 import { IMessage } from './message.interface';
-import { USER_ROLES } from '../../../enums/user';
-import { User } from '../user/user.model';
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
 import { Chat } from '../chat/chat.model';
@@ -13,27 +11,20 @@ import { paginationHelper } from '../../../helpers/paginationHelper';
 const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   const senderId = new Types.ObjectId(user.id);
 
-  const [chat, receiver] = await Promise.all([
-    Chat.findById(payload.chatId),
-    User.findOne({
-      [user.role === USER_ROLES.CUSTOMER ? 'vendor' : 'customer']:
-        payload.receiver,
-    }),
-  ]);
+  const chat = await Chat.findById(payload.chatId);
 
   // Check if chat exists
   if (!chat) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Chat does not exist.');
   }
 
-  // Check if receiver exists
-  if (!receiver) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found!');
-  }
 
   // Determine message type
   payload.sender = senderId;
-  payload.receiver = receiver._id;
+  payload.receiver = chat.participants.find(
+    (participant) => participant.toString() !== senderId.toString()
+  ) as Types.ObjectId;
+
   payload.type =
     payload.image && payload.message
       ? 'both'

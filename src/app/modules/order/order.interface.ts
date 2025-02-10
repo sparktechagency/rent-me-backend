@@ -19,6 +19,7 @@ export type IOrder = {
   products: [
     {
       product: Types.ObjectId;
+      price: number;
       quantity: number;
     }
   ];
@@ -34,6 +35,9 @@ export type IOrder = {
   deliveryAddress: string;
   deliveryLocation: Point;
   deliveryFee: number;
+  customOrderDuration: string;
+  priceType: string;
+  customOrderDescription: string;
   isSetup: boolean;
   setupFee: number;
   setupDuration: string;

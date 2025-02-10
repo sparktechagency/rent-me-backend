@@ -12,6 +12,7 @@ const createOrderZodSchema = z.object({
       .array(
         z.object({
           product: z.string(),
+          price: z.number(),
           quantity: z.number(),
         })
       )
@@ -20,7 +21,9 @@ const createOrderZodSchema = z.object({
       .number()
       .min(0, 'Offered amount must be a positive number'),
     deliveryAddress: z.string().nonempty('Delivery address is required'),
-
+    customOrderDuration: z.string().optional(),
+    priceType: z.string().optional(),
+    setupFee: z.number().optional(),
     isSetup: z.boolean().optional(),
     setupDuration: z.string().optional(),
     setupStartDateAndTime: z.string().optional(),
