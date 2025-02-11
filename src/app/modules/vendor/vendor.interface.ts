@@ -37,7 +37,7 @@ export type IVendor = {
   verifiedFlag: boolean;
   orderCompleted?: number;
   isAvailable?: boolean; // order < 10 ? true : false
-
+  deviceId: string;
   stripeId: string;
   stripeConnected: boolean;
 

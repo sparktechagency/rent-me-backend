@@ -75,4 +75,10 @@ router.patch(
   AuthController.updateUserAppId
 );
 
+router.post(
+  '/social-login',
+  validateRequest(AuthValidation.createSocialLoginZodSchema),
+  AuthController.socialLogin
+);
+
 export const AuthRoutes = router;

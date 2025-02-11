@@ -32,42 +32,48 @@ const updateVendorProfile = async (
   const { id, userId } = user;
   const { address, ...restData } = payload;
 
+  // Fetch user and associated vendor in a single query
+  const userWithVendor = await User.findById(id).populate<{ vendor: IVendor }>('vendor');
+
+  if (!userWithVendor || !userWithVendor.vendor) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User or vendor doesn't exist!");
+  }
+
   let updatedVendorData = { ...restData };
 
-  const isExistUser = await User.isExistUserById(id);
-  if (!isExistUser) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
-  }
-
-  // Update nested objects dynamically
+  // Handle nested address updates dynamically
   if (address && Object.keys(address).length > 0) {
-    updatedVendorData = handleObjectUpdate(
-      address,
-      updatedVendorData,
-      'address'
-    );
+    updatedVendorData = handleObjectUpdate(address, updatedVendorData, 'address');
   }
 
-  // Perform the database update
-  const vendor = await Vendor.findOneAndUpdate(
-    { _id: userId },
+  // Preserve essential fields to prevent resetting
+  Object.assign(updatedVendorData, {
+    isBusinessContactVerified: userWithVendor.vendor.isBusinessContactVerified,
+    isBusinessEmailVerified: userWithVendor.vendor.isBusinessEmailVerified,
+    stripeId: userWithVendor.vendor.stripeId,
+    stripeConnected: userWithVendor.vendor.stripeConnected,
+  });
+
+  // Perform the update and return the updated vendor document
+  const vendor = await Vendor.findByIdAndUpdate(
+    userId,
     { $set: updatedVendorData },
-    {
-      new: true,
-    }
+    { new: true }
   );
 
   if (!vendor) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update vendor');
   }
 
+  // Update profile completion
   const profileCompletion = calculateProfileCompletion(vendor);
-
   await Vendor.findByIdAndUpdate(userId, {
     $set: { profileCompletion, verifiedFlag: profileCompletion === 100 },
   });
+
   return vendor;
 };
+
 
 const getBusinessInformationFromVendor = async (
   user: JwtPayload,
@@ -75,50 +81,56 @@ const getBusinessInformationFromVendor = async (
 ) => {
   const { userId } = user;
 
-  const vendorExist = await Vendor.findById(userId);
-  if (!vendorExist) {
+  // Fetch the existing vendor once
+  const existingVendor = await Vendor.findById(userId);
+  if (!existingVendor) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Vendor doesn't exist!");
   }
 
   const { businessAddress, socialLinks, ...restData } = payload;
-  let updatedVendorData = { ...restData }; // Create a mutable object
+  let updatedVendorData = { ...restData };
+
+  // Update business address and social links dynamically
   if (businessAddress && Object.keys(businessAddress).length > 0) {
-    updatedVendorData = handleObjectUpdate(
-      businessAddress,
-      restData,
-      'businessAddress'
-    );
+    updatedVendorData = handleObjectUpdate(businessAddress, updatedVendorData, 'businessAddress');
+  }
 
-    if (socialLinks && Object.keys(socialLinks).length > 0) {
-      updatedVendorData = handleObjectUpdate(
-        socialLinks,
-        restData,
-        'socialLinks'
-      );
-    }
+  if (socialLinks && Object.keys(socialLinks).length > 0) {
+    updatedVendorData = handleObjectUpdate(socialLinks, updatedVendorData, 'socialLinks');
+  }
 
-    const vendor = await Vendor.findOneAndUpdate(
-      { _id: userId },
+  // Preserve essential fields
+  Object.assign(updatedVendorData, {
+    isBusinessContactVerified: existingVendor.isBusinessContactVerified,
+    isBusinessEmailVerified: existingVendor.isBusinessEmailVerified,
+    stripeId: existingVendor.stripeId,
+    stripeConnected: existingVendor.stripeConnected,
+  });
+
+  // Perform update if any changes exist
+  if (Object.keys(updatedVendorData).length > 0) {
+    const vendor = await Vendor.findByIdAndUpdate(
+      userId,
       { $set: updatedVendorData },
-      {
-        new: true,
-      }
+      { new: true }
     );
 
     if (!vendor) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update vendor');
     }
 
+    // Update profile completion
     const profileCompletion = calculateProfileCompletion(vendor);
-
     await Vendor.findByIdAndUpdate(userId, {
-      profileCompletion: profileCompletion,
-      verifiedFlag: profileCompletion === 100,
+      $set: { profileCompletion, verifiedFlag: profileCompletion === 100 },
     });
 
     return vendor;
   }
+
+  return existingVendor; // Return current vendor if no updates were needed
 };
+
 
 const getVendorProfile = async (user: JwtPayload) => {
   const { userId } = user;

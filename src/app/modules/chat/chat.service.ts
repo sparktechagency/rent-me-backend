@@ -137,6 +137,7 @@ const accessChat = async (
     name: participantData.customer?.name || participantData.vendor?.name,
     profileImg: participantData.customer?.profileImg || participantData.vendor?.profileImg,
     latestMessageTime: newChat.latestMessageTime,
+    
   };
 //@ts-expect-error global This
   const socket = global.io;

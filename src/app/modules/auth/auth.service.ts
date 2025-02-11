@@ -1,3 +1,4 @@
+import { jwtHelper } from './../../../helpers/jwtHelper';
 import { USER_ROLES } from './../../../enums/user';
 import bcrypt from 'bcrypt';
 import { StatusCodes } from 'http-status-codes';
@@ -5,7 +6,7 @@ import { JwtPayload, Secret } from 'jsonwebtoken';
 import config from '../../../config';
 import ApiError from '../../../errors/ApiError';
 import { emailHelper } from '../../../helpers/emailHelper';
-import { jwtHelper } from '../../../helpers/jwtHelper';
+
 import { emailTemplate } from '../../../shared/emailTemplate';
 import {
   IAuthResetPassword,
@@ -27,6 +28,10 @@ import { calculateCustomerProfileCompletion } from '../customer/customer.utils';
 import { calculateProfileCompletion } from '../vendor/vendor.utils';
 import { ICustomer } from '../customer/customer.interface';
 import { Order } from '../order/order.model';
+import mongoose from 'mongoose';
+import { generateCustomIdBasedOnRole } from '../user/user.utils';
+import { Types } from 'mongoose';
+import { createTokens } from './auth.utils';
 
 //login
 const loginUserFromDB = async (
@@ -34,7 +39,7 @@ const loginUserFromDB = async (
 ): Promise<ILoginResponse> => {
   const { email, password } = payload;
 
-  const isExistUser = await User.findOne({ email }).select('+password');
+  const isExistUser = await User.findOne({ email, status: { $in: ['active', 'restricted'] } }).select('+password');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -111,6 +116,8 @@ const loginUserFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }
 
+
+
   //create accessToken token
   const accessToken = jwtHelper.createToken(
     {
@@ -123,7 +130,7 @@ const loginUserFromDB = async (
           ? isExistUser.vendor
           : isExistUser.admin,
       role: isExistUser.role,
-      email: isExistUser.email,
+
     },
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string
@@ -140,11 +147,23 @@ const loginUserFromDB = async (
           ? isExistUser.vendor
           : isExistUser.admin,
       role: isExistUser.role,
-      email: isExistUser.email,
     },
     config.jwt.jwt_refresh_secret as Secret,
     config.jwt.jwt_refresh_expire_in as string
   );
+
+  //update device id based on role
+  if (isExistUser.role === USER_ROLES.CUSTOMER) {
+    await Customer.findOneAndUpdate(
+      { _id: isExistUser.customer },
+      { $set: { deviceId: payload.deviceId } }
+    );
+  } else if (isExistUser.role === USER_ROLES.VENDOR) {
+    await Vendor.findOneAndUpdate(
+      { _id: isExistUser.vendor },
+      { $set: { deviceId: payload.deviceId } }
+    );
+  }
 
   return { accessToken, refreshToken, role: isExistUser.role };
 };
@@ -182,12 +201,12 @@ const refreshToken = async (
           : isUserExist.role === USER_ROLES.VENDOR
           ? isUserExist.vendor
           : isUserExist.admin,
-      email: isUserExist.email,
       role: isUserExist.role,
     },
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string
   );
+  
 
   return {
     accessToken: newAccessToken,
@@ -610,6 +629,42 @@ const deleteAccount = async (user: JwtPayload, password: string) => {
   return isUserExist;
 };
 
+const socialLogin = async (socialId: string,deviceId: string) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const isUserExist = await User.findOne({ appid: socialId, status: { $in: ['active', 'restricted'] } , role: USER_ROLES.CUSTOMER}).session(session);
+
+    if (isUserExist) {
+      const tokens = createTokens(isUserExist._id, isUserExist?.customer as Types.ObjectId);
+      await session.commitTransaction();
+      return tokens;
+    } else {
+      const id = await generateCustomIdBasedOnRole(USER_ROLES.CUSTOMER);
+
+      const newCustomer = await Customer.create([{ id: id, deviceId: deviceId }], { session });
+      
+      const newUser = await User.create([{ id: id, appid: socialId, role: USER_ROLES.CUSTOMER, customer: newCustomer[0]._id }], { session });
+      if (!newUser || !newCustomer) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'User or Customer creation failed');
+      }
+
+      const tokens = createTokens(newUser[0]._id, newCustomer[0].id);
+      await session.commitTransaction();
+      return tokens;
+    }
+  } catch (error) {
+    await session.abortTransaction();
+  
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Social login failed');
+  } finally {
+    session.endSession();
+  }
+};
+
+
+
 export const AuthService = {
   verifyEmailToDB,
   loginUserFromDB,
@@ -622,4 +677,5 @@ export const AuthService = {
   verifyOtpForPhone,
   deleteAccount,
   updateUserAppId,
+  socialLogin
 };

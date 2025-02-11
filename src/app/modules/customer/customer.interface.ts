@@ -22,6 +22,7 @@ export type ICustomer = {
   email: string;
   contact?: string;
   countryCode?: string;
+  deviceId?: string;
   isContactVerified?: boolean;
   profileImg?: string;
   address: IAddress;

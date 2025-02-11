@@ -127,18 +127,15 @@ const requiredFields = [
   'businessAddress',
   'businessContact',
   'isBusinessContactVerified',
-  'businessEmail',
   'availableDays',
   'operationStartTime',
   'operationEndTime',
-  'location',
-  'stripeId',
   'stripeConnected',
 ];
 
 export const calculateProfileCompletion = (vendor: IVendor): number => {
+
   let completedFields = 0;
-  // console.log(vendor);
   for (const field of requiredFields) {
     const fieldValue = vendor[field as keyof IVendor];
 
@@ -146,74 +143,30 @@ export const calculateProfileCompletion = (vendor: IVendor): number => {
       switch (field) {
         case 'isContactVerified':
         case 'isBusinessContactVerified':
-        case 'isBusinessEmailVerified':
         case 'stripeConnected':
-          // Ensure verifiable fields are `true`
-          if (fieldValue === true) {
-            completedFields += 1;
-            // console.log(`Field ${field}: Counted (Value: true)`);
-          } else {
-            // console.log(`Field ${field}: Not Counted (Value: ${fieldValue})`);
-          }
-          break;
-
-        case 'location':
-          // Ensure location is valid
-          if (
-            typeof fieldValue === 'object' &&
-            'type' in fieldValue &&
-            fieldValue.type === 'Point' &&
-            'coordinates' in fieldValue &&
-            Array.isArray(fieldValue.coordinates) &&
-            fieldValue.coordinates.length === 2
-          ) {
-            completedFields += 1;
-            // console.log(
-            //   `Field ${field}: Counted (Value: ${JSON.stringify(fieldValue)})`
-            // );
-          } else {
-            // console.log(
-            //   `Field ${field}: Not Counted (Value: ${JSON.stringify(
-            //     fieldValue
-            //   )})`
-            // );
-          }
+          if (fieldValue === true) completedFields += 1;
           break;
 
         case 'address':
         case 'businessAddress':
-          // Ensure address fields are objects and not empty
           if (
             typeof fieldValue === 'object' &&
             Object.keys(fieldValue).length > 0
           ) {
             completedFields += 1;
-            // console.log(
-            //   `Field ${field}: Counted (Value: ${JSON.stringify(fieldValue)})`
-            // );
-          } else {
-            // console.log(
-            //   `Field ${field}: Not Counted (Value: ${JSON.stringify(
-            //     fieldValue
-            //   )})`
-            // );
           }
           break;
 
         default:
-          // Count all other fields if they have a value
-          completedFields += 1;
-          // console.log(`Field ${field}: Counted (Value: ${fieldValue})`);
+          if (fieldValue !== undefined && fieldValue !== null) {
+            completedFields += 1;
+          }
       }
-    } else {
-      // console.log(`Field ${field}: Not Counted (Value: ${fieldValue})`);
     }
   }
 
   const percentage = (completedFields / requiredFields.length) * 100;
-  // console.log(`Total Fields: ${requiredFields.length}`);
-  // console.log(`Completed Fields: ${completedFields}`);
-  // console.log(`Completion Percentage: ${percentage}%`);
+
 
   return Math.round(percentage);
 };

@@ -138,6 +138,17 @@ const updateUserAppId = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const socialLogin = catchAsync(async (req: Request, res: Response) => {
+  const { appId, deviceId } = req.body;
+  const result = await AuthService.socialLogin(appId,deviceId);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Social login successful',
+    data: result,
+  });
+});
+
 export const AuthController = {
   verifyEmail,
   loginUser,
@@ -150,4 +161,5 @@ export const AuthController = {
   verifyOtpForPhone,
   deleteAccount,
   updateUserAppId,
+  socialLogin,
 };

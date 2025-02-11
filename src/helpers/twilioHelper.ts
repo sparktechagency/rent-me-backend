@@ -75,7 +75,7 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
 
     await newOtp.save();
 
-
+     
     // Send the OTP using Twilio
 
     await client.messages.create({

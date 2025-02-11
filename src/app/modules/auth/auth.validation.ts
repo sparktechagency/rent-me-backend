@@ -11,6 +11,14 @@ const createLoginZodSchema = z.object({
   body: z.object({
     email: z.string({ required_error: 'Email is required' }),
     password: z.string({ required_error: 'Password is required' }),
+    deviceId: z.string().optional(),
+  }),
+});
+
+const createSocialLoginZodSchema = z.object({
+  body: z.object({
+    appId: z.string({ required_error: 'App ID is required' }),
+    deviceId: z.string().optional(),
   }),
 });
 
@@ -84,4 +92,5 @@ export const AuthValidation = {
   createVerifyOtpForPhoneZodSchema,
   deleteAccountZodSchema,
   updateUserAppIdZodSchema,
+  createSocialLoginZodSchema,
 };

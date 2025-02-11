@@ -10,12 +10,9 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
     },
     name: {
       type: String,
-      required: true,
     },
     email: {
       type: String,
-      required: true,
-      unique: true,
     },
     contact: {
       type: String,
@@ -28,6 +25,9 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
     isContactVerified: {
       type: Boolean,
       default: false,
+    },
+    deviceId: {
+      type: String,
     },
     profileImg: {
       type: String,

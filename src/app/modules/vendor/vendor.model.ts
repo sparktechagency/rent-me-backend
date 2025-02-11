@@ -80,6 +80,10 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
       type: Number,
       default: 0,
     },
+    deviceId: {
+      type: String,
+      select: 0,
+    },
     stripeId: {
       type: String,
       select: 0,
