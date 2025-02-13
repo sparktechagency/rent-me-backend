@@ -14,8 +14,7 @@ app.use(Morgan.errorHandler);
 
 app.use(
   cors({
-    origin: 'http://localhost:3003',
-    credentials: true,
+    origin: '*',
   })
 );
 

@@ -7,6 +7,7 @@ import { StatusCodes } from 'http-status-codes';
 import pick from '../../../shared/pick';
 import { serviceFilterableFields } from './service.constants';
 import { IPackage } from '../package/package.interface';
+import { S3Helper } from '../../../helpers/s3Helper';
 
 const getSingleService = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -40,7 +41,7 @@ const createService = catchAsync(async (req: Request, res: Response) => {
 
   let cover;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    cover = `/images/${req.files.image[0].filename}`;
+    cover = await S3Helper.uploadToS3(req.files.image[0], 'services');
   }
 
   const data: IService = {
@@ -64,7 +65,7 @@ const updateService = catchAsync(async (req: Request, res: Response) => {
 
   let cover;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    cover = `/images/${req.files.image[0].filename}`;
+    cover = await S3Helper.uploadToS3(req.files.image[0], 'services');
   }
 
   const data: IService = {

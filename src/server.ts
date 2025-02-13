@@ -6,6 +6,8 @@ import app from './app';
 import config from './config';
 import { socketHelper } from './helpers/socketHelper';
 import { errorLogger, logger } from './shared/logger';
+import { createAdmin } from './util/createAdmin';
+import { USER_ROLES } from './enums/user';
 
 process.on('uncaughtException', error => {
   errorLogger.error('UnhandleException Detected', error);
@@ -18,8 +20,21 @@ async function main() {
     mongoose.connect(config.database_url as string);
     logger.info(colors.green('🚀 Database connected successfully'));
 
+
+
     const port =
       typeof config.port === 'number' ? config.port : Number(config.port);
+
+      const adminData ={
+        email: config.super_admin.email!,
+        password: config.super_admin.password!,
+        role: USER_ROLES.ADMIN,
+        name:"Admin",
+
+      }
+
+      await createAdmin(adminData)
+  
 
     server = app.listen(port, config.ip_address as string, () => {
       logger.info(

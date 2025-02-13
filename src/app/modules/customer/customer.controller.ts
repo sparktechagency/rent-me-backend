@@ -7,6 +7,7 @@ import { StatusCodes } from 'http-status-codes';
 import { paginationFields } from '../../../types/pagination';
 import pick from '../../../shared/pick';
 import { Types } from 'mongoose';
+import { S3Helper } from '../../../helpers/s3Helper';
 
 const getCustomerProfile = catchAsync(async (req: Request, res: Response) => {
   const { userId } = req.user;
@@ -29,7 +30,7 @@ const updateCustomerProfile = catchAsync(
 
     let profileImg;
     if (req.files && 'image' in req.files && req.files.image[0]) {
-      profileImg = `/images/${req.files.image[0].filename}`;
+      profileImg = await S3Helper.uploadToS3(req.files.image[0], 'customers');
     }
 
     const data: ICustomer = {

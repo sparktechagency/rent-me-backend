@@ -31,7 +31,6 @@ export type IUser = {
 export type UserModel = {
   isExistUserById(id: string): Promise<IUser | null>;
   isExistUserByEmail(email: string): Promise<IUser | null>;
-  getUserId(id: Types.ObjectId, role: string): Promise<Types.ObjectId>;
   isMatchPassword(password: string, hashPassword: string): boolean;
 } & Model<IUser>;
 

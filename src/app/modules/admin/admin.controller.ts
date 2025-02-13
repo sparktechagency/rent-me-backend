@@ -3,6 +3,7 @@ import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
 import { AdminService } from './admin.service';
+import { S3Helper } from '../../../helpers/s3Helper';
 
 const getAdminProfile = catchAsync(async (req: Request, res: Response) => {
   const admin = req.user;
@@ -32,7 +33,7 @@ const updateAdminProfile = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
 
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    payload.profileImg = `/images/${req.files.image[0].filename}`;
+    payload.profileImg = await S3Helper.uploadToS3(req.files.image[0], 'applications');
   }
 
   const result = await AdminService.updateAdminProfileToDB(admin, payload);

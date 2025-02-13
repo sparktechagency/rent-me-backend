@@ -9,13 +9,17 @@ import { vendorFilterableFields } from './vendor.constants';
 import pick from '../../../shared/pick';
 import { Express } from 'express';
 import { Types } from 'mongoose';
+import { S3Helper } from '../../../helpers/s3Helper';
 
 const updateVendorProfile = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
 
   let profileImg;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    profileImg = `/images/${req.files.image[0].filename}`;
+    profileImg = await S3Helper.uploadToS3(
+      req.files.image[0],
+      'vendors'
+    );
   }
 
   const data = {
@@ -52,17 +56,23 @@ const getBusinessInformationFromVendor = catchAsync(
       signature: 'digitalSignature',
     };
 
-    Object.entries(fileMappings).forEach(([field, key]) => {
+    const uploadPromises = Object.entries(fileMappings).map(async ([field, key]) => {
       if (files && files[field] && files[field][0]) {
-        vendorData[key] = `/images/${files[field][0].filename}`;
+        const file = files[field][0];
+        try {
+          const s3Url = await S3Helper.uploadToS3(file, 'vendors');
+          vendorData[key] = s3Url;
+        } catch (error) {
+          console.error(`Error uploading ${field} to S3:`, error);
+        }
       }
     });
+    await Promise.all(uploadPromises);
 
     const result = await VendorService.getBusinessInformationFromVendor(
       user,
       vendorData
     );
-
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,

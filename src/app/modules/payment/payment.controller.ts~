@@ -159,19 +159,18 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         const notificationTitle = `Payment received for order ${order.id} please proceed with the order`;
         const notificationMessage = `We have received the payment for order ${order.id} please proceed with the order, after completion you will receive the payment.`;
 
-        const {_id:vendorId,deviceId:vendorDeviceId} = order.vendorId;
-        const ID = await User.getUserId(vendorId as Types.ObjectId, USER_ROLES.VENDOR);
+        const ID = await User.getUserId(order.vendorId._id as Types.ObjectId, USER_ROLES.VENDOR);
 
         //TODO: send notification to vendor need testing
-        await sendNotification('getNotification', vendorId as Types.ObjectId , {
+        await sendNotification('getNotification', order.vendorId._id as Types.ObjectId , {
           userId: ID, //vendor user id
           title: notificationTitle,
           message: notificationMessage,
           type: USER_ROLES.VENDOR,
         },{
-          deviceId: vendorDeviceId!,
+          deviceId: vendorDeviceId,
           destination: 'payment',
-          role: USER_ROLES.VENDOR,
+          role: USER_ROLES.CUSTOMER,
           id: vendorId as unknown as string,
           icon: 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png'
         })

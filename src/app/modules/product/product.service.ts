@@ -6,6 +6,7 @@ import { StatusCodes } from 'http-status-codes';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { Types } from 'mongoose';
+import { USER_ROLES } from '../../../enums/user';
 
 const createProductToDB = async (user: JwtPayload, payload: IProduct) => {
   payload.vendor = user.userId;
@@ -59,6 +60,7 @@ const deleteProductFromDB = async (
 };
 
 const getAllProductFromDB = async (
+  user: JwtPayload,
   filters: IProductFilterableFields,
   paginationOptions: IPaginationOptions
 ) => {
@@ -80,6 +82,8 @@ const getAllProductFromDB = async (
 if(vendor){
   andConditions.push({vendor: new Types.ObjectId(vendor)})
 }
+
+if(user.role === USER_ROLES.VENDOR){andConditions.push({vendor: user.userId})}
 
   const products = await Product.find({
     $and: andConditions,

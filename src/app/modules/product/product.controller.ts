@@ -59,6 +59,7 @@ const getAllProduct = catchAsync(async (req: Request, res: Response) => {
   const filtersData = pick(req.query, productFilterableFields);
   const paginationData = pick(req.query, paginationFields);
   const result = await ProductServices.getAllProductFromDB(
+    req.user,
     filtersData,
     paginationData
   );

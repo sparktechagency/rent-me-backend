@@ -5,8 +5,7 @@ import config from '../../../config';
 import { USER_ROLES } from '../../../enums/user';
 
 import { IUser, UserModel } from './user.interface';
-import { StatusCodes } from 'http-status-codes';
-import ApiError from '../../../errors/ApiError';
+
 const userSchema = new Schema<IUser, UserModel>(
   {
     id: {
@@ -111,14 +110,6 @@ userSchema.statics.isMatchPassword = async (
   return await bcrypt.compare(password, hashPassword);
 };
 
-userSchema.statics.getUserId = async (id: Types.ObjectId, role: string):Promise<Types.ObjectId> => {
-  const query = role === 'customer' ? { customer: id } : role === 'vendor' ? { vendor: id } : { admin: id };
-  const user = await User.findOne(query).select('_id');
-  if(!user) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
-  }
-  return user?._id;
-}
 //check user
 userSchema.pre('save', async function (next) {
 

@@ -832,12 +832,12 @@ const startOrderDelivery = async (id: string) => {
       'Failed to change the order status'
     );
   }
-  const ID = await User.getUserId(result.customerId as Types.ObjectId, USER_ROLES.CUSTOMER);
+
   await sendNotification(
     'getNotification',
     result.customerId as Types.ObjectId,
     {
-      userId: ID,//customer user id
+      userId: result.vendorId as Types.ObjectId,
       title: `${result.orderId} delivery started`,
       message: `Order delivery for ID:${result.orderId} has been started. Track your order for more details.`,
       type: USER_ROLES.CUSTOMER,
@@ -846,7 +846,7 @@ const startOrderDelivery = async (id: string) => {
 
   const {name:vendorName} = isOrderExist.vendorId;
   const {_id:customerId, deviceId:customerDeviceId} = isOrderExist.customerId;
-
+  
   const notificationTitle = `Delivery has been started for order ${result.orderId}`;
   const notificationMessage = `${vendorName} has started Order delivery for ID:${result.orderId} has been started. Track your order for more details..`;
 

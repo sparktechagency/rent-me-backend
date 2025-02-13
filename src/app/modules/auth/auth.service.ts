@@ -75,7 +75,7 @@ const loginUserFromDB = async (
   }
 
   //check verified and status
-  if (!isExistUser.verified) {
+  if (!isExistUser.verified && isExistUser.role !== USER_ROLES.ADMIN) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Please verify your account, then try to login again'
@@ -117,6 +117,19 @@ const loginUserFromDB = async (
   }
 
 
+  //update device id based on role
+  if (isExistUser.role === USER_ROLES.CUSTOMER) {
+    await Customer.findOneAndUpdate(
+      { _id: isExistUser.customer },
+      { $set: { deviceId: payload.deviceId } }
+    );
+  } else if (isExistUser.role === USER_ROLES.VENDOR) {
+    await Vendor.findOneAndUpdate(
+      { _id: isExistUser.vendor },
+      { $set: { deviceId: payload.deviceId } }
+    );
+  }
+
 
   //create accessToken token
   const accessToken = jwtHelper.createToken(
@@ -130,7 +143,6 @@ const loginUserFromDB = async (
           ? isExistUser.vendor
           : isExistUser.admin,
       role: isExistUser.role,
-
     },
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string
@@ -152,18 +164,7 @@ const loginUserFromDB = async (
     config.jwt.jwt_refresh_expire_in as string
   );
 
-  //update device id based on role
-  if (isExistUser.role === USER_ROLES.CUSTOMER) {
-    await Customer.findOneAndUpdate(
-      { _id: isExistUser.customer },
-      { $set: { deviceId: payload.deviceId } }
-    );
-  } else if (isExistUser.role === USER_ROLES.VENDOR) {
-    await Vendor.findOneAndUpdate(
-      { _id: isExistUser.vendor },
-      { $set: { deviceId: payload.deviceId } }
-    );
-  }
+
 
   return { accessToken, refreshToken, role: isExistUser.role };
 };
@@ -642,21 +643,24 @@ const socialLogin = async (socialId: string,deviceId: string) => {
       return tokens;
     } else {
       const id = await generateCustomIdBasedOnRole(USER_ROLES.CUSTOMER);
-
+      
       const newCustomer = await Customer.create([{ id: id, deviceId: deviceId }], { session });
       
-      const newUser = await User.create([{ id: id, appid: socialId, role: USER_ROLES.CUSTOMER, customer: newCustomer[0]._id }], { session });
+      
+      const newUser = await User.create([{ id: id, appid: socialId, role: USER_ROLES.CUSTOMER,password:"hello-world!", customer: newCustomer[0]._id }], { session });
+
       if (!newUser || !newCustomer) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'User or Customer creation failed');
       }
 
-      const tokens = createTokens(newUser[0]._id, newCustomer[0].id);
+
+      const tokens = createTokens(newUser[0]._id, newCustomer[0]._id);
       await session.commitTransaction();
       return tokens;
     }
   } catch (error) {
     await session.abortTransaction();
-  
+    throw error;
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Social login failed');
   } finally {
     session.endSession();

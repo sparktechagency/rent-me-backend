@@ -10,7 +10,6 @@ type Point = {
 };
 
 export type IOrder = {
-  _id: Types.ObjectId;
   orderId: string; // custom order id
   customerId: Types.ObjectId | ICustomer;
   vendorId: Types.ObjectId | IVendor;

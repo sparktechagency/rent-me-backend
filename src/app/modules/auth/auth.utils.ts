@@ -17,5 +17,5 @@ export const createTokens = (userId: Types.ObjectId, customerId: Types.ObjectId)
       config.jwt.jwt_refresh_expire_in as string
     );
   
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, role:USER_ROLES.CUSTOMER };
   };

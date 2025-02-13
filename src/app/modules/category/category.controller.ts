@@ -4,13 +4,14 @@ import sendResponse from '../../../shared/sendResponse';
 import { CategoryService } from './category.service';
 import { Request, Response } from 'express';
 import { ICategory } from './category.interface';
+import { S3Helper } from '../../../helpers/s3Helper';
 
 const createCategory = catchAsync(async (req: Request, res: Response) => {
   const categoryData = req?.body;
 
   let image;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    image = `/images/${req.files.image[0].filename}`;
+    image = await S3Helper.uploadToS3(req.files.image[0], 'applications');
   }
 
   const data: ICategory = {
@@ -53,7 +54,7 @@ const updateCategoryById = catchAsync(async (req: Request, res: Response) => {
 
   let image;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    image = `/images/${req.files.image[0].filename}`;
+    image = await S3Helper.uploadToS3(req.files.image[0], 'applications');
   }
 
   const data: ICategory = {

@@ -90,10 +90,8 @@ const getCart = async (user: JwtPayload) => {
         .populate('items.products.product') // ✅ Corrected product path
         .populate('items.vendorId', { businessContact: 1, name: 1, businessTitle: 1, profileImg: 1, businessAddress: 1 });
 
-    if (!isCartExist) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Cart not found');
-    }
-    return isCartExist;
+    
+    return isCartExist || [];
 };
 
 // const manageCartProduct = async (user:JwtPayload, payload:{vendorId: string, products: {productId: string, quantity: number}[]}) => {

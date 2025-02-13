@@ -9,13 +9,14 @@ import {
 } from './others.interface';
 import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
+import { S3Helper } from '../../../helpers/s3Helper';
 
 const addBanner = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
   const user = req.user;
 
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    payload.imgUrl = `/images/${req.files.image[0].filename}`;
+    payload.imgUrl = await S3Helper.uploadToS3(req.files.image[0], 'applications');
   }
 
   const result = await OthersService.addBanner(payload, user);
@@ -52,7 +53,7 @@ const updateBanner = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const payload = req.body;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    payload.imgUrl = `/images/${req.files.image[0].filename}`;
+    payload.imgUrl = await S3Helper.uploadToS3(req.files.image[0], 'applications');
   }
 
   const result = await OthersService.updateBanner(id, payload);
