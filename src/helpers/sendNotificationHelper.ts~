@@ -34,7 +34,7 @@ export const sendNotification = async (
   if (pushNotificationData) {
     const { title, message, role, destination, id, icon, deviceId } = pushNotificationData;
     await sendPushNotification(
-      deviceId || 'fa-JVHQxTXm24r6NBoI1uQ:APA91bFhG2FTjMA547cuirYKvIOSYEnLpS9gpMlQ84y7kiNaF71-Azn_e64GWMYrB3NzTWUDeKyAh37eWQTmNiOGpRfNr0W80xntui5i90Q9EgROCZZVVkI',
+      deviceId,
       title ? title : data.title,
       message ? message : data.message,
       {

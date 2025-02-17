@@ -119,6 +119,7 @@ const createUserByRole = async (
 
       const admin = await Admin.findOne({ role: USER_ROLES.ADMIN });
 
+      //TODO: Send notification to admin needs to be fixed!!!!
       await sendNotification('newVendor', USER_ROLES.ADMIN, {
         title: `${vendor[0].name} has created an account.`,
         message: 'Please take a look into the newly created vendor account.',

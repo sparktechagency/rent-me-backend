@@ -65,7 +65,7 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
     { latestMessage: result._id, latestMessageTime: new Date() },
     { new: true }
   );
-  console.log(populatedResult,"👍👍👍👍👍👍👍👍👍👍👍👍👍👍");
+
   //@ts-expect-error globalThis
   global.io?.emit(`messageReceived::${payload.chatId}`, populatedResult);
 
