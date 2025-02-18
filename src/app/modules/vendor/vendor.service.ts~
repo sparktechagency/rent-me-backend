@@ -425,7 +425,7 @@ const getAllVendor = async (
       operationStartTime: 1,
       operationEndTime: 1,
     }
-  ).populate('businessType', 'name')
+  )
     .sort(
       sortBy || sortOrder
         ? {

@@ -5,17 +5,18 @@ import { StatusCodes } from 'http-status-codes';
 import { MessageService } from './message.service';
 import { paginationFields } from '../../../types/pagination';
 import pick from '../../../shared/pick';
+import { S3Helper } from '../../../helpers/s3Helper';
 
 const sendMessage = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
   const { ...messageData } = req.body;
 
+
   const image: string[] = [];
-  if (req.files && 'image' in req.files && req.files.image) {
-    req.files.image.forEach(file => {
-      image.push(`/images/${file.filename}`);
-    });
+  if (req.files && "image" in req.files && Array.isArray(req.files.image)) {
+    image.push(...(await S3Helper.uploadMultipleFilesToS3(req.files.image, "uploads")));
   }
+
   messageData.image = image;
 
   const result = await MessageService.sendMessage(user, messageData);

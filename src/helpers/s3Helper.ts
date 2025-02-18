@@ -2,6 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import config from '../config';
 import ApiError from '../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
+import sharp from 'sharp';
 
 const s3Client = new S3Client({
     region: config.aws.region,
@@ -62,37 +63,56 @@ export const deleteFromS3 = async (fileKey: string): Promise<void> => {
 
 
 // Function to upload multiple files to S3
-const uploadMultipleFilesToS3 = async (
-  files: Express.Multer.File[], // An array of files
-  folder: string // The folder in S3 where files will be uploaded
-): Promise<string[]> => {
-  // Generate upload promises for each file
-  const uploadPromises = files.map(async (file) => {
-    const fileKey = `${folder}/${Date.now()}-${file.originalname}`; // S3 key with folder and filename
 
-    const params = {
-      Bucket: process.env.AWS_BUCKET_NAME!,
-      Key: fileKey,
-      Body: file.buffer, // Upload file from buffer (memory storage)
-      ContentType: file.mimetype,
-     
-    };
+
+const uploadMultipleFilesToS3 = async (
+  files: Express.Multer.File[],
+  folder: string
+): Promise<string[]> => {
+  if (!files || files.length === 0) {
+    throw new Error("No files provided for upload");
+  }
+
+  const uploadPromises = files.map(async (file) => {
+    // Validate file type
+    if (!file.mimetype.startsWith("image/")) {
+      throw new Error("Invalid file type. Only image uploads are allowed.");
+    }
+
+    // Generate unique file name
+    const fileExtension = file.originalname.split(".").pop();
+    const fileKey = `${folder}/${Date.now()}.${fileExtension}`;
 
     try {
+      // Optimize image using sharp (resize, compress)
+      const optimizedImage = await sharp(file.buffer)
+        .resize(1024) // Resize to a max width of 1024px (optional)
+        .jpeg({ quality: 80 }) // Compress to 80% quality (change for PNG/WebP)
+        .toBuffer();
+
+      const params = {
+        Bucket: process.env.AWS_BUCKET_NAME!,
+        Key: fileKey,
+        Body: optimizedImage, // Upload optimized image
+        ContentType: file.mimetype,
+      };
+
       const command = new PutObjectCommand(params);
-      await s3Client.send(command); // Upload file to S3
-      return getPublicUrl(fileKey); // Return the public URL of the uploaded file
+      await s3Client.send(command);
+      return getPublicUrl(fileKey);
     } catch (error) {
       console.error("Error uploading file to S3:", error);
-      throw new Error("Failed to upload file to S3");
+      return null; // Instead of throwing, return null to continue with other uploads
     }
   });
 
-
-  const fileUrls = await Promise.all(uploadPromises);
-
-  return fileUrls; // Return array of URLs of all uploaded files
+  // Use `Promise.allSettled` to avoid one failure blocking all uploads
+  const results = await Promise.allSettled(uploadPromises);
+  return results
+    .filter((result) => result.status === "fulfilled" && result.value)
+    .map((result) => (result as PromiseFulfilledResult<string>).value);
 };
+
 
 
   export const S3Helper = {
