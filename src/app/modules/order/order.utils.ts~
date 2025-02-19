@@ -256,7 +256,7 @@ export const calculateOrderCharges = (
     const instantTransferFee = order.isInstantTransfer
       ? Math.floor(
         order?.amount
-          ? order?.amount
+          ? order?.amount * instantTransferFeeRate
           : order.offeredAmount! * instantTransferFeeRate
       )
       : 0;
@@ -353,13 +353,13 @@ export const sendOrderNotificationAndSocketEvent = async (
   role:string,
   sendTo:Types.ObjectId,
   notificationData:{title:string, message:string},
-  sendDataWithSocket?:{namespace:string}
+  namespace?:string
 ) => {
 
 
 
-if(sendDataWithSocket){
-  await orderSocketDataHelper(sendDataWithSocket.namespace, sendTo, orderDetails._id,role)
+if(namespace){
+  await orderSocketDataHelper(namespace, sendTo, orderDetails._id,role)
 }
 
 

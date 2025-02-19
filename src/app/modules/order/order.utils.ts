@@ -235,50 +235,45 @@ export const calculateOrderCharges = (
 
   const enrichedOrder = { ...order };
 
+  // Validate required fields
+  if (!order?.amount && !order?.offeredAmount) {
+    throw new Error("Either amount or offeredAmount must be provided.");
+  }
+
+  const orderAmount = order?.amount || order.offeredAmount;
+
   // Calculate CC charge for customers
   if (userRole === USER_ROLES.CUSTOMER) {
     enrichedOrder.customerCCChargeRate = ccChargeRate;
-    enrichedOrder.customerCCCharge = order?.amount
-      ? order?.amount * ccChargeRate
-      : order.offeredAmount! * ccChargeRate;
+    enrichedOrder.customerCCCharge = orderAmount * ccChargeRate;
   }
 
   // Calculate vendor-specific fields
   if (userRole === USER_ROLES.VENDOR) {
     const applicationCharge = Math.floor(
-      order?.amount
-        ? order?.amount
-        : order.offeredAmount! *
-        (order.isInstantTransfer
-          ? instantTransferFeeRate
-          : applicationChargeRate)
+      orderAmount *
+      (order.isInstantTransfer ? instantTransferFeeRate : applicationChargeRate)
     );
+
     const instantTransferFee = order.isInstantTransfer
-      ? Math.floor(
-        order?.amount
-          ? order?.amount
-          : order.offeredAmount! * instantTransferFeeRate
-      )
+      ? Math.floor(orderAmount * instantTransferFeeRate)
       : 0;
 
     if (order.isInstantTransfer) {
       enrichedOrder.instantTransferChargeRate = instantTransferFeeRate;
       enrichedOrder.instantTransferCharge = instantTransferFee;
-    }
-    if (!order.isInstantTransfer) {
+    } else {
       enrichedOrder.applicationChargeRate = applicationChargeRate;
     }
 
     enrichedOrder.vendorReceivable = Math.floor(
-      order?.amount
-        ? order?.amount
-        : order.offeredAmount! +
-        (order.isSetup ? order?.setupFee : 0) +
-        order.deliveryFee -
-        (applicationCharge + instantTransferFee
-          ? instantTransferFee
-          : 0 - (enrichedOrder.customerCCCharge || 0))
+      orderAmount +
+      (order.isSetup ? order?.setupFee : 0) +
+      order.deliveryFee -
+      (applicationCharge + instantTransferFee) -
+      (enrichedOrder.customerCCCharge || 0)
     );
+
     enrichedOrder.applicationCharge = applicationCharge;
   }
 
@@ -286,7 +281,7 @@ export const calculateOrderCharges = (
   const setupFee = order.setupFee || 0;
   const deliveryCharge = order.deliveryFee || 0;
   enrichedOrder.subTotal = Math.floor(
-    order.amount + setupFee + deliveryCharge + (enrichedOrder.customerCCCharge || 0)
+    orderAmount + setupFee + deliveryCharge + (enrichedOrder.customerCCCharge || 0)
   );
 
   return enrichedOrder;
