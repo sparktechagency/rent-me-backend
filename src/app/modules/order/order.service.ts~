@@ -1,7 +1,6 @@
 import {
   calculateOrderCharges,
   getDuration,
-  orderSocketDataHelper,
   sendOrderNotificationAndSocketEvent,
   validateOrderTime
 } from './order.utils';
@@ -553,7 +552,7 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     User.findOne({
       customer: orderExists?.customerId,
       status: 'active',
-    }).populate<{customer:{_id:Types.ObjectId,name:string}}>('customer', { name: 1 }),
+    }).populate<{customer:{_id:Types.ObjectId,name:string}}>('customer', { name: 1, deviceId:1 }),
   ]);
 
   if (!vendorExist) {
@@ -651,15 +650,9 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
 
 
 
-  await sendDataWithSocket(
-    payload?.status === 'accepted' ? 'acceptedOrder' : 'rejectedOrder',
-    orderExists.customerId as Types.ObjectId,
-    {
-      ...result,
-    }
-  );
 
-  const {_id:customerId} = customerExist;
+
+  const {_id:customerId} = customerExist.customer;
 
   const notificationData ={
     title:`${name} has ${payload?.status} the order. Order ID: ${result?.orderId}`,

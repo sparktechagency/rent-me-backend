@@ -323,7 +323,7 @@ export const orderSocketDataHelper = async (namespace:string,sendTo:string | Typ
           select: 'name dailyRate hourlyRate',
         },
       })
-      .populate('review', { rating: 1, comment: 1 })
+      .populate('review', { rating: 1, comment: 1 }).lean()
 
 
 
@@ -338,6 +338,9 @@ export const orderSocketDataHelper = async (namespace:string,sendTo:string | Typ
   );
 
 }
+
+
+
 
 
 

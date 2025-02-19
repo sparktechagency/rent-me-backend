@@ -235,50 +235,45 @@ export const calculateOrderCharges = (
 
   const enrichedOrder = { ...order };
 
+  // Validate required fields
+  if (!order?.amount && !order?.offeredAmount) {
+    throw new Error("Either amount or offeredAmount must be provided.");
+  }
+
+  const orderAmount = order?.amount || order.offeredAmount;
+
   // Calculate CC charge for customers
   if (userRole === USER_ROLES.CUSTOMER) {
     enrichedOrder.customerCCChargeRate = ccChargeRate;
-    enrichedOrder.customerCCCharge = order?.amount
-      ? order?.amount * ccChargeRate
-      : order.offeredAmount! * ccChargeRate;
+    enrichedOrder.customerCCCharge = orderAmount * ccChargeRate;
   }
 
   // Calculate vendor-specific fields
   if (userRole === USER_ROLES.VENDOR) {
     const applicationCharge = Math.floor(
-      order?.amount
-        ? order?.amount
-        : order.offeredAmount! *
-        (order.isInstantTransfer
-          ? instantTransferFeeRate
-          : applicationChargeRate)
+      orderAmount *
+      (order.isInstantTransfer ? instantTransferFeeRate : applicationChargeRate)
     );
+
     const instantTransferFee = order.isInstantTransfer
-      ? Math.floor(
-        order?.amount
-          ? order?.amount * instantTransferFeeRate
-          : order.offeredAmount! * instantTransferFeeRate
-      )
+      ? Math.floor(orderAmount * instantTransferFeeRate)
       : 0;
 
     if (order.isInstantTransfer) {
       enrichedOrder.instantTransferChargeRate = instantTransferFeeRate;
       enrichedOrder.instantTransferCharge = instantTransferFee;
-    }
-    if (!order.isInstantTransfer) {
+    } else {
       enrichedOrder.applicationChargeRate = applicationChargeRate;
     }
 
     enrichedOrder.vendorReceivable = Math.floor(
-      order?.amount
-        ? order?.amount
-        : order.offeredAmount! +
-        (order.isSetup ? order?.setupFee : 0) +
-        order.deliveryFee -
-        (applicationCharge + instantTransferFee
-          ? instantTransferFee
-          : 0 - (enrichedOrder.customerCCCharge || 0))
+      orderAmount +
+      (order.isSetup ? order?.setupFee : 0) +
+      order.deliveryFee -
+      (applicationCharge + instantTransferFee) -
+      (enrichedOrder.customerCCCharge || 0)
     );
+
     enrichedOrder.applicationCharge = applicationCharge;
   }
 
@@ -286,7 +281,7 @@ export const calculateOrderCharges = (
   const setupFee = order.setupFee || 0;
   const deliveryCharge = order.deliveryFee || 0;
   enrichedOrder.subTotal = Math.floor(
-    order.amount + setupFee + deliveryCharge + (enrichedOrder.customerCCCharge || 0)
+    orderAmount + setupFee + deliveryCharge + (enrichedOrder.customerCCCharge || 0)
   );
 
   return enrichedOrder;
@@ -328,7 +323,7 @@ export const orderSocketDataHelper = async (namespace:string,sendTo:string | Typ
           select: 'name dailyRate hourlyRate',
         },
       })
-      .populate('review', { rating: 1, comment: 1 })
+      .populate('review', { rating: 1, comment: 1 }).lean()
 
 
 
@@ -343,6 +338,78 @@ export const orderSocketDataHelper = async (namespace:string,sendTo:string | Typ
   );
 
 }
+
+
+{
+  "_id": "67b5e61a49fe4b89cd48ee64",
+  "orderId": "00007",
+  "customerId": {
+  "_id": "67ad7b869c301dea7e5b72da",
+    "name": "Mitila ",
+    "email": "mawab36775@shouxs.com"
+},
+  "vendorId": {
+  "_id": "67ad64e1ea4f6e6ceb6253b7",
+    "name": "Hasan",
+    "email": "tagof92969@prorsd.com",
+    "verifiedFlag": false,
+    "rating": 0,
+    "totalReviews": 0,
+    "orderCompleted": 0,
+    "businessContactCountryCode": "US",
+    "location": {
+    "type": "Point",
+      "coordinates": [
+      90.42949,
+      23.7588209
+    ]
+  },
+  "address": {
+    "apartmentOrSuite": "B5",
+      "city": "Na",
+      "country": "Na",
+      "state": "Na",
+      "street": "123",
+      "zip": "123"
+  },
+  "profileImg": "https://rentmee.s3.us-east-1.amazonaws.com/vendor/1739440558728-1000000033.jpg"
+},
+  "serviceId": {
+  "_id": "67ad6c089c301dea7e5b7216",
+    "title": "Birthday "
+},
+  "packageId": {
+  "_id": "67ad712d9c301dea7e5b7230",
+    "title": "Small "
+},
+  "isCustomOrder": false,
+  "amount": 0,
+  "status": "pending",
+  "preference": "Hhh",
+  "paymentStatus": "pending",
+  "offeredAmount": 2800,
+  "deliveryLocation": {
+  "coordinates": [
+    90.4260089,
+    23.7631025
+  ],
+    "type": "Point"
+},
+  "deliveryAddress": "121 Titas Gas Rd, Dhaka 1212, Bangladesh",
+  "isSetup": false,
+  "deliveryDateAndTime": "2025-02-24T09:09:00.000Z",
+  "deliveryFee": 0,
+  "isInstantTransfer": false,
+  "isDeliveryDecline": false,
+  "products": [],
+  "createdAt": "2025-02-19T14:09:30.359Z",
+  "updatedAt": "2025-02-19T14:09:30.359Z",
+  "__v": 0,
+  "applicationChargeRate": 0.1,
+  "vendorReceivable": 2520,
+  "applicationCharge": 280,
+  "subTotal": 2800
+},
 
 
 

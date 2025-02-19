@@ -552,7 +552,7 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     User.findOne({
       customer: orderExists?.customerId,
       status: 'active',
-    }).populate<{customer:{_id:Types.ObjectId,name:string}}>('customer', { name: 1 }),
+    }).populate<{customer:{_id:Types.ObjectId,name:string, deviceId:string}}>('customer', { name: 1, deviceId:1 }),
   ]);
 
   if (!vendorExist) {
@@ -562,7 +562,7 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
   }
 
-  const { stripeId, stripeConnected, verifiedFlag, name, deviceId } =
+  const { stripeId, stripeConnected, verifiedFlag, name } =
     vendorExist.vendor as IVendor;
 
   if (
@@ -650,15 +650,9 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
 
 
 
-  await sendDataWithSocket(
-    payload?.status === 'accepted' ? 'acceptedOrder' : 'rejectedOrder',
-    orderExists.customerId as Types.ObjectId,
-    {
-      ...result,
-    }
-  );
 
-  const {_id:customerId} = customerExist;
+
+  const {_id:customerId} = customerExist.customer;
 
   const notificationData ={
     title:`${name} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
@@ -666,7 +660,7 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   }
   // Send notification and socket event
   await sendOrderNotificationAndSocketEvent(
-    deviceId,//deviceId
+    customerExist.customer.deviceId,//deviceId
     result,//orderDetails
     USER_ROLES.CUSTOMER,//role
     customerId as Types.ObjectId,//sendTo
