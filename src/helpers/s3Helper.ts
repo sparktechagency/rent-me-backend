@@ -19,7 +19,7 @@ const s3Client = new S3Client({
 
   const uploadToS3 = async (
     file: Express.Multer.File,
-    folder: 'applications' | 'vendors' | 'customers' | 'services',
+    folder: 'applications' | 'vendors' | 'customers' | 'services' | 'products',
   ): Promise<string> => {
     const fileKey = `${folder}/${Date.now()}-${file.originalname}`;
 

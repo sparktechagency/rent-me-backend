@@ -75,6 +75,10 @@ router.patch(
   AuthController.updateUserAppId
 );
 
+router.patch('/restrict-user/:id',
+  auth(USER_ROLES.ADMIN),
+  AuthController.restrictOrActivateUser)
+
 router.post(
   '/social-login',
   validateRequest(AuthValidation.createSocialLoginZodSchema),

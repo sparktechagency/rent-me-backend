@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { AuthService } from './auth.service';
+import { Types } from 'mongoose';
 
 const verifyEmail = catchAsync(async (req: Request, res: Response) => {
   const { ...verifyData } = req.body;
@@ -149,6 +150,18 @@ const socialLogin = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+
+const restrictOrActivateUser = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await AuthService.restrictOrActivateUser(req.body, new Types.ObjectId(id));
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'User restricted successfully',
+    data: result,
+  });
+})
+
 export const AuthController = {
   verifyEmail,
   loginUser,
@@ -162,4 +175,5 @@ export const AuthController = {
   deleteAccount,
   updateUserAppId,
   socialLogin,
+  restrictOrActivateUser
 };

@@ -668,6 +668,29 @@ const socialLogin = async (socialId: string,deviceId: string) => {
 };
 
 
+const restrictOrActivateUser = async (user: JwtPayload, id:Types.ObjectId) => {
+  const isUserExist = await User.findById(id);
+
+  if(!isUserExist){
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User does not exist.');
+  }
+  if(isUserExist.status === 'active'){
+    await User.findByIdAndUpdate(
+      id,
+      { $set: { status: 'restricted' } },
+      { new: true }
+    )
+  }
+  await User.findByIdAndUpdate(
+    id,
+    { $set: { status: 'active' } },
+    { new: true }
+  )
+
+  return `User status updated to ${isUserExist.status}`
+
+}
+
 
 export const AuthService = {
   verifyEmailToDB,
@@ -681,5 +704,6 @@ export const AuthService = {
   verifyOtpForPhone,
   deleteAccount,
   updateUserAppId,
-  socialLogin
+  socialLogin,
+  restrictOrActivateUser
 };

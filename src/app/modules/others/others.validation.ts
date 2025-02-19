@@ -51,7 +51,7 @@ const updateFaqsZodSchema = z.object({
 // Base schema
 const createBannerSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  description: z.string().min(1, 'Description is required'),
+  description: z.string().min(1).optional(),
   link: z.string().url('Link must be a valid URL').optional(),
   isActive: z.boolean().default(true),
   btnText: z.string().optional(),

@@ -6,11 +6,12 @@ import { Types } from 'mongoose';
 import pick from '../../../shared/pick';
 import { productFilterableFields } from './product.constants';
 import { paginationFields } from '../../../types/pagination';
+import { S3Helper } from '../../../helpers/s3Helper';
 
 const createProduct = catchAsync(async (req: Request, res: Response) => {
   const { user } = req;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    req.body.image = `/images/${req.files.image[0].filename}`;
+    req.body.image = await S3Helper.uploadToS3(req.files.image[0], 'products');
   }
   const result = await ProductServices.createProductToDB(user, req.body);
   res.status(StatusCodes.OK).json({
@@ -25,7 +26,7 @@ const updateProduct = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = req.user;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    req.body.image = `/images/${req.files.image[0].filename}`;
+    req.body.image = await S3Helper.uploadToS3(req.files.image[0], 'products');
   }
   const result = await ProductServices.updateProductToDB(
     new Types.ObjectId(id),

@@ -353,13 +353,13 @@ export const sendOrderNotificationAndSocketEvent = async (
   role:string,
   sendTo:Types.ObjectId,
   notificationData:{title:string, message:string},
-  namespace?:string
+  sendDataWithSocket?:{namespace:string}
 ) => {
 
 
 
-if(namespace){
-  await orderSocketDataHelper(namespace, sendTo, orderDetails._id,role)
+if(sendDataWithSocket){
+  await orderSocketDataHelper(sendDataWithSocket.namespace, sendTo, orderDetails._id,role)
 }
 
 

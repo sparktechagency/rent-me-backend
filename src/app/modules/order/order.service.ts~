@@ -1,10 +1,16 @@
-import { getDuration, validateOrderTime } from './order.utils';
+import {
+  calculateOrderCharges,
+  getDuration,
+  orderSocketDataHelper,
+  sendOrderNotificationAndSocketEvent,
+  validateOrderTime
+} from './order.utils';
 
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
 
 import {
-  IEnrichedOrder,
+
   IOrder,
   IOrderFilterableFields,
 } from './order.interface';
@@ -56,7 +62,7 @@ const createOrder = async (payload: IOrder) => {
         deviceId:1
       }
     }),
-    User.findOne({ customer: customerId, status: 'active' }).populate(
+    User.findOne({ customer: customerId, status: 'active' }).populate<{customer:{name:string}}>(
       'customer',
       {
         name: 1,
@@ -156,10 +162,8 @@ const createOrder = async (payload: IOrder) => {
     payload.setupStartDateAndTime = setupStartDateAndTime;
 
     if (payload.setupStartDateAndTime.getTime() < currentLocalDate.getTime()) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        `${payload.setupStartDateAndTime.toString()} conflict with current time.`
-      );
+      const errorMessage = `Setup time conflict with current time. Please choose a future time. Current time: ${currentLocalDate.toISOString()}`;
+      throw new ApiError(StatusCodes.BAD_REQUEST, errorMessage);
     }
   }
 
@@ -217,50 +221,25 @@ const createOrder = async (payload: IOrder) => {
     { $pull: { items: { vendorId: payload.vendorId } } }
   );
 
+
+  const notificationData ={
+    title:`New order request from ${customerExist.customer.name}`,
+    message:`${customerExist.customer.name} has placed an order. Please accept or reject the order. Order ID: ${orderId}`
+  }
   // Send notification and socket event
   await sendOrderNotificationAndSocketEvent(
-    payload.vendorId as Types.ObjectId,
-    customerExist.customer as ICustomer,
-    payload.orderId,
-    vendorExist.vendor.deviceId,
-    result
+    vendorExist.vendor.deviceId,//deviceId
+    result[0],//orderDetails
+    USER_ROLES.VENDOR,//role
+    payload.vendorId as Types.ObjectId,//sendTo
+    notificationData,//notification data
+    'createOrder'
   );
 
   return result;
 };
 
-// Helper function to send notification and socket event
-const sendOrderNotificationAndSocketEvent = async (
-  vendorId: Types.ObjectId,
-  customer: ICustomer,
-  orderId: string,
-  deviceId: string,
-  orderDetails: IOrder[]
-) => {
-  await sendDataWithSocket('newOrder', vendorId, {
-    ...orderDetails,
-  });
 
-
-
-  const notificationTitle = `New order request from ${customer.name}`;
-  const notificationMessage = `${customer.name} has placed an order. Please accept or reject the order. Order ID: ${orderId}`;
-
-await sendNotification('getNotification', vendorId, {
-  userId: vendorId,
-  title: notificationTitle,
-  message: notificationMessage,
-  type: USER_ROLES.VENDOR,
-},{
-  deviceId: deviceId,
-  destination: 'order',
-  role: USER_ROLES.VENDOR,
-  id: orderDetails[0]._id as unknown as string,
-  icon: 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png'
-})
-
-
-};
 
 const getAllOrders = async (
   filters: IOrderFilterableFields,
@@ -424,74 +403,10 @@ const getAllOrderByUserId = async (
 
   const total = await Order.countDocuments(whereConditions);
 
-  const applicationChargeRate = Number(config.application_fee);
-  const ccChargeRate = Number(config.customer_cc_rate);
-  const instantTransferFeeRate = Number(config.instant_transfer_fee);
+  const enrichedOrders = result.map(order =>
+    calculateOrderCharges(order, user.role)
+  );
 
-  const enrichedOrders = result.map(order => {
-    const enrichedOrder: IEnrichedOrder & IOrder = {
-      ...order,
-    };
-
-    // Calculate CC charge for customers
-    if (user.role === USER_ROLES.CUSTOMER) {
-      enrichedOrder.customerCCChargeRate = ccChargeRate;
-      enrichedOrder.customerCCCharge = order?.amount
-        ? order?.amount * ccChargeRate
-        : order.offeredAmount! * ccChargeRate;
-    }
-
-    // Calculate vendor-specific fields
-    if (user.role === USER_ROLES.VENDOR) {
-      const applicationCharge = Math.floor(
-        order?.amount
-          ? order?.amount
-          : order.offeredAmount! *
-              (order.isInstantTransfer
-                ? instantTransferFeeRate
-                : applicationChargeRate)
-      );
-      const instantTransferFee = order.isInstantTransfer
-        ? Math.floor(
-            order?.amount
-              ? order?.amount
-              : order.offeredAmount! * instantTransferFeeRate
-          )
-        : 0;
-
-      if (order.isInstantTransfer) {
-        enrichedOrder.instantTransferChargeRate = instantTransferFeeRate;
-        enrichedOrder.instantTransferCharge = instantTransferFee;
-      }
-      if (!order.isInstantTransfer) {
-        enrichedOrder.applicationChargeRate = applicationChargeRate;
-      }
-
-      enrichedOrder.vendorReceivable = Math.floor(
-        order?.amount
-          ? order?.amount
-          : order.offeredAmount! +
-              (order.isSetup ? order?.setupFee : 0) +
-              order.deliveryFee -
-              (applicationCharge + instantTransferFee
-                ? instantTransferFee
-                : 0 - (enrichedOrder.customerCCCharge || 0))
-      );
-      enrichedOrder.applicationCharge = applicationCharge;
-    }
-
-    // Calculate subTotal including optional fields
-    const setupFee = order.setupFee || 0;
-    const deliveryCharge = order.deliveryFee || 0;
-    enrichedOrder.subTotal = Math.floor(
-      order.amount +
-        setupFee +
-        deliveryCharge +
-        (enrichedOrder.customerCCCharge || 0)
-    );
-
-    return enrichedOrder;
-  });
 
   return {
     meta: {
@@ -595,35 +510,21 @@ const declineOrder = async (
   const { name } = customerExist?.customer as ICustomer;
 
 
-
-  await sendDataWithSocket(
-    'declinedOrder',
-    orderExists.vendorId as Types.ObjectId,
-    {
-      ...result,
-    }
+  const notificationData ={
+    title:`${name} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
+    message:`${payload?.deliveryDeclineMessage}`
+  }
+  // Send notification and socket event
+  await sendOrderNotificationAndSocketEvent(
+    vendorExist.vendor.deviceId,//deviceId
+    result,//orderDetails
+    USER_ROLES.VENDOR,//role
+    vendorExist._id as Types.ObjectId,//sendTo
+    notificationData,//notification data
+    'declinedOrder'
   );
-
-
-
-  const notificationTitle = `${name} has ${payload?.status} the order. Order ID: ${result?.orderId}`;
-  const notificationMessage = `${payload?.deliveryDeclineMessage}`;
-
-  //TODO: send notification to vendor need testing
-  await sendNotification('getNotification', vendorExist._id, {
-    userId: vendorExist._id,
-    title: notificationTitle,
-    message: notificationMessage,
-    type: USER_ROLES.VENDOR,
-  },{
-    deviceId: vendorExist.vendor.deviceId,
-    destination: 'order',
-    role: USER_ROLES.VENDOR,
-    id: vendorExist.vendor._id as unknown as string,
-    icon: 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png'
-  })
-
   return result;
+
 };
 
 const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
@@ -662,7 +563,7 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
   }
 
-  const {_id:vendorId, stripeId, stripeConnected, verifiedFlag, name, deviceId } =
+  const { stripeId, stripeConnected, verifiedFlag, name, deviceId } =
     vendorExist.vendor as IVendor;
 
   if (
@@ -758,25 +659,24 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     }
   );
 
-
-
-  const notificationTitle = `Order ${orderExists.orderId} has been ${payload?.status}`;
-  const notificationMessage = `Order request for ID:${orderExists?.orderId} is ${payload?.status} by ${name}.`;
   const {_id:customerId} = customerExist;
-  //TODO: send notification to vendor need testing
-  await sendNotification('getNotification', customerId, {
-    userId: customerId,
-    title: notificationTitle,
-    message: notificationMessage,
-    type: USER_ROLES.CUSTOMER,
-  },{
-    deviceId: deviceId,
-    destination: 'order',
-    role: USER_ROLES.CUSTOMER,
-    id: vendorId as unknown as string,
-    icon: 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png'
-  })
+
+  const notificationData ={
+    title:`${name} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
+    message:`${payload?.deliveryDeclineMessage}`
+  }
+  // Send notification and socket event
+  await sendOrderNotificationAndSocketEvent(
+    deviceId,//deviceId
+    result,//orderDetails
+    USER_ROLES.CUSTOMER,//role
+    customerId as Types.ObjectId,//sendTo
+    notificationData,//notification data
+    payload?.status === 'accepted' ? 'acceptedOrder' : 'rejectedOrder',
+  );
   return result;
+
+
 };
 
 const getDeliveryCharge = async (
@@ -832,12 +732,12 @@ const startOrderDelivery = async (id: string) => {
       'Failed to change the order status'
     );
   }
-
+  const ID = await User.getUserId(result.customerId as Types.ObjectId, USER_ROLES.CUSTOMER);
   await sendNotification(
     'getNotification',
     result.customerId as Types.ObjectId,
     {
-      userId: result.vendorId as Types.ObjectId,
+      userId: ID,//customer user id
       title: `${result.orderId} delivery started`,
       message: `Order delivery for ID:${result.orderId} has been started. Track your order for more details.`,
       type: USER_ROLES.CUSTOMER,
@@ -846,7 +746,7 @@ const startOrderDelivery = async (id: string) => {
 
   const {name:vendorName} = isOrderExist.vendorId;
   const {_id:customerId, deviceId:customerDeviceId} = isOrderExist.customerId;
-  
+
   const notificationTitle = `Delivery has been started for order ${result.orderId}`;
   const notificationMessage = `${vendorName} has started Order delivery for ID:${result.orderId} has been started. Track your order for more details..`;
 
