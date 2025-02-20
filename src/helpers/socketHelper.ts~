@@ -49,3 +49,5 @@ const socket = (io: Server) => {
 export const socketHelper = { socket };
 
 
+// @ts-expect-error globalIo
+// export const skt = global.io;

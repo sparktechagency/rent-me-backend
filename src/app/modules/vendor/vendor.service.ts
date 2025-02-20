@@ -443,7 +443,7 @@ const getAllVendor = async (
       [customerLocation.coordinates[1], customerLocation.coordinates[0]],
       [vendor.location.coordinates[1], vendor.location.coordinates[0]]
     );
-
+    // console.log(distance,"👌👌👌👌👌👌👌", vendor.location, "🦥🦥🦥🦥🦥", customerLocation)
     return {
       ...vendor,
       distance,

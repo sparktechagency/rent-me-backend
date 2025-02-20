@@ -67,7 +67,7 @@ const getAllOrderByUserId = catchAsync(async (req: Request, res: Response) => {
 const declineOrder = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { ...updatedData } = req.body;
-  const result = await OrderService.declineOrder(req.user,id, updatedData);
+  const result = await OrderService.declineOrder(id, updatedData);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

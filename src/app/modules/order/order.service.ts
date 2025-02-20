@@ -1,28 +1,22 @@
 import {
+  calculateDistance,
   calculateOrderCharges,
+  generateCustomOrderId,
   getDuration,
-  sendOrderNotificationAndSocketEvent,
+  orderNotificationAndDataSendWithSocket,
   validateOrderTime
 } from './order.utils';
 
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
 
-import {
-
-  IOrder,
-  IOrderFilterableFields,
-} from './order.interface';
+import { IOrder, IOrderFilterableFields } from './order.interface';
 import { Order } from './order.model';
-import { calculateDistance, generateCustomOrderId } from './order.utils';
 import { JwtPayload } from 'jsonwebtoken';
 import { USER_ROLES } from '../../../enums/user';
-import {
-  sendDataWithSocket,
-  sendNotification,
-} from '../../../helpers/sendNotificationHelper';
+
 import { User } from '../user/user.model';
-import { Types } from 'mongoose';
+
 
 import { IVendor } from '../vendor/vendor.interface';
 import { ICustomer } from '../customer/customer.interface';
@@ -225,15 +219,10 @@ const createOrder = async (payload: IOrder) => {
     title:`New order request from ${customerExist.customer.name}`,
     message:`${customerExist.customer.name} has placed an order. Please accept or reject the order. Order ID: ${orderId}`
   }
-  // Send notification and socket event
-  await sendOrderNotificationAndSocketEvent(
-    vendorExist.vendor.deviceId,//deviceId
-    result[0],//orderDetails
-    USER_ROLES.VENDOR,//role
-    payload.vendorId as Types.ObjectId,//sendTo
-    notificationData,//notification data
-    'createOrder'
-  );
+
+
+  //send notification and data with socket
+  await orderNotificationAndDataSendWithSocket('order', result[0]._id, USER_ROLES.VENDOR, notificationData)
 
   return result;
 };
@@ -374,7 +363,6 @@ const getAllOrderByUserId = async (
     })
     .populate('packageId', { title: 1 })
     .populate('serviceId', { title: 1, price: 1 })
-    .populate('paymentId')
     .populate('customerId', {
       name: 1,
       email: 1,
@@ -449,11 +437,15 @@ const getSingleOrder = async (id: string) => {
   return result;
 };
 
+
+
+
 const declineOrder = async (
+  user:JwtPayload,
   id: string,
   payload: Pick<IOrder, 'status' | 'deliveryDeclineMessage'>
 ) => {
-  if (payload?.status === 'declined' && !payload?.deliveryDeclineMessage) {
+  if (!payload?.deliveryDeclineMessage) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Delivery Decline Message is required'
@@ -464,40 +456,19 @@ const declineOrder = async (
     _id: id,
     status: 'accepted',
   })
-    .populate('vendorId', { name: 1, deviceId:1 })
-    .populate('customerId', { name: 1 , deviceId:1});
+    .populate<{vendorId:Partial<IVendor>}>('vendorId', { name: 1, deviceId:1 })
   if (!orderExists) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
   }
 
-  const [vendorExist, customerExist] = await Promise.all([
-    User.findOne(
-      { vendor: orderExists?.vendorId, status: 'active' },
-      { status: 1 }
-    ).populate<{vendor:{_id:1,name:string, deviceId:string}}>('vendor', { name: 1, deviceId:1 }),
-    User.findOne({
-      customer: orderExists?.customerId,
-      status: 'active',
-    }).populate('customer', { name: 1 }),
-  ]);
 
-  if (!vendorExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor not found');
-  }
-  if (!customerExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
-  }
-
-  if (customerExist._id.toString() !== orderExists.customerId.toString()) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'You are not allowed to update status of  this order'
-    );
+  if(orderExists.customerId != user.userId){
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'You are not authorized to decline this order.')
   }
 
   //update the order status
   const result = await Order.findOneAndUpdate(
-    { _id: id, status: 'accepted' },
+    { _id: id, status: 'declined' },
     { $set: { ...payload } },
     { new: true }
   );
@@ -506,25 +477,17 @@ const declineOrder = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
   }
 
-  const { name } = customerExist?.customer as ICustomer;
-
-
   const notificationData ={
-    title:`${name} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
-    message:`${payload?.deliveryDeclineMessage}`
+    title:`${orderExists.vendorId.name} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
+    message:`${payload?.deliveryDeclineMessage||"Order declined by the customer."}`
   }
-  // Send notification and socket event
-  await sendOrderNotificationAndSocketEvent(
-    vendorExist.vendor.deviceId,//deviceId
-    result,//orderDetails
-    USER_ROLES.VENDOR,//role
-    vendorExist._id as Types.ObjectId,//sendTo
-    notificationData,//notification data
-    'declinedOrder'
-  );
+  //send notification and data with socket
+  await orderNotificationAndDataSendWithSocket('order', result._id, USER_ROLES.VENDOR, notificationData)
   return result;
 
 };
+
+
 
 const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   if (payload.status === 'accepted' && !payload.amount) {
@@ -532,38 +495,18 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   }
 
   const orderExists = await Order.findById({ _id: id, status: 'pending' })
-    .populate('vendorId', { name: 1 })
-    .populate('customerId', { name: 1 });
+    .populate<{vendorId:Partial<IVendor>}>('vendorId', { name: 1, stripeId:1, stripeConnected:1, verifiedFlag:1 })
+    .populate<{customerId:Partial<ICustomer>}>('customerId', { name: 1, deviceId:1 });
 
   if (!orderExists) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
   }
 
-  const [vendorExist, customerExist] = await Promise.all([
-    User.findOne(
-      { vendor: orderExists?.vendorId, status: 'active' },
-      { status: 1 }
-    ).populate('vendor', {
-      name: 1,
-      stripeId: 1,
-      stripeConnected: 1,
-      verifiedFlag: 1,
-    }),
-    User.findOne({
-      customer: orderExists?.customerId,
-      status: 'active',
-    }).populate<{customer:{_id:Types.ObjectId,name:string, deviceId:string}}>('customer', { name: 1, deviceId:1 }),
-  ]);
+  const {vendorId:vendorData} = orderExists;
 
-  if (!vendorExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor not found');
-  }
-  if (!customerExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer not found');
-  }
 
-  const { stripeId, stripeConnected, verifiedFlag, name } =
-    vendorExist.vendor as IVendor;
+  const { stripeId, stripeConnected, verifiedFlag, name:vendorName } = vendorData;
+
 
   if (
     !stripeId ||
@@ -650,23 +593,14 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
 
 
 
-
-
-  const {_id:customerId} = customerExist.customer;
-
   const notificationData ={
-    title:`${name} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
-    message:`${payload?.deliveryDeclineMessage}`
+    title:`${vendorName} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
+    message:`Your order request for #${orderExists.orderId} has been confirmed by ${vendorName}, The delivery date is ${orderExists.deliveryDateAndTime.toLocaleDateString()}`
   }
-  // Send notification and socket event
-  await sendOrderNotificationAndSocketEvent(
-    customerExist.customer.deviceId,//deviceId
-    result,//orderDetails
-    USER_ROLES.CUSTOMER,//role
-    customerId as Types.ObjectId,//sendTo
-    notificationData,//notification data
-    payload?.status === 'accepted' ? 'acceptedOrder' : 'rejectedOrder',
-  );
+
+  //send notification and data with socket
+  await orderNotificationAndDataSendWithSocket('order', result._id, USER_ROLES.CUSTOMER, notificationData)
+
   return result;
 
 
@@ -694,19 +628,19 @@ const getDeliveryCharge = async (
 };
 
 const startOrderDelivery = async (id: string) => {
-  const isOrderExist = await Order.findById({ _id: id, status: 'ongoing' }).populate<{customerId:Partial<ICustomer>}>('customerId', { name: 1, deviceId:1 }).populate<{vendorId:Partial<IVendor>}>('vendorId', { name: 1, deviceId:1 });
+  const isOrderExist = await Order.findById({ _id: id, status: 'ongoing' }).populate<{customerId:Partial<ICustomer>}>('customerId', { name: 1 }).populate<{vendorId:Partial<IVendor>}>('vendorId', { name: 1 });
   if (!isOrderExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
   }
 
   //check if the vendor already has any other order as started
-  const vendorExist = await Order.findOne({
+  const vendorAvailable = await Order.findOne({
     vendorId: isOrderExist.vendorId,
     status: { $in: ['started'] },
     _id: { $ne: id },
   });
 
-  if (vendorExist) {
+  if (vendorAvailable) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'You already have an order in delivery process'
@@ -725,42 +659,15 @@ const startOrderDelivery = async (id: string) => {
       'Failed to change the order status'
     );
   }
-  const ID = await User.getUserId(result.customerId as Types.ObjectId, USER_ROLES.CUSTOMER);
-  await sendNotification(
-    'getNotification',
-    result.customerId as Types.ObjectId,
-    {
-      userId: ID,//customer user id
-      title: `${result.orderId} delivery started`,
-      message: `Order delivery for ID:${result.orderId} has been started. Track your order for more details.`,
-      type: USER_ROLES.CUSTOMER,
-    }
-  );
 
   const {name:vendorName} = isOrderExist.vendorId;
-  const {_id:customerId, deviceId:customerDeviceId} = isOrderExist.customerId;
+  const notificationData ={
+    title:`Delivery has been started for order ${result.orderId}`,
+    message:`${vendorName} has started Order delivery for ID:${result.orderId} has been started. Track your order for more details.`
+  }
 
-  const notificationTitle = `Delivery has been started for order ${result.orderId}`;
-  const notificationMessage = `${vendorName} has started Order delivery for ID:${result.orderId} has been started. Track your order for more details..`;
-
-  //TODO: send notification to vendor need testing
-  await sendNotification('getNotification', customerId!, {
-    userId: customerId!,
-    title: notificationTitle,
-    message: notificationMessage,
-    type: USER_ROLES.CUSTOMER,
-  },{
-    deviceId: customerDeviceId!,
-    destination: 'order',
-    role: USER_ROLES.CUSTOMER,
-    id: customerId as unknown as string,
-    icon: 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png'
-  })
-
-
-  await sendDataWithSocket('startedOrder', result.vendorId as Types.ObjectId, {
-    ...result,
-  });
+  //send notification and data with socket
+  await orderNotificationAndDataSendWithSocket('order', result._id, USER_ROLES.CUSTOMER, notificationData)
 
   return result;
 };

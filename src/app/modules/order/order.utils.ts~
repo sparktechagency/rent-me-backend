@@ -4,8 +4,9 @@ import { Order } from './order.model';
 import { USER_ROLES } from '../../../enums/user';
 import config from '../../../config';
 import { Types } from 'mongoose';
-import { IOrder } from './order.interface';
 import { sendDataWithSocket, sendNotification } from '../../../helpers/sendNotificationHelper';
+import { IVendor } from '../vendor/vendor.interface';
+import { ICustomer } from '../customer/customer.interface';
 
 
 const getLastOrderId = async () => {
@@ -226,8 +227,8 @@ export const getDuration = (duration: string): number => {
 
 
 export const calculateOrderCharges = (
-  order,
-  userRole,
+  order:any,
+  userRole:string,
 ) => {
   const applicationChargeRate = Number(config.application_fee);
   const ccChargeRate = Number(config.customer_cc_rate);
@@ -288,10 +289,16 @@ export const calculateOrderCharges = (
 };
 
 
-export const orderSocketDataHelper = async (namespace:string,sendTo:string | Types.ObjectId,orderId:Types.ObjectId,role:string )=>{
 
-   const order = await Order.findById(orderId)
-      .populate('vendorId', {
+export const orderNotificationAndDataSendWithSocket = async (
+  namespace: string,
+  orderId: Types.ObjectId | string,
+  role: USER_ROLES,
+  notificationData: { title: string; message: string }
+) => {
+  try {
+    const order = await Order.findById(orderId)
+      .populate<{ vendorId: Partial<IVendor> }>('vendorId', {
         name: 1,
         email: 1,
         phone: 1,
@@ -304,16 +311,18 @@ export const orderSocketDataHelper = async (namespace:string,sendTo:string | Typ
         businessContact: 1,
         businessContactCountryCode: 1,
         location: 1,
+        deviceId: 1,
       })
       .populate('packageId', { title: 1 })
       .populate('serviceId', { title: 1, price: 1 })
       .populate('paymentId')
-      .populate('customerId', {
+      .populate<{ customerId: Partial<ICustomer> }>('customerId', {
         name: 1,
         email: 1,
         phone: 1,
         address: 1,
         profileImg: 1,
+        deviceId: 1,
       })
       .populate({
         path: 'products',
@@ -323,128 +332,60 @@ export const orderSocketDataHelper = async (namespace:string,sendTo:string | Typ
           select: 'name dailyRate hourlyRate',
         },
       })
-      .populate('review', { rating: 1, comment: 1 }).lean()
+      .populate('review', { rating: 1, comment: 1 })
+      .lean();
 
+    if (!order) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Order not found');
+    }
 
+    const enrichData = calculateOrderCharges(order, role);
+    const vendor = order.vendorId;
+    const customer = order.customerId;
 
+    const destinationDeviceId =
+      role === USER_ROLES.VENDOR ? vendor?.deviceId : customer?.deviceId;
+    const destinationUserId =
+      role === USER_ROLES.VENDOR ? vendor?._id : customer?._id;
 
-   const enrichData =  calculateOrderCharges(order, role)
+    const { title, message } = notificationData;
 
+    console.log(destinationDeviceId, '💕💕💕');
 
-  await sendDataWithSocket(
-    namespace,
-    sendTo,
-    enrichData
-  );
+    // Run both operations independently
+    try {
+      // Emit socket event
+      await sendDataWithSocket(namespace, destinationUserId!, enrichData);
+    } catch (error) {
+      console.error('Error sending socket event:', error);
+    }
 
-}
-
-
-{
-  "_id": "67b5e61a49fe4b89cd48ee64",
-  "orderId": "00007",
-  "customerId": {
-  "_id": "67ad7b869c301dea7e5b72da",
-    "name": "Mitila ",
-    "email": "mawab36775@shouxs.com"
-},
-  "vendorId": {
-  "_id": "67ad64e1ea4f6e6ceb6253b7",
-    "name": "Hasan",
-    "email": "tagof92969@prorsd.com",
-    "verifiedFlag": false,
-    "rating": 0,
-    "totalReviews": 0,
-    "orderCompleted": 0,
-    "businessContactCountryCode": "US",
-    "location": {
-    "type": "Point",
-      "coordinates": [
-      90.42949,
-      23.7588209
-    ]
-  },
-  "address": {
-    "apartmentOrSuite": "B5",
-      "city": "Na",
-      "country": "Na",
-      "state": "Na",
-      "street": "123",
-      "zip": "123"
-  },
-  "profileImg": "https://rentmee.s3.us-east-1.amazonaws.com/vendor/1739440558728-1000000033.jpg"
-},
-  "serviceId": {
-  "_id": "67ad6c089c301dea7e5b7216",
-    "title": "Birthday "
-},
-  "packageId": {
-  "_id": "67ad712d9c301dea7e5b7230",
-    "title": "Small "
-},
-  "isCustomOrder": false,
-  "amount": 0,
-  "status": "pending",
-  "preference": "Hhh",
-  "paymentStatus": "pending",
-  "offeredAmount": 2800,
-  "deliveryLocation": {
-  "coordinates": [
-    90.4260089,
-    23.7631025
-  ],
-    "type": "Point"
-},
-  "deliveryAddress": "121 Titas Gas Rd, Dhaka 1212, Bangladesh",
-  "isSetup": false,
-  "deliveryDateAndTime": "2025-02-24T09:09:00.000Z",
-  "deliveryFee": 0,
-  "isInstantTransfer": false,
-  "isDeliveryDecline": false,
-  "products": [],
-  "createdAt": "2025-02-19T14:09:30.359Z",
-  "updatedAt": "2025-02-19T14:09:30.359Z",
-  "__v": 0,
-  "applicationChargeRate": 0.1,
-  "vendorReceivable": 2520,
-  "applicationCharge": 280,
-  "subTotal": 2800
-},
-
-
-
-// Helper function to send notification and socket event
-export const sendOrderNotificationAndSocketEvent = async (
-  deviceId: string,
-  orderDetails: IOrder,
-  role:string,
-  sendTo:Types.ObjectId,
-  notificationData:{title:string, message:string},
-  namespace?:string
-) => {
-
-
-
-if(namespace){
-  await orderSocketDataHelper(namespace, sendTo, orderDetails._id,role)
-}
-
-
-  await sendNotification('getNotification', sendTo, {
-    userId: sendTo,
-    title: notificationData.title,
-    message: notificationData.message,
-    type: role,
-  },{
-    deviceId: deviceId,
-    destination: 'order',
-    role: role,
-    id: orderDetails._id as unknown as string,
-    icon: 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png'
-  })
-
-
+    try {
+      // Send push notification
+      await sendNotification(
+        'getNotification',
+        destinationUserId!,
+        {
+          userId: destinationUserId as Types.ObjectId,
+          title,
+          message,
+          type: role,
+        },
+        {
+          deviceId: destinationDeviceId!,
+          destination: 'order',
+          role: role,
+          id: destinationUserId! as unknown as string,
+          icon:
+            'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png',
+        }
+      );
+    } catch (error) {
+      console.error('Error sending push notification:', error);
+    }
+  } catch (error) {
+    console.error('Error processing order notification and socket:', error);
+    // Continue even if the notification or socket fails
+  }
 };
-
-
 

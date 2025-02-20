@@ -425,7 +425,7 @@ const getAllVendor = async (
       operationStartTime: 1,
       operationEndTime: 1,
     }
-  )
+  ).populate('businessType', 'name')
     .sort(
       sortBy || sortOrder
         ? {
@@ -443,7 +443,7 @@ const getAllVendor = async (
       [customerLocation.coordinates[1], customerLocation.coordinates[0]],
       [vendor.location.coordinates[1], vendor.location.coordinates[0]]
     );
-
+    console.log(distance,"👌👌👌👌👌👌👌", vendor.location, "🦥🦥🦥🦥🦥", customerLocation)
     return {
       ...vendor,
       distance,

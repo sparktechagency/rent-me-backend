@@ -123,12 +123,12 @@ const loginUserFromDB = async (
   if (isExistUser.role === USER_ROLES.CUSTOMER) {
     await Customer.findOneAndUpdate(
       { _id: isExistUser.customer },
-      { $set: { deviceId: payload.deviceId }, new:true }
+      { $set: { deviceId: payload.deviceId } }
     );
   } else if (isExistUser.role === USER_ROLES.VENDOR) {
     await Vendor.findOneAndUpdate(
       { _id: isExistUser.vendor },
-      { $set: { deviceId: payload.deviceId },new:true }
+      { $set: { deviceId: payload.deviceId } }
     );
   }
 

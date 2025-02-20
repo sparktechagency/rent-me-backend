@@ -9,10 +9,11 @@ import config from '../../../config';
 
 import { Vendor } from '../vendor/vendor.model';
 import { IVendor } from '../vendor/vendor.interface';
-import { sendDataWithSocket, sendNotification } from '../../../helpers/sendNotificationHelper';
-import { Types } from 'mongoose';
+
 import { USER_ROLES } from '../../../enums/user';
 import { ICustomer } from '../customer/customer.interface';
+import { orderNotificationAndDataSendWithSocket } from '../order/order.utils';
+import { logger } from '../../../shared/logger';
 
 const onboardVendor = async (user: JwtPayload) => {
   try {
@@ -297,42 +298,20 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
       { new: true }
     );
 
-    await sendDataWithSocket(
-      'completeOrder',
-      isOrderExists._id as Types.ObjectId,
-      { ...updatedOrder }
-    );
 
-    //TODO: Send notification to vendor
-    await sendNotification(
-      'getNotification',
-      isOrderExists.vendorId as unknown as Types.ObjectId,
-      {
-        userId: user.id,
-        title: `Payment received for order ${isOrderExists.id}`,
-        message: `You have received a payment of $${remainingAmount} for order ${isOrderExists.id}`,
-        type: user.role,
-      }
-    );
+    if(!updatedOrder){
+      logger.error("Failed to update order status after successful payment.")
+    }
 
-    const {deviceId:vendorDeviceId, _id:vendorId} = isUserExists.vendor as IVendor;
 
-    const notificationTitle = `Payment request received for order ${isOrderExists.id}`;
-    const notificationMessage = `The payment for order ${isOrderExists.id} has been successfully processed, ${isOrderExists.isInstantTransfer ? 'please check your bank account' : 'it will be available in 2-3 business days'}`;
+    //TODO test this
+    const notificationData = { title: `Payment request received for order ${isOrderExists.id}`,
+      message: `The payment for order ${isOrderExists.id} has been successfully processed, ${isOrderExists.isInstantTransfer ? 'please check your bank account' : 'it will be available in 2-3 business days'}`
 
-    //TODO: send notification to vendor need testing
-    await sendNotification('getNotification', vendorId , {
-      userId: user.id, //vendor user id
-      title: notificationTitle,
-      message: notificationMessage,
-      type: USER_ROLES.VENDOR,
-    },{
-      deviceId: vendorDeviceId,
-      destination: 'payment',
-      role: USER_ROLES.CUSTOMER,
-      id: vendorId as unknown as string,
-      icon: 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png'
-    })
+    }
+
+    await orderNotificationAndDataSendWithSocket('order',isOrderExists._id, USER_ROLES.VENDOR, notificationData)
+
 
     return { transfer, payout };
   } catch (error) {

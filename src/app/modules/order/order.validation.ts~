@@ -47,7 +47,7 @@ const updateOrderStatusValidationForVendor = z.object({
 
 const updateOrderStatusValidationForCustomer = z.object({
   body: z.object({
-    deliveryDeclineMessage: z.string({required_error:"Reason to decline the order is required."}),
+    deliveryDeclineMessage: z.string({required_error:""}),
   }),
 });
 export const OrderValidation = {

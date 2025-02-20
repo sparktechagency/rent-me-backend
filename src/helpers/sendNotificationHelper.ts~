@@ -6,9 +6,10 @@ import { sendPushNotification } from './pushNotificationHelper';
 import { INotification } from '../app/modules/notification/notification.interface';
 
 
+
 export const sendNotification = async (
   namespace: string,
-  recipient: Types.ObjectId,
+  recipient: Types.ObjectId | string,
   data: INotification,
   pushNotificationData?: {
     deviceId: string;
@@ -27,26 +28,28 @@ export const sendNotification = async (
       'Failed to create notification',
     );
   }
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  //@ts-ignore
-  const socket = global.io;
+
 
   if (pushNotificationData) {
     const { title, message, role, destination, id, icon, deviceId } = pushNotificationData;
-    await sendPushNotification(
-      deviceId,
-      title ? title : data.title,
-      message ? message : data.message,
-      {
-        role: role,
-        destination: destination,
-        id: new Types.ObjectId(id).toString(),
-      },
-      icon
-    );
+    try {
+      await sendPushNotification(
+        deviceId,
+        title ? title : data.title,
+        message ? message : data.message,
+        {
+          role: role,
+          destination: destination,
+          id: new Types.ObjectId(id).toString(),
+        },
+        icon
+      );
+    } catch (error) {
+      console.error('Error sending push notification:', error);
+    }
   }
 
-  socket.emit(`${namespace}::${recipient}`, result);
+  global.io.emit(`${namespace}::${recipient}`, result);
 
 }
 
@@ -56,8 +59,5 @@ export const sendNotification = async (
   recipient: string | Types.ObjectId,
   data: Record<string, unknown>
 ) => {
-  //@ts-expect-error globalThis
-  const socket = global.io;
-
-  socket.emit(`${namespace}::${recipient}`, data);
+    global.io.emit(`${namespace}::${recipient}`, data);
 };

@@ -143,7 +143,7 @@ const accessChat = async (
 
 //@ts-expect-error global This
   const socket = global.io;
-  socket.emit(`newChat::${isParticipantExists.role === USER_ROLES.CUSTOMER ? isParticipantExists.customer : isParticipantExists.vendor}`, returnData)
+  socket.emit(`newChat::${participantData._id}`, returnData)
 
   return returnData;
 };

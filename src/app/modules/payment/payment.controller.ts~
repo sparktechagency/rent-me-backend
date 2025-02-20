@@ -20,6 +20,7 @@ import { USER_ROLES } from '../../../enums/user';
 import { User } from '../user/user.model';
 import { Types } from 'mongoose';
 import { IVendor } from '../vendor/vendor.interface';
+import { orderNotificationAndDataSendWithSocket } from '../order/order.utils';
 
 const onboardVendor = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
@@ -149,31 +150,14 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
           throw new ApiError(400, 'Order status update failed');
         }
 
-        await sendDataWithSocket('orderPayment', order?._id, {
-          ...order,
-        });
-
 
 
         //TODO test this
-        const notificationTitle = `Payment received for order ${order.id} please proceed with the order`;
-        const notificationMessage = `We have received the payment for order ${order.id} please proceed with the order, after completion you will receive the payment.`;
-
-        const ID = await User.getUserId(order.vendorId._id as Types.ObjectId, USER_ROLES.VENDOR);
-
-        //TODO: send notification to vendor need testing
-        await sendNotification('getNotification', order.vendorId._id as Types.ObjectId , {
-          userId: ID, //vendor user id
-          title: notificationTitle,
-          message: notificationMessage,
-          type: USER_ROLES.VENDOR,
-        },{
-          deviceId: vendorDeviceId,
-          destination: 'payment',
-          role: USER_ROLES.CUSTOMER,
-          id: vendorId as unknown as string,
-          icon: 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png'
-        })
+         const notificationData = { title: `Payment received for order ${order.id} please proceed with the order`,
+           message: `We have received the payment for order ${order.id} please proceed with the order, after completion you will receive the payment.`
+         }
+console.log(order._id,"😍😍😍😍😍 order from payment")
+        await orderNotificationAndDataSendWithSocket('order', order?._id, USER_ROLES.VENDOR, notificationData)
 
         logger.info(
           `Payment and Order updated successfully for orderId: ${session.metadata?.orderId}`

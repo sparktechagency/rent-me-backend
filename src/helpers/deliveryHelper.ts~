@@ -2,7 +2,7 @@ import { StatusCodes } from 'http-status-codes';
 import ApiError from '../errors/ApiError';
 import { Order } from '../app/modules/order/order.model';
 import { calculateDistance } from '../app/modules/order/order.utils';
-
+import { skt } from './socketHelper';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 

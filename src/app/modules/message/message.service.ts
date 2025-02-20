@@ -7,73 +7,102 @@ import { Types } from 'mongoose';
 import { Message } from './message.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
+import { USER_ROLES } from '../../../enums/user';
+
+
+type PopulatedParticipant = {
+  _id: Types.ObjectId;
+  customer?: { name: string; profileImg: string };
+  vendor?: { name: string; profileImg: string };
+}
+
+type PopulatedChat = {
+  _id: Types.ObjectId;
+  participants: PopulatedParticipant[];
+  latestMessageTime?: Date;
+}
+
 
 const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   const senderId = new Types.ObjectId(user.id);
 
-  const chat = await Chat.findById(payload.chatId);
+  // Fetch the chat with populated participants
+  const chat = await Chat.findById(payload.chatId).populate({
+    path: 'participants',
+    select: { vendor: 1, customer: 1 },
+    populate: [
+      { path: 'customer', select: 'name profileImg' },
+      { path: 'vendor', select: 'name profileImg' },
+    ],
+  }).lean() as PopulatedChat | null;
 
-  // Check if chat exists
   if (!chat) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Chat does not exist.');
   }
 
+  // Determine the receiver and message type
+  const receiver = chat.participants.find(
+    (participant) => participant._id.toString() !== senderId.toString()
+  );
 
-  // Determine message type
+  if (!receiver) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Participant not found in chat.');
+  }
+
   payload.sender = senderId;
-  payload.receiver = chat.participants.find(
-    (participant) => participant.toString() !== senderId.toString()
-  ) as Types.ObjectId;
-
-  payload.type =
-    payload.image && payload.message
-      ? 'both'
-      : payload.image
-      ? 'image'
-      : 'text';
+  payload.receiver = receiver._id;
+  payload.type = payload.image && payload.message ? 'both' : payload.image ? 'image' : 'text';
 
   // Create the message
-  const result = await Message.create(payload);
-  if (!result) {
+  const message = await Message.create(payload);
+  if (!message) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to send message.');
   }
 
   // Populate the message with sender and receiver details
-  const populatedResult = await Message.findById(result._id)
+  const populatedMessage = await Message.findById(message._id)
     .populate({
       path: 'sender',
-      select: { name: 1 },
-
-      populate: {
-        path: 'customer vendor',
-        select: { name: 1, profileImg: 1 },
-      },
+      select: 'name',
+      populate: [
+        { path: 'customer', select: 'name profileImg' },
+        { path: 'vendor', select: 'name profileImg' },
+      ],
     })
     .populate({
       path: 'receiver',
-      select: { name: 1 },
+      select: 'name',
+      populate: [
+        { path: 'customer', select: 'name profileImg' },
+        { path: 'vendor', select: 'name profileImg' },
+      ],
+    })
+    .lean();
 
-      populate: {
-        path: 'customer vendor',
-        select: { name: 1, profileImg: 1 },
-      },
-    });
-
-  // Update the chat with latest message details
-  const chatUpdate = await Chat.findOneAndUpdate(
+  // Update the chat with the latest message details
+  const updatedChat = await Chat.findOneAndUpdate(
     { _id: payload.chatId },
-    { latestMessage: result._id, latestMessageTime: new Date() },
+    { latestMessage: message._id, latestMessageTime: new Date() },
     { new: true }
-  );
-  console.log(populatedResult,"👍👍👍👍👍👍👍👍👍👍👍👍👍👍");
-  //@ts-expect-error globalThis
-  global.io?.emit(`messageReceived::${payload.chatId}`, populatedResult);
+  ).lean();
 
-  if (!chatUpdate) {
+  if (!updatedChat) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update chat.');
   }
 
-  return populatedResult;
+  // Prepare socket data
+  const socketChatListData = {
+    chatId: chat._id,
+    name: receiver.customer?.name || receiver.vendor?.name,
+    profileImg: receiver.customer?.profileImg || receiver.vendor?.profileImg,
+    latestMessageTime: updatedChat.latestMessageTime,
+  };
+
+  // Emit socket events
+  global.io.emit(`messageReceived::${payload.chatId}`, populatedMessage);
+  global.io.emit(`newChat::${user.role === USER_ROLES.CUSTOMER ? receiver.customer : receiver.vendor}`, socketChatListData);
+
+  return populatedMessage;
 };
 
 const getMessagesByChatId = async (
