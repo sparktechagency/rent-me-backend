@@ -143,7 +143,7 @@ const accessChat = async (
 
 //@ts-expect-error global This
   const socket = global.io;
-  socket.emit(`newChat::${participantData._id}`, returnData)
+  socket.emit(`newChat::${isParticipantExists.role === USER_ROLES.CUSTOMER ? isParticipantExists.customer : isParticipantExists.vendor}`, returnData)
 
   return returnData;
 };
@@ -220,21 +220,35 @@ const getChatListByUserId = async (
         ).length
     );
 
+    console.log(user,"🦥🦥🦥🦥🦥🦥",chats)
+
   const result = filteredChats.map(chat => {
     const otherParticipant = chat.participants.find(
       participant => participant._id.toString() !== user.id
     );
 
-    if (!otherParticipant) {
-      throw new ApiError(StatusCodes.NOT_FOUND, 'Participant not found in chat.');
-    }
+
+
+    const customerName = otherParticipant?.customer?.name ?? null;
+    const vendorName = otherParticipant?.vendor?.name ?? null;
+    const customerImage = otherParticipant?.customer?.profileImg ?? null;
+    const vendorImage = otherParticipant?.vendor?.profileImg ?? null;
+
+    const name = customerName
+      ? customerName
+      : vendorName
+        ? vendorName
+        : "Unknown";
+
+    const image = customerImage? customerImage : vendorImage ? vendorImage : ""
 
     return {
       chatId: chat._id,
-      name: otherParticipant.customer?.name || otherParticipant.vendor?.name,
-      profileImg: otherParticipant.customer?.profileImg || otherParticipant.vendor?.profileImg,
+      name,
+      image,
       latestMessageTime: chat.latestMessageTime,
     };
+
   });
 
   return {

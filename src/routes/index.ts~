@@ -10,6 +10,7 @@ import { OrderRoutes } from '../app/modules/order/order.route';
 import { BookMarkRoutes } from '../app/modules/bookmark/bookmark.route';
 import { PaymentRoutes } from '../app/modules/payment/payment.route';
 import { CategoryRoutes } from '../app/modules/category/category.route';
+import { OthersRoutes } from '../app/modules/others/others.route';
 import { VendorRoutes } from '../app/modules/vendor/vendor.route';
 import { CustomerRoutes } from '../app/modules/customer/customer.route';
 import { ChatRoutes } from '../app/modules/chat/chat.route';
@@ -89,6 +90,10 @@ const apiRoutes: { path: string; route: Router }[] = [
   {
     path: '/dashboard',
     route: DashboardRoutes,
+  },
+  {
+    path: '/others',
+    route: OthersRoutes,
   },
   { path: '/product', route: ProductRoutes },
   { path: '/cart', route: CartRoutes }

@@ -52,7 +52,7 @@ const faqsSchema = new Schema<IFaQs, FaQsModel>(
     },
     userType: {
       type: String,
-      enum: [USER_ROLES.CUSTOMER, USER_ROLES.VENDOR, "USER"],
+      enum: [USER_ROLES.CUSTOMER, USER_ROLES.VENDOR],
       required: true,
     },
   },
