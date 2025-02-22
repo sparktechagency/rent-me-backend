@@ -8,6 +8,7 @@ import { Types } from 'mongoose';
 import { sendDataWithSocket, sendNotification } from '../../../helpers/sendNotificationHelper';
 import { IVendor } from '../vendor/vendor.interface';
 import { ICustomer } from '../customer/customer.interface';
+import { DateTime } from 'luxon';
 
 
 const getLastOrderId = async () => {
@@ -35,21 +36,6 @@ export const generateCustomOrderId = async () => {
   return incrementedId;
 };
 
-export const convertTo24Hour = (time12hr: string) => {
-  const [hours, minutes, period] = time12hr
-    .match(/(\d{1,2}):(\d{2})\s*(AM|PM)/)!
-    .slice(1);
-  let hour = parseInt(hours, 10);
-  const minute = parseInt(minutes, 10);
-
-  if (period === 'AM' && hour === 12) {
-    hour = 0;
-  } else if (period === 'PM' && hour !== 12) {
-    hour += 12;
-  }
-
-  return { hour, minute };
-};
 
 export function calculateDistance(
   coords1: [number, number],
@@ -79,58 +65,90 @@ export function calculateDistance(
 }
 
 
+export const convertTo24Hour = (time12hr: string) => {
+  const match = time12hr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid time format. Use HH:MM AM/PM');
+  }
+
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+
+  if (period === 'PM' && hour !== 12) {
+    hour += 12;
+  } else if (period === 'AM' && hour === 12) {
+    hour = 0;
+  }
+
+  return { hour, minute };
+};
 
 export const validateOrderTime = (
-  serviceEndDateTime: Date | string,
+  serviceDateTime: Date,
   vendorOperationStart: string,
-  vendorOperationEnd: string
+  vendorOperationEnd: string,
+  vendorTimezone: string
 ) => {
-  // Convert serviceEndDateTime to a Date object
-  const serviceEndLocal = new Date(serviceEndDateTime);
+  try {
+    const serviceTime = DateTime.fromJSDate(serviceDateTime, { zone: vendorTimezone });
+    
+    // Convert vendor hours to DateTime objects in their timezone
+    const { hour: startHour, minute: startMinute } = convertTo24Hour(vendorOperationStart);
+    const { hour: endHour, minute: endMinute } = convertTo24Hour(vendorOperationEnd);
+    
+    const operationStart = serviceTime.set({ hour: startHour, minute: startMinute });
+    let operationEnd = serviceTime.set({ hour: endHour, minute: endMinute });
 
-  // Check if the parsed date is valid
-  if (isNaN(serviceEndLocal.getTime())) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Invalid service end date and time format.'
-    );
+    // Handle overnight operations (e.g., 8 PM to 2 AM)
+    if (operationEnd <= operationStart) {
+      operationEnd = operationEnd.plus({ days: 1 });
+    }
+
+    if (serviceTime < operationStart || serviceTime > operationEnd) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Order time must be between ${vendorOperationStart} and ${vendorOperationEnd} (${vendorTimezone})`
+      );
+    }
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid time validation parameters');
+  }
+};
+
+export const getDuration = (duration: string): number => {
+  // Handle multiple formats: '2hr', '30min', '3d', '02:30' (hours:minutes), '1:00:00' (days:hours:minutes)
+  const timeUnits: { [key: string]: number } = {
+    min: 60 * 1000, // minute in milliseconds
+    hr: 60 * 60 * 1000, // hour in milliseconds
+    d: 24 * 60 * 60 * 1000, // day in milliseconds
+  };
+
+  // Try simple format first (e.g., 2hr)
+  const simpleMatch = duration.match(/^(\d+)(min|hr|d)$/);
+  if (simpleMatch) {
+    const value = parseInt(simpleMatch[1], 10);
+    const unit = simpleMatch[2] as keyof typeof timeUnits;
+    return value * timeUnits[unit];
   }
 
-  // Convert vendor operation times to 24-hour format
-  const { hour: startHour, minute: startMinute } =
-    convertTo24Hour(vendorOperationStart); // "09:00 AM" -> { hour: 9, minute: 0 }
-  const { hour: endHour, minute: endMinute } =
-    convertTo24Hour(vendorOperationEnd); // "05:00 PM" -> { hour: 17, minute: 0 }
+  // Try complex formats
+  const parts = duration.split(':').map(part => parseInt(part, 10));
+  if (parts.length === 3) { // days:hours:minutes
+    const [days, hours, minutes] = parts;
+    return days * timeUnits.d + hours * timeUnits.hr + minutes * timeUnits.min;
+  }
 
-  // Create Date objects for operationStart and operationEnd in LOCAL TIME
-  const operationStart = new Date(serviceEndLocal);
-  const operationEnd = new Date(serviceEndLocal);
+  if (parts.length === 2) { // hours:minutes
+    const [hours, minutes] = parts;
+    return hours * timeUnits.hr + minutes * timeUnits.min;
+  }
 
-  // Set vendor's operation hours in LOCAL TIME
-  operationStart.setHours(startHour, startMinute, 0, 0);
-  operationEnd.setHours(endHour, endMinute, 0, 0);
-
-  console.log(
-    'Operation Start (Local):',
-    operationStart.toLocaleString(),
-    'Operation End (Local):',
-    operationEnd.toLocaleString(),
-    'Service End (Local):',
-    serviceEndLocal.toLocaleString()
+  throw new ApiError(
+    StatusCodes.BAD_REQUEST,
+    'Invalid duration format. Use formats like "2hr", "30min", "3d", "02:30", or "1:00:00".'
   );
-
-  // Handle cases where operationEnd crosses midnight
-  if (operationEnd < operationStart) {
-    operationEnd.setDate(operationEnd.getDate() + 1);
-  }
-
-  // Validate that the order time falls within the vendor's operation hours
-  if (serviceEndLocal < operationStart || serviceEndLocal > operationEnd) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      `Order time must be between ${vendorOperationStart} and ${vendorOperationEnd}`
-    );
-  }
 };
 
 
@@ -156,73 +174,7 @@ export const parseDuration = (duration: string): number => {
   return value * timeUnits[unit];
 };
 
-export const getDuration = (duration: string): number => {
-  const timeUnits: { [key: string]: number } = {
-    min: 60 * 1000, // minute in milliseconds
-    hr: 60 * 60 * 1000, // hour in milliseconds
-    d: 24 * 60 * 60 * 1000, // day in milliseconds
-  };
 
-  // Match the original format (e.g., '5min', '2hr', '1d')
-  const simpleMatch = duration.match(/^(\d+)(min|hr|d)$/);
-  if (simpleMatch) {
-    const value = parseInt(simpleMatch[1], 10);
-    const unit = simpleMatch[2] as keyof typeof timeUnits;
-    return value * timeUnits[unit];
-  }
-
-  // Match the 'dd:hh:mm' format
-  const complexMatch = duration.match(/^(\d+):(\d+):(\d+)$/);
-  if (complexMatch) {
-    const days = parseInt(complexMatch[1], 10);
-    const hours = parseInt(complexMatch[2], 10);
-    const minutes = parseInt(complexMatch[3], 10);
-
-    if (hours < 0 || hours > 23) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Hours must be between 0 and 23.'
-      );
-    }
-    if (minutes < 0 || minutes > 59) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Minutes must be between 0 and 59.'
-      );
-    }
-
-    return (
-      days * timeUnits['d'] +
-      hours * timeUnits['hr'] +
-      minutes * timeUnits['min']
-    );
-  }
-
-  // Match the 'hh:mm' format
-  const hourMinuteMatch = duration.match(/^(\d+):(\d+)$/);
-  if (hourMinuteMatch) {
-    const hours = parseInt(hourMinuteMatch[1], 10);
-    const minutes = parseInt(hourMinuteMatch[2], 10);
-
-    if (hours < 0 || hours > 23) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Hours must be between 0 and 23.'
-      );
-    }
-    if (minutes < 0 || minutes > 59) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        'Minutes must be between 0 and 59.'
-      );
-    }
-
-    return hours * timeUnits['hr'] + minutes * timeUnits['min'];
-  }
-
-  // If neither pattern matches, throw an error
-  throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid setup duration format.');
-};
 
 
 

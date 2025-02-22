@@ -27,6 +27,8 @@ import { orderSearchableFields } from './order.constant';
 import { Vendor } from '../vendor/vendor.model';
 import { Package } from '../package/package.model';
 import { Cart } from '../cart/cart.model';
+import { find } from 'geo-tz';
+import { DateTime } from 'luxon';
 
 
 const createOrder = async (payload: IOrder) => {
@@ -42,187 +44,186 @@ const createOrder = async (payload: IOrder) => {
     isCustomOrder,
   } = payload;
 
-  // Fetch vendor, customer, and package details
-  const [vendorExist, customerExist, packageExist] = await Promise.all([
-    User.findOne({ vendor: vendorId, status: 'active' }).populate<{vendor:IVendor}>({
-      path: 'vendor',
-      select: {
-        name: 1,
-        operationStartTime: 1,
-        operationEndTime: 1,
-        availableDays: 1,
-        location: 1,
-        deviceId:1
-      }
-    }),
-    User.findOne({ customer: customerId, status: 'active' }).populate<{customer:{name:string}}>(
-      'customer',
-      {
-        name: 1,
-      }
-    ),
-    !isCustomOrder
-      ? Package.findById(payload.packageId, { setupFee: 1, setupDuration: 1 })
-      : Promise.resolve(null), // Skip querying the package if isCustomOrder is true
-  ]);
+    // Fetch vendor, customer, and package details
+    const [vendorExist, customerExist, packageExist] = await Promise.all([
+      User.findOne({ vendor: vendorId, status: 'active' }).populate<{vendor: IVendor}>({
+        path: 'vendor',
+        select: {
+          name: 1,
+          operationStartTime: 1,
+          operationEndTime: 1,
+          availableDays: 1,
+          location: 1,
+          deviceId: 1
+        }
+      }),
+      User.findOne({ customer: customerId, status: 'active' }).populate<{customer: {name: string}}>(
+        'customer',
+        { name: 1 }
+      ),
+      !isCustomOrder 
+        ? Package.findById(payload.packageId, { setupFee: 1, setupDuration: 1 })
+        : Promise.resolve(null),
+    ]);
+  
+    // Validate existence
+    if (!vendorExist) throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
+    if (!customerExist) throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer does not exist');
+    if (!packageExist && !isCustomOrder) throw new ApiError(StatusCodes.BAD_REQUEST, 'Package does not exist');
 
-  // Validate vendor, customer, and package existence
-  if (!vendorExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
-  }
-  if (!customerExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Customer does not exist');
-  }
-  if (!packageExist && !isCustomOrder) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Package does not exist');
-  }
 
-  // Validate delivery date and time
-  const { operationStartTime, operationEndTime, availableDays, location } =
-    vendorExist.vendor as IVendor;
-
-  const requestedDay = new Date(deliveryDateAndTime).toLocaleDateString(
-    'en-US',
-    {
-      weekday: 'long',
-    }
-  );
-
+  // Convert deliveryDateAndTime to a valid Date object
   const deliveryDate = new Date(deliveryDateAndTime);
-  const currentDate = new Date();
-  const offsetMs = currentDate.getTimezoneOffset() * 60 * 1000;
-  const currentLocalDate = new Date(currentDate.getTime() - offsetMs);
 
-  if (deliveryDate.getTime() < currentLocalDate.getTime()) {
+  // Validate the date
+  if (isNaN(deliveryDate.getTime())) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Order cannot be created in the past.'
+      'Invalid delivery date and time format.'
     );
   }
 
-  if (!availableDays!.includes(requestedDay)) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Vendor is not available on the requested day.'
-    );
-  }
+  // Get vendor timezone from coordinates
+  const vendorCoords = vendorExist.vendor.location.coordinates;
+  const vendorTimezones = find(vendorCoords[1], vendorCoords[0]);
+  const vendorTimezone = vendorTimezones[0] || 'UTC';
 
+  console.log(vendorTimezone,"🦥🦥🦥 VENDOR TIMEZONE!", deliveryDateAndTime);
+  //@ts-expect-error timezone
+  // Convert input time to vendor's timezone
+  const deliveryDateTime = DateTime.fromISO(deliveryDateAndTime, { zone: vendorTimezone });
+  const nowInVendorTZ = DateTime.now().setZone(vendorTimezone);
+
+// Validate delivery time
+if (deliveryDateTime < nowInVendorTZ) {
+  throw new ApiError(
+    StatusCodes.BAD_REQUEST,
+    `Order cannot be created in the past. Vendor's local time: ${nowInVendorTZ.toFormat('yyyy-MM-dd HH:mm')}`
+  );
+}
+
+
+   // Validate available days
+   const requestedDay = deliveryDateTime.toFormat('EEEE');
+   if (!vendorExist.vendor.availableDays?.includes(requestedDay)) {
+     throw new ApiError(
+       StatusCodes.BAD_REQUEST,
+       `Vendor not available on ${requestedDay}. Available days: ${vendorExist.vendor.availableDays?.join(', ')}`
+     );
+   }
+   validateOrderTime(
+    deliveryDateTime.toJSDate(),
+    vendorExist.vendor.operationStartTime!,
+    vendorExist.vendor.operationEndTime!,
+    vendorTimezone
+  );
   // Calculate delivery fee and product price for custom orders
-  if (isCustomOrder) {
+   // Handle custom orders
+   if (isCustomOrder) {
+
+    // Validate available time
     validateOrderTime(
-      deliveryDateAndTime,
-      operationStartTime!,
-      operationEndTime!
+      deliveryDateTime.toJSDate(),
+      vendorExist.vendor.operationStartTime!,
+      vendorExist.vendor.operationEndTime!,
+      vendorTimezone
     );
 
-    const fee = payload.deliveryFee
-      ? Number(payload.deliveryFee)
-      : Number(
-          calculateDistance(
-            [location.coordinates[0], location.coordinates[1]],
-            [
-              payload.deliveryLocation.coordinates[0],
-              payload.deliveryLocation.coordinates[1],
-            ]
-          ) * Number(config.delivery_fee)
-        ).toFixed(2);
-
-    payload.deliveryFee = Number(fee);
-
-
-
+    // Calculate delivery fee
+    if (!payload.deliveryFee) {
+      const distance = calculateDistance(
+        [vendorCoords[0], vendorCoords[1]],
+        payload.deliveryLocation.coordinates
+      );
+      payload.deliveryFee = Number((distance * Number(config.delivery_fee)!).toFixed(2));
+    }
   }
 
-  // Validate setup duration and calculate setup start time
+
   if (isSetup) {
     const setupDurationMs = getDuration(setupDuration);
-    if (
-      isNaN(setupDurationMs) ||
-      isNaN(new Date(deliveryDateAndTime).getTime())
-    ) {
+    const setupStart = deliveryDateTime.minus({ milliseconds: setupDurationMs });
+
+    if (setupStart < nowInVendorTZ) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'Invalid setup duration or delivery date.'
+        `Setup time cannot be in the past. Vendor's local time: ${nowInVendorTZ.toFormat('HH:mm')}`
       );
     }
 
-    const setupStartDateAndTime = new Date(
-      new Date(deliveryDateAndTime).getTime() - setupDurationMs
-    );
-    if (packageExist) {
-      payload.setupFee = packageExist.setupFee;
-    }
-    payload.setupStartDateAndTime = setupStartDateAndTime;
-
-    if (payload.setupStartDateAndTime.getTime() < currentLocalDate.getTime()) {
-      const errorMessage = `Setup time conflict with current time. Please choose a future time. Current time: ${currentLocalDate.toISOString()}`;
-      throw new ApiError(StatusCodes.BAD_REQUEST, errorMessage);
-    }
+    payload.setupStartDateAndTime = setupStart.toJSDate();
+    payload.setupFee = packageExist?.setupFee || 0;
   }
 
-  // Check for existing orders
-  const query = isSetup
-    ? [
-        {
-          setupStartDateAndTime: { $lt: deliveryDateAndTime },
-          deliveryDateAndTime: { $gt: payload.setupStartDateAndTime },
-        },
-      ]
-    : [
-        {
-          setupStartDateAndTime: { $lt: deliveryDateAndTime },
-          deliveryDateAndTime: { $gt: deliveryDateAndTime },
-        },
-      ];
+  // Convert times to UTC for database
+  const deliveryUTC = deliveryDateTime.toUTC().toJSDate();
+  const setupStartUTC = payload.setupStartDateAndTime 
+    ? DateTime.fromJSDate(payload.setupStartDateAndTime).toUTC().toJSDate()
+    : null;
 
-  const existingOrder = await Order.findOne({
-    vendorId: payload.vendorId,
-    status: { $in: ['accepted', 'ongoing', 'started'] },
-    $and: query,
+  // Check for overlapping orders
+  const query = isSetup && setupStartUTC
+    ? {
+        $or: [
+          { 
+            setupStartDateAndTime: { $lt: deliveryUTC },
+            deliveryDateAndTime: { $gt: setupStartUTC }
+          },
+          {
+            $and: [
+              { setupStartDateAndTime: { $gte: setupStartUTC } },
+              { setupStartDateAndTime: { $lte: deliveryUTC } }
+            ]
+          }
+        ]
+      }
+    : {
+        setupStartDateAndTime: { $lt: deliveryUTC },
+        deliveryDateAndTime: { $gt: deliveryUTC }
+      };
+
+  const [existingOrder, customerExistingOrder] = await Promise.all([
+    Order.findOne({
+      vendorId: payload.vendorId,
+      status: { $in: ['accepted', 'ongoing', 'started'] },
+      ...query
+    }),
+    Order.findOne({
+      customerId: payload.customerId,
+      vendorId: payload.vendorId,
+      status: { $in: ['pending', 'accepted', 'ongoing', 'started'] },
+      ...query
+    })
+  ]);
+
+  if (existingOrder) throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor is busy during this time slot');
+  if (customerExistingOrder) throw new ApiError(StatusCodes.BAD_REQUEST, 'You have an existing order in this time slot');
+
+  // Create order
+  const result = await Order.create({
+    ...payload,
+    deliveryDateAndTime: deliveryUTC,
+    setupStartDateAndTime: setupStartUTC
   });
 
-  if (existingOrder) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'The vendor is already busy during this time slot.'
-    );
-  }
-
-  const customerExistingOrder = await Order.findOne({
-    customerId: payload.customerId,
-    vendorId: payload.vendorId,
-    status: { $in: ['pending', 'accepted', 'ongoing', 'started'] },
-    $and: query,
-  });
-
-  if (customerExistingOrder) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'You have already placed an order with this vendor during this time slot.'
-    );
-  }
-
-  // Create the order
-  const result = await Order.create([payload]);
-  if (result.length === 0) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create order.');
-  }
-
-
+  // Update cart
   await Cart.findOneAndUpdate(
     { customerId: payload.customerId },
     { $pull: { items: { vendorId: payload.vendorId } } }
   );
 
-
-  const notificationData ={
-    title:`New order request from ${customerExist.customer.name}`,
-    message:`${customerExist.customer.name} has placed an order. Please accept or reject the order. Order ID: ${orderId}`
-  }
-
-
-  //send notification and data with socket
-  await orderNotificationAndDataSendWithSocket('order', result[0]._id, USER_ROLES.VENDOR, notificationData)
+  // Send notification
+  const notificationData = {
+    title: `New order request from ${customerExist.customer.name}`,
+    message: `${customerExist.customer.name} placed an order. Order ID: ${orderId}`
+  };
+  
+  await orderNotificationAndDataSendWithSocket(
+    'order',
+    result._id,
+    USER_ROLES.VENDOR,
+    notificationData
+  );
 
   return result;
 };
@@ -489,53 +490,82 @@ const declineOrder = async (
 
 
 
+
 const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
+  // Validate required fields for accepted orders
   if (payload.status === 'accepted' && !payload.amount) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Amount is required');
   }
 
+  // Fetch the order with vendor and customer details
   const orderExists = await Order.findById({ _id: id, status: 'pending' })
-    .populate<{vendorId:Partial<IVendor>}>('vendorId', { name: 1, stripeId:1, stripeConnected:1, verifiedFlag:1 })
-    .populate<{customerId:Partial<ICustomer>}>('customerId', { name: 1, deviceId:1 });
+    .populate<{ vendorId: IVendor & { location: {type: string, coordinates: number[]} } }>('vendorId', {
+      name: 1,
+      stripeId: 1,
+      stripeConnected: 1,
+      verifiedFlag: 1,
+      location: 1, // Include location for timezone calculation
+    })
+    .populate<{ customerId: ICustomer }>('customerId', {
+      name: 1,
+      deviceId: 1,
+    });
 
   if (!orderExists) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Order not found');
   }
 
-  const {vendorId:vendorData} = orderExists;
+  const { vendorId: vendorData } = orderExists;
+  const { stripeId, stripeConnected, verifiedFlag, name: vendorName, location } = vendorData;
 
-
-  const { stripeId, stripeConnected, verifiedFlag, name:vendorName } = vendorData;
-
-
-  if (
-    !stripeId ||
-    stripeId === '' ||
-    stripeId === null ||
-    stripeId === undefined ||
-    !stripeConnected
-  ) {
+  // Validate vendor payment setup
+  if (!stripeId || !stripeConnected) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Please add your payment method first'
     );
   }
 
+  // Validate vendor account verification
   if (!verifiedFlag) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'You account information is not verified, please verify your account first'
+      'Your account information is not verified. Please verify your account first.'
     );
   }
+  const vendorCoords = location?.coordinates;
+  const vendorTimezones = find(vendorCoords[1], vendorCoords[0]);
+  const vendorTimezone = vendorTimezones[0] || 'UTC';
 
+  // Handle order acceptance logic
   if (payload.status === 'accepted') {
-    let conflictingOrder;
+    // Get vendor timezone from coordinates
+   
+    // Convert delivery and setup times to vendor's local timezone
+    const deliveryDateTime = DateTime.fromJSDate(orderExists.deliveryDateAndTime, { zone: 'utc' })
+      .setZone(vendorTimezone);
 
+    // Check for conflicting orders
+    let conflictingOrder;
     if (orderExists.isSetup) {
+      const setupStartUTC = DateTime.fromJSDate(orderExists.setupStartDateAndTime, { zone: 'utc' })
+        .setZone(vendorTimezone)
+        .toUTC()
+        .toJSDate();
+
+      const deliveryUTC = deliveryDateTime.toUTC().toJSDate();
+
       conflictingOrder = await Order.findOne({
         vendorId: orderExists.vendorId,
-        setupStartDateAndTime: { $lt: orderExists.deliveryDateAndTime },
-        deliveryDateAndTime: { $gt: orderExists.setupStartDateAndTime },
+        $or: [
+          {
+            setupStartDateAndTime: { $lt: deliveryUTC },
+            deliveryDateAndTime: { $gt: setupStartUTC },
+          },
+          {
+            setupStartDateAndTime: { $gte: setupStartUTC, $lte: deliveryUTC },
+          },
+        ],
         status: { $in: ['accepted', 'ongoing', 'started'] },
         _id: { $ne: id },
       });
@@ -551,36 +581,37 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
     if (conflictingOrder) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'The vendor already has an order during this time slot'
+        'The vendor already has an order during this time slot.'
       );
     }
 
+    // Handle setup duration for setup orders
     if (orderExists.isSetup) {
       if (!payload.setupDuration) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
-          'Setup duration is required for setup orders'
+          'Setup duration is required for setup orders.'
         );
       }
 
       const setupDurationMs = getDuration(payload.setupDuration);
-      const deliveryDate = new Date(orderExists.deliveryDateAndTime);
-      const setupStartDateAndTime = new Date(
-        deliveryDate.getTime() - setupDurationMs
-      );
+      const setupStartDateTime = deliveryDateTime.minus({ milliseconds: setupDurationMs });
 
-      if (isNaN(setupStartDateAndTime.getTime())) {
+      // Validate setup start time in vendor's local time
+      if (setupStartDateTime < DateTime.now().setZone(vendorTimezone)) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
-          'Invalid setup start date calculation'
+          `Setup time cannot be in the past. Vendor's local time: ${DateTime.now().setZone(vendorTimezone).toFormat('HH:mm')}`
         );
       }
 
-      payload.setupStartDateAndTime = setupStartDateAndTime;
+      // Convert back to UTC for storage
+      payload.setupStartDateAndTime = setupStartDateTime.toUTC().toJSDate();
       payload.setupFee = payload.setupFee || orderExists.setupFee;
     }
   }
 
+  // Update the order status
   const result = await Order.findOneAndUpdate(
     { _id: id, status: 'pending' },
     { $set: { ...payload } },
@@ -588,24 +619,28 @@ const rejectOrAcceptOrder = async (id: string, payload: Partial<IOrder>) => {
   );
 
   if (!result) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order');
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update order.');
   }
 
+  // Send notification with local time
+  const deliveryDateLocal = DateTime.fromJSDate(orderExists.deliveryDateAndTime, { zone: 'utc' })
+    .setZone(vendorTimezone)
+    .toLocaleString(DateTime.DATE_HUGE);
 
+  const notificationData = {
+    title: `${vendorName} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
+    message: `Your order request for #${orderExists.orderId} has been confirmed by ${vendorName}. The delivery date is ${deliveryDateLocal}.`,
+  };
 
-  const notificationData ={
-    title:`${vendorName} has ${payload?.status} the order. Order ID: ${result?.orderId}`,
-    message:`Your order request for #${orderExists.orderId} has been confirmed by ${vendorName}, The delivery date is ${orderExists.deliveryDateAndTime.toLocaleDateString()}`
-  }
-
-  //send notification and data with socket
-  await orderNotificationAndDataSendWithSocket('order', result._id, USER_ROLES.CUSTOMER, notificationData)
+  await orderNotificationAndDataSendWithSocket(
+    'order',
+    result._id,
+    USER_ROLES.CUSTOMER,
+    notificationData
+  );
 
   return result;
-
-
 };
-
 const getDeliveryCharge = async (
   payload: { coordinates: number[] },
   vendorId: string
