@@ -48,7 +48,7 @@ export const sendNotification = async (
       console.error('Error sending push notification:', error);
     }
   }
-
+  //@ts-expect-error socket
   global.io.emit(`${namespace}::${recipient}`, result);
 
 }
@@ -59,5 +59,6 @@ export const sendNotification = async (
   recipient: string | Types.ObjectId,
   data: Record<string, unknown>
 ) => {
+    //@ts-expect-error socket
     global.io.emit(`${namespace}::${recipient}`, data);
 };

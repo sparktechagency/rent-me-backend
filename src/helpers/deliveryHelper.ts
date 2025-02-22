@@ -38,7 +38,7 @@ export const stopDelivery = async (
       );
     }
 
-
+    //@ts-expect-error socket
     global.io.emit(`deliveryStopped::${orderId}`, updatedOrder.toObject()); // Emit plain JSON object
     return updatedOrder; // Return the updated order
   }

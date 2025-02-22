@@ -99,7 +99,9 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   };
 
   // Emit socket events
+  //@ts-expect-error socket
   global.io.emit(`messageReceived::${payload.chatId}`, populatedMessage);
+  //@ts-expect-error socket
   global.io.emit(`newChat::${user.role === USER_ROLES.CUSTOMER ? receiver.customer : receiver.vendor}`, socketChatListData);
 
   return populatedMessage;
