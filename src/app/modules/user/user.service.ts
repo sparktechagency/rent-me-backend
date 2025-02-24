@@ -16,8 +16,11 @@ import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { IGenericResponse } from '../../../types/response';
 import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import { IVendor } from '../vendor/vendor.interface';
+import { IAdmin } from '../admin/admin.interface';
+import { ICustomer } from '../customer/customer.interface';
 
-const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
+const createUserToDB = async (payload: Partial<IUser & IVendor & ICustomer & IAdmin>): Promise<IUser> => {
   const { ...user } = payload;
 
   let newUserData = null;
@@ -40,7 +43,7 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
 
     user.id = await generateCustomIdBasedOnRole(user.role!);
 
-    const createdUser = await createUserByRole(user, session);
+   await createUserByRole(user, session);
 
     const newUser = await User.create([user], { session });
     if (!newUser?.length) {
@@ -51,18 +54,12 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
 
     await session.commitTransaction();
 
-    if (newUserData) {
-      newUserData = await User.findOne({ _id: newUserData?._id })
-        .populate('admin')
-        .populate('customer')
-        .populate('vendor');
-    }
 
     const otp = generateOTP();
     const values = {
-      name: createdUser![0].name,
+      name: user.name!,
       otp,
-      email: newUserData!.email!,
+      email: user.email!,
     };
     const createAccountTemplate = emailTemplate.createAccount(values);
     await emailHelper.sendEmail(createAccountTemplate);
@@ -77,12 +74,12 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
       { $set: { authentication } }
     );
 
-    return newUserData!;
+    return newUserData!
   } catch (error) {
     await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 
@@ -98,7 +95,7 @@ const createUserByRole = async (
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create Admin');
       }
       user.admin = admin[0]._id;
-      return admin;
+      return;
     }
     case USER_ROLES.CUSTOMER: {
       const customer = await Customer.create([user], { session });
@@ -109,7 +106,7 @@ const createUserByRole = async (
         );
       }
       user.customer = customer[0]._id;
-      return customer;
+      return;
     }
     case USER_ROLES.VENDOR: {
       const vendor = await Vendor.create([user], { session });
@@ -128,7 +125,7 @@ const createUserByRole = async (
       });
 
       user.vendor = vendor[0]._id;
-      return vendor;
+      return;
     }
     default:
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid role');
