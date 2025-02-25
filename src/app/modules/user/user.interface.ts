@@ -15,7 +15,6 @@ export type IUser = {
   admin?: Types.ObjectId | IAdmin;
   role: USER_ROLES;
   status: 'active' | 'restricted' | 'delete';
-
   verified: boolean;
   appId: string;
   wrongLoginAttempts: number;

@@ -85,4 +85,11 @@ router.post(
   AuthController.socialLogin
 );
 
+
+router.patch('/toggle-user-permission',
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  AuthController.toggleUserPermission
+)
+
+
 export const AuthRoutes = router;

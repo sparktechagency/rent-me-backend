@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import twilio from 'twilio';
 
 import { addMinutes } from 'date-fns';
@@ -131,5 +132,18 @@ export const verifyOtp = async (
       StatusCodes.BAD_REQUEST,
       'Failed to verify OTP. Please try again later.'
     );
+  }
+};
+
+
+
+export const twilioStatusCallback = async (payload: any) => {
+  console.log('twilioStatusCallback');
+  console.log(payload);
+console.log(payload.Level, payload.Payload.error_code)
+  if (payload.Level === 'ERROR' || payload.Payload.error_code === '30008') {
+    
+ 
+  
   }
 };

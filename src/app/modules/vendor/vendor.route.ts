@@ -61,7 +61,7 @@ router.get(
 //get all vendor for home page search and filter
 router.get(
   '/',
-  auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER),
   VendorController.getAllVendor
 );
 

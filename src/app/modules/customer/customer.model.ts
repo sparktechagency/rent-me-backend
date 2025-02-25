@@ -52,6 +52,10 @@ const customerSchema = new Schema<ICustomer, CustomerModel>(
       type: Boolean,
       default: false,
     },
+    receivePhoneNotifications:{
+      type: Boolean,
+      default: false
+    },
     profileCompletion: {
       type: Number,
       default: 0,

@@ -162,6 +162,19 @@ const restrictOrActivateUser = catchAsync(async (req: Request, res: Response) =>
   });
 })
 
+
+const toggleUserPermission = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user;
+
+  const result = await AuthService.toggleUserPermission(user);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'User permission toggled successfully',
+    data: result,
+  });
+})
+
 export const AuthController = {
   verifyEmail,
   loginUser,
@@ -175,5 +188,6 @@ export const AuthController = {
   deleteAccount,
   updateUserAppId,
   socialLogin,
-  restrictOrActivateUser
+  restrictOrActivateUser,
+  toggleUserPermission
 };

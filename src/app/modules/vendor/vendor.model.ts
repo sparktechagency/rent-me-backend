@@ -131,6 +131,10 @@ const vendorSchema = new Schema<IVendor, VendorModel>(
         website: { type: String },
       },
     },
+    receivePhoneNotifications: {
+      type: Boolean,
+      default: false,
+    },
     yearsInBusiness: {
       type: Number,
     },

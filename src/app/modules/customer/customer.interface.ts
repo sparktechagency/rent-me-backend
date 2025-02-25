@@ -28,6 +28,7 @@ export type ICustomer = {
   address: IAddress;
   deliveryOption: IDeliveryOption;
   receivePromotionalNotification: boolean;
+  receivePhoneNotifications: boolean;
   profileCompletion: number;
   verifiedFlag: boolean;
   location: Point;

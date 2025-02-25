@@ -50,7 +50,6 @@ const userSchema = new Schema<IUser, UserModel>(
       type: String,
       select: 0,
     },
-
     verified: {
       type: Boolean,
       default: false,

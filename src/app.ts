@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
@@ -7,6 +8,7 @@ import { Morgan } from './shared/morgen';
 import { PaymentController } from './app/modules/payment/payment.controller';
 import { largeBodyParser } from './app/middlewares/largeBodyParser';
 import { OthersRoutes } from './app/modules/others/others.route';
+import { twilioStatusCallback } from './helpers/twilioHelper';
 
 
 const app = express();
@@ -27,6 +29,10 @@ app.post(
   express.raw({ type: 'application/json' }),
   PaymentController.webhooks
 );
+
+app.post('/twilio-status-callback',(req: Request, res: Response) => {
+  twilioStatusCallback(req.body)
+});
 
 app.use('/api/v1/others', largeBodyParser, OthersRoutes);
 

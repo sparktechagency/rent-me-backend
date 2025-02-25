@@ -60,6 +60,7 @@ export type IVendor = {
   operationStartTime?: string;
   operationEndTime?: string;
   profileCompletion: number;
+  receivePhoneNotifications: boolean;
 
   signatureType?: 'Typed' | 'Digital';
   signature?: string;

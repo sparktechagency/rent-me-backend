@@ -446,19 +446,28 @@ const sendOtpToPhone = async (user: JwtPayload, phone: string) => {
   // Fetch user with necessary fields
   const userDoc = await User.findById(user.id)
     .select('role customer vendor')
-    .populate({
+    .populate<{vendor:Partial<IVendor>}>({
       path: 'vendor',
-      select: 'contact businessContact isBusinessContactVerified isContactVerified',
+      select: 'contact businessContact isBusinessContactVerified isContactVerified receivePhoneNotifications',
     })
-    .populate({
+    .populate<{customer:Partial<ICustomer>}>({
       path: 'customer',
-      select: 'contact isContactVerified',
+      select: 'contact isContactVerified receivePhoneNotifications',
     })
     .lean();
 
   if (!userDoc) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
+
+
+  if((userDoc.role === USER_ROLES.CUSTOMER && !userDoc.customer.receivePhoneNotifications) || (userDoc.role === USER_ROLES.VENDOR && !userDoc.vendor.receivePhoneNotifications) ) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Please enable phone notifications to continue.'
+    );
+  }
+
 
   // Check if the phone number is already verified based on the user's role
   if (userDoc.role === USER_ROLES.CUSTOMER) {
@@ -694,6 +703,31 @@ const restrictOrActivateUser = async (user: JwtPayload, id:Types.ObjectId) => {
 }
 
 
+
+const toggleUserPermission = async (user: JwtPayload) => {
+
+  const isUserExist = await User.findById(user.id).populate<{customer:ICustomer}>('customer').populate<{vendor:IVendor}>('vendor').lean();
+
+  if(!isUserExist){ 
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  if(user.role === USER_ROLES.CUSTOMER){
+
+    await Customer.findByIdAndUpdate(isUserExist.customer?._id, { $set: { receivePhoneNotifications: !isUserExist.customer?.receivePhoneNotifications } }, { new: true });
+
+  }
+
+  if(user.role === USER_ROLES.VENDOR){
+
+    await Vendor.findByIdAndUpdate(isUserExist.vendor?._id, { $set: { receivePhoneNotifications: !isUserExist.vendor?.receivePhoneNotifications } }, { new: true });
+
+  }
+
+  return `User permission toggled to ${isUserExist.status}`
+
+}
+
 export const AuthService = {
   verifyEmailToDB,
   loginUserFromDB,
@@ -707,5 +741,6 @@ export const AuthService = {
   deleteAccount,
   updateUserAppId,
   socialLogin,
-  restrictOrActivateUser
+  restrictOrActivateUser,
+  toggleUserPermission
 };
