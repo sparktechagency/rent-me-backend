@@ -134,13 +134,14 @@ const getBusinessInformationFromVendor = async (
 
 const getVendorProfile = async (user: JwtPayload) => {
   const { userId } = user;
-  const result = await Vendor.findById({ _id: userId });
+  const result = await Vendor.findById({ _id: userId }).populate("businessType");
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get vendor profile');
   }
 
   // Get the count of services for this vendor
   const serviceCount = await Service.countDocuments({ vendorId: userId });
+
 
   const vendorObjectId = new Types.ObjectId(userId);
 

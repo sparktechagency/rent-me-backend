@@ -30,9 +30,9 @@ app.post(
   PaymentController.webhooks
 );
 
-app.post('/twilio-status-callback',(req: Request, res: Response) => {
-  twilioStatusCallback(req.body)
-});
+// app.post('/twilio-status-callback',(req: Request, res: Response) => {
+//   twilioStatusCallback(req.body)
+// });
 
 app.use('/api/v1/others', largeBodyParser, OthersRoutes);
 
