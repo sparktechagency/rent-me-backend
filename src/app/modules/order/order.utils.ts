@@ -9,6 +9,7 @@ import { sendDataWithSocket, sendNotification } from '../../../helpers/sendNotif
 import { IVendor } from '../vendor/vendor.interface';
 import { ICustomer } from '../customer/customer.interface';
 import { DateTime } from 'luxon';
+import { logger } from '../../../shared/logger';
 
 
 const getLastOrderId = async () => {
@@ -308,7 +309,7 @@ export const orderNotificationAndDataSendWithSocket = async (
       // Emit socket event
       await sendDataWithSocket(namespace, destinationUserId!, enrichData);
     } catch (error) {
-      console.error('Error sending socket event:', error);
+      logger.error('Error sending socket event:', error);
     }
 
     try {
@@ -332,10 +333,10 @@ export const orderNotificationAndDataSendWithSocket = async (
         }
       );
     } catch (error) {
-      console.error('Error sending push notification:', error);
+      logger.error('Error sending push notification:', error);
     }
   } catch (error) {
-    console.error('Error processing order notification and socket:', error);
+    logger.error('Error processing order notification and socket:', error);
     // Continue even if the notification or socket fails
   }
 };
