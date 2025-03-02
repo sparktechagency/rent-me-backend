@@ -5,11 +5,12 @@ const serviceSchema = new Schema<IService, ServiceModel>(
   {
     vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true },
     title: { type: String, required: true },
+    isDeleted: { type: Boolean, default: false },
     description: { type: String, required: true },
     estBudget: { type: Number, required: true },
     packages: [{ type: Schema.Types.ObjectId, ref: 'Package', required: true }],
     categoryId: {
-      type: Schema.Types.ObjectId,
+      type: [Schema.Types.ObjectId],
       ref: 'Category',
       required: true,
     },

@@ -12,6 +12,7 @@ export type IProduct = {
   quantity?: number;
   // categories: [Types.ObjectId];
   vendor: Types.ObjectId;
+  isDeleted?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

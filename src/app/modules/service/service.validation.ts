@@ -6,14 +6,14 @@ const createServiceZodSchema = z.object({
   description: z.string({ required_error: 'Description is required' }),
   estBudget: z.number().min(0, 'Budget must be a positive number'),
 
-  categoryId: z.string().optional(),
+  categoryId: z.array(z.string()).optional(),
 });
 
 const updateServiceZodSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
   estBudget: z.number().optional(),
-  categoryId: z.string().optional(),
+  categoryId: z.array(z.string()).optional(),
 });
 
 export const ServiceValidation = {

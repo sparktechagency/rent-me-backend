@@ -52,7 +52,7 @@ const deleteProductFromDB = async (
   if (!isProductExist) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Product not found');
   }
-  const product = await Product.findOneAndDelete({ _id: productId });
+  const product = await Product.findOneAndUpdate({ _id: productId }, { $set: { isDeleted: true } }, { new: true });
   if (!product) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete product');
   }
@@ -82,6 +82,8 @@ const getAllProductFromDB = async (
 if(vendor){
   andConditions.push({vendor: new Types.ObjectId(vendor)})
 }
+
+andConditions.push({isDeleted: false})
 
 if(user.role === USER_ROLES.VENDOR){andConditions.push({vendor: user.userId})}
 

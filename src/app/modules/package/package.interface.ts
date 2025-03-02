@@ -5,6 +5,7 @@ import { IService } from '../service/service.interface';
 export type IPackage = {
   title: string;
   features: string[];
+  isDeleted: boolean;
   vendorId: Types.ObjectId | IVendor;
   serviceId: Types.ObjectId | IService;
   setupDuration: string;

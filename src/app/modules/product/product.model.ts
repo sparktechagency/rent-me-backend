@@ -10,6 +10,7 @@ const productSchema = new Schema<IProduct, ProductModel>({
   dailyRate: { type: Number, required: true },
   minDays: { type: Number, required: true },
   quantity: { type: Number },
+  isDeleted: { type: Boolean, default: false },
   // categories: [
   //   { type: Schema.Types.ObjectId, ref: 'Category', required: true },
   // ],

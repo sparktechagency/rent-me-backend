@@ -305,16 +305,17 @@ const getAllVendor = async (
   }
 
   if (category) {
-    const servicesWithCategory = await Service.find(
-      { categoryId: category },
-      { vendorId: 1 }
-    ).distinct('vendorId');
+    andCondition.push({ businessType: { $in: [category] } });
+    // const servicesWithCategory = await Service.find(
+    //   { categoryId: category },
+    //   { vendorId: 1 }
+    // ).distinct('vendorId');
 
-    {
-      andCondition.push({
-        _id: { $in: servicesWithCategory },
-      });
-    }
+    // {
+    //   andCondition.push({
+    //     _id: { $in: servicesWithCategory },
+    //   });
+    // }
   }
 
   if (serviceDate) {
@@ -444,7 +445,7 @@ const getAllVendor = async (
       [customerLocation.coordinates[1], customerLocation.coordinates[0]],
       [vendor.location.coordinates[1], vendor.location.coordinates[0]]
     );
-    // console.log(distance,"👌👌👌👌👌👌👌", vendor.location, "🦥🦥🦥🦥🦥", customerLocation)
+
     return {
       ...vendor,
       distance,

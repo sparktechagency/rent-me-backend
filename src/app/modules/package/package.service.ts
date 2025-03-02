@@ -111,8 +111,22 @@ const deletePackage = async (
       { new: true, session }
     );
 
-    // Delete the package
-    await Package.findByIdAndDelete(packageId, { session });
+    const [deletedPackage, service] = await Promise.all([
+      Package.findByIdAndUpdate(packageId, { $set: { isDeleted: true } }, { new: true, session }),
+      Service.findByIdAndUpdate(
+        packageToDelete.serviceId,
+        { $pull: { packages: packageId } },
+        { new: true, session }
+      )
+    ]);
+
+    if (!service) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete package');
+    }
+
+    if (!deletedPackage) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete package');
+    }
 
     // Commit the transaction
     await session.commitTransaction();
@@ -120,7 +134,7 @@ const deletePackage = async (
     await session.abortTransaction();
     throw error; // Rethrow the error for the caller to handle
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 

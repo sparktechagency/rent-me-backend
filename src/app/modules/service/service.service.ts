@@ -124,7 +124,7 @@ const updateService = async (
 };
 
 const getAllPackageByServiceId = async (id: string): Promise<IPackage[]> => {
-  const result = await Package.find({ serviceId: id })
+  const result = await Package.find({ serviceId: id, isDeleted: false })
     .populate('vendorId')
     .populate('serviceId');
   if (!result) {
@@ -134,12 +134,13 @@ const getAllPackageByServiceId = async (id: string): Promise<IPackage[]> => {
 };
 
 const getAllServiceByVendorId = async (id: string): Promise<IService[]> => {
-  const result = await Service.find({ vendorId: id }).populate('packages', {
-    title: 1,
-    features: 1,
-    setupFee: 1,
-    setupDuration: 1,
-  });
+  const result = await Service.find({ vendorId: id, isDeleted: false })
+    .populate('packages', {
+      title: 1,
+      features: 1,
+      setupFee: 1,
+      setupDuration: 1,
+    });
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get services');
   }
@@ -166,13 +167,23 @@ const deleteService = async (
         'You are not authorized to delete this service'
       );
     }
-    const result = await Service.findByIdAndDelete(id);
-    if (!result) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to delete service');
+
+    const [deletedPackages, deletedService] = await Promise.all([
+      Package.updateMany(
+        { serviceId: id },
+        { $set: { isDeleted: true } },
+        { new: true, session }
+      ),
+      Service.findByIdAndUpdate(id, { $set: { isDeleted: true } }, { new: true, session }),
+    ]);
+
+    if (!deletedService) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'Failed to delete service'
+      );
     }
 
-    // Delete all packages associated with the service
-    const deletedPackages = await Package.deleteMany({ serviceId: id });
     if (!deletedPackages) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
@@ -181,11 +192,14 @@ const deleteService = async (
     }
     await session.commitTransaction();
     session.endSession();
-    return result;
+    return deletedService;
   } catch (error) {
     await session.abortTransaction();
-    session.endSession();
+    await session.endSession();
     throw error;
+  }
+  finally{
+   await session.endSession();
   }
 };
 

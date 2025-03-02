@@ -5,6 +5,7 @@ import { ICategory } from '../category/category.interface';
 export type IService = {
   vendorId: Types.ObjectId | IVendor;
   title: string;
+  isDeleted: boolean;
   description: string;
   estBudget: number;
   packages: Types.ObjectId[];
@@ -18,7 +19,7 @@ export type IServiceFilters = {
   searchTerm: string;
   estBudget?: number;
   title: string;
-  categoryId: string;
+  categoryId: string[];
   minEstBudget?: number;
   maxEstBudget?: number;
 };

@@ -12,6 +12,10 @@ const packageSchema = new Schema<IPackage, IPackageModel>(
       required: true,
     },
 
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
     vendorId: {
       type: Schema.Types.ObjectId,
       ref: 'Vendor',
