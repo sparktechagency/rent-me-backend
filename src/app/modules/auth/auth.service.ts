@@ -91,10 +91,7 @@ const loginUserFromDB = async (
   }
 
   //check match password
-  if (
-    password &&
-    !(await User.isMatchPassword(password, isExistUser.password))
-  ) {
+  if (!await bcrypt.compare(password, isExistUser.password)) {
     isExistUser.wrongLoginAttempts += 1;
 
     if (isExistUser.wrongLoginAttempts >= 5) {
