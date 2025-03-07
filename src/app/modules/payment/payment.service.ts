@@ -222,7 +222,7 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
     if (balance.available[0].amount < Math.floor(remainingAmount * 100)) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'Insufficient funds in platform account for transfer'
+        'Due to insufficient balance, transfer cannot be processed, please try again later.'
       );
     }
 
@@ -233,7 +233,7 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
     if (account.requirements && account.requirements.disabled_reason) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        `Vendor's Stripe account is not enabled: ${account.requirements.disabled_reason}`
+        `Your Stripe account is not enabled: ${account.requirements.disabled_reason}, please update your account and try again.`
       );
     }
 
@@ -246,7 +246,7 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
     if (!externalAccounts.data.length) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'No external accounts found for the vendor'
+        'No bank account found, please add a bank account and try again.'
       );
     }
 
@@ -257,7 +257,7 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
     if (!externalAccount) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        'No verified external accounts found for the vendor'
+        'No verified external accounts found, please add a bank account and try again.'
       );
     }
 
@@ -300,7 +300,7 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
 
 
     if(!updatedOrder){
-      logger.error("Failed to update order status after successful payment.")
+      logger.error("Something went wrong while updating order status after successful payment.")
     }
 
 
