@@ -14,7 +14,7 @@ const paymentSchema = new Schema<IPayment, PaymentModel>(
     currency: { type: String, default: 'usd' },
     status: {
       type: String,
-      enum: ['initiated', 'succeeded', 'failed', 'refunded'],
+      enum: ['initiated', 'succeeded', 'failed', 'refunded', 'canceled'],
       default: 'initiated',
     },
     stripePaymentSessionId: { type: String },

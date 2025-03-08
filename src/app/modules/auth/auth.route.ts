@@ -4,12 +4,12 @@ import auth from '../../middlewares/auth';
 import validateRequest from '../../middlewares/validateRequest';
 import { AuthController } from './auth.controller';
 import { AuthValidation } from './auth.validation';
-import { rateLimiter } from '../../../util/rateLimmiter';
+
 const router = express.Router();
 
 router.post(
   '/login',
-  rateLimiter,
+
   validateRequest(AuthValidation.createLoginZodSchema),
   AuthController.loginUser
 );

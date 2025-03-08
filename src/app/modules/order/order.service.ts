@@ -88,7 +88,6 @@ const createOrder = async (payload: IOrder) => {
   const vendorTimezones = find(vendorCoords[1], vendorCoords[0]);
   const vendorTimezone = vendorTimezones[0] || 'UTC';
 
-  console.log(vendorTimezone,"🦥🦥🦥 VENDOR TIMEZONE!", deliveryDateAndTime);
   //@ts-expect-error timezone
   // Convert input time to vendor's timezone
   const deliveryDateTime = DateTime.fromISO(deliveryDateAndTime, { zone: vendorTimezone });
@@ -197,7 +196,7 @@ if (deliveryDateTime < nowInVendorTZ) {
   ]);
 
   if (existingOrder) throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor is busy during this time slot');
-  if (customerExistingOrder) throw new ApiError(StatusCodes.BAD_REQUEST, 'You have an existing order in this time slot');
+  if (customerExistingOrder) throw new ApiError(StatusCodes.BAD_REQUEST, 'You already have an existing order in this time slot with this vendor');
 
   // Create order
   const result = await Order.create({

@@ -21,13 +21,12 @@ export const createAdmin = async (payload: {
     ).session(session); // Alternatively, you can chain .session(session)
 
     if (isExistUser) {
-      logger.info('Admin already exists');
       return; // Exit if the user already exists
     }
 
     // Generate custom ID for admin
     const id = await generateCustomIdBasedOnRole(USER_ROLES.ADMIN);
-    console.log(id)
+
     // Create new admin
     const newAdmin = await Admin.create([{ ...payload, id: id, profile:'https://rentmee.s3.us-east-1.amazonaws.com/png+Y.png' }], { session });
 

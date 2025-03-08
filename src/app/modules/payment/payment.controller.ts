@@ -12,13 +12,7 @@ import { Order } from '../order/order.model';
 import { logger } from '../../../shared/logger';
 import ApiError from '../../../errors/ApiError';
 import { Vendor } from '../vendor/vendor.model';
-import {
-  sendDataWithSocket,
-  sendNotification,
-} from '../../../helpers/sendNotificationHelper';
 import { USER_ROLES } from '../../../enums/user';
-import { User } from '../user/user.model';
-import { Types } from 'mongoose';
 import { IVendor } from '../vendor/vendor.interface';
 import { orderNotificationAndDataSendWithSocket } from '../order/order.utils';
 
@@ -151,18 +145,37 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         }
 
 
-
         //TODO test this
          const notificationData = { title: `Payment received for order ${order.id} please proceed with the order`,
            message: `We have received the payment for order ${order.id} please proceed with the order, after completion you will receive the payment.`
          }
-        console.log(order._id,"😍😍😍😍😍 order from payment")
         await orderNotificationAndDataSendWithSocket('order', order?._id, USER_ROLES.VENDOR, notificationData)
 
         logger.info(
           `Payment and Order updated successfully for orderId: ${session.metadata?.orderId}`
         );
 
+        break;
+      }
+      case 'payment_intent.canceled': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+        const payment = await Payment.findOneAndUpdate(
+          { orderId: paymentIntent.metadata.orderId },
+          { $set: { status: 'canceled' } },
+          { new: true }
+        );
+
+        if (!payment) {
+          throw new ApiError(
+            StatusCodes.BAD_REQUEST,
+            'Payment status update failed for canceled payment'
+          );
+        }
+
+        logger.info(
+          `Payment canceled for orderId: ${paymentIntent.metadata.orderId}`
+        );
         break;
       }
 
