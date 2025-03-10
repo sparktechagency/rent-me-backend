@@ -113,7 +113,6 @@ const loginUserFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }
 
-  console.log(payload.deviceId,"from auth", isExistUser.vendor, isExistUser.customer,"🦥🦥🦥🦥🦥")
 
 
   //update device id based on role

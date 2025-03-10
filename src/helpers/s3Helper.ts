@@ -52,7 +52,7 @@ export const deleteFromS3 = async (fileKey: string): Promise<void> => {
     try {
       const command = new DeleteObjectCommand(params);
       await s3Client.send(command);
-      console.log(`File deleted successfully: ${fileKey}`);
+
     } catch (error) {
       console.error('Error deleting from S3:', error);
       throw new Error('Failed to delete file from S3');

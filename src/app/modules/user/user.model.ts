@@ -20,7 +20,6 @@ const userSchema = new Schema<IUser, UserModel>(
     },
     password: {
       type: String,
-
       select: 0,
       minlength: 8,
     },

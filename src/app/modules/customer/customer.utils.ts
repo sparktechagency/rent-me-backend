@@ -35,19 +35,20 @@ export const calculateCustomerProfileCompletion = (
           }
           break;
 
-        case 'location':
-          // Ensure location is a valid GeoJSON object
-          if (
-            typeof fieldValue === 'object' &&
-            'type' in fieldValue &&
-            fieldValue.type === 'Point' &&
-            'coordinates' in fieldValue &&
-            Array.isArray(fieldValue.coordinates) &&
-            fieldValue.coordinates.length === 2
-          ) {
-            completedFields += 1;
-          }
-          break;
+          case 'location':
+            // Ensure location is valid
+            if (
+              typeof fieldValue === 'object' &&
+              'type' in fieldValue &&
+              fieldValue.type === 'Point' &&
+              'coordinates' in fieldValue &&
+              Array.isArray(fieldValue.coordinates) &&
+              fieldValue.coordinates.length === 2 &&
+              (fieldValue.coordinates[0] !== 0 || fieldValue.coordinates[1] !== 0) // Check that coordinates are not [0, 0]
+            ) {
+              completedFields += 1;
+            }
+            break;
 
         default:
           // Count all other fields if they have a value

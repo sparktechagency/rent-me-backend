@@ -131,6 +131,7 @@ const requiredFields = [
   'operationStartTime',
   'operationEndTime',
   'stripeConnected',
+  'location'
 ];
 
 export const calculateProfileCompletion = (vendor: IVendor): number => {
@@ -152,6 +153,20 @@ export const calculateProfileCompletion = (vendor: IVendor): number => {
           if (
             typeof fieldValue === 'object' &&
             Object.keys(fieldValue).length > 0
+          ) {
+            completedFields += 1;
+          }
+          break;
+        case 'location':
+          // Ensure location is valid
+          if (
+            typeof fieldValue === 'object' &&
+            'type' in fieldValue &&
+            fieldValue.type === 'Point' &&
+            'coordinates' in fieldValue &&
+            Array.isArray(fieldValue.coordinates) &&
+            fieldValue.coordinates.length === 2 &&
+            (fieldValue.coordinates[0] !== 0 || fieldValue.coordinates[1] !== 0) // Check that coordinates are not [0, 0]
           ) {
             completedFields += 1;
           }

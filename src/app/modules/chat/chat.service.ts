@@ -220,7 +220,7 @@ const getChatListByUserId = async (
         ).length
     );
 
-    console.log(user,"🦥🦥🦥🦥🦥🦥",chats)
+
 
   const result = filteredChats.map(chat => {
     const otherParticipant = chat.participants.find(
