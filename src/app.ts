@@ -19,7 +19,7 @@ app.use(Morgan.errorHandler);
 
 app.use(
   cors({
-    origin: ['https://rent-me-dashboard.vercel.app','http://localhost:5174'],
+    origin: ['http://54.241.243.33:5173/','https://54.241.243.33:5173/','http://172.31.11.103:5173/','https://172.31.11.103:5173/', ],
     credentials: true,
   })
 );
