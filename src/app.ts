@@ -19,9 +19,8 @@ app.use(Morgan.errorHandler);
 
 app.use(
   cors({
-    origin: ['http://54.241.243.33:5173/','https://54.241.243.33:5173/','http://172.31.11.103:5173/','https://172.31.11.103:5173/', ],
-    credentials: true,
-  })
+    origin: '*',
+  }),
 );
 
 app.post(
