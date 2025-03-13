@@ -5,7 +5,7 @@ const emailStyles = `
     font-family: Arial, sans-serif;
     background-color: #f9f9f9;
     padding: 20px;
-    color: #333;
+    color: #000; /* Set text color to black */
     text-align: center;
   }
   .container {
@@ -21,12 +21,6 @@ const emailStyles = `
     display: block;
     margin: 0 auto 20px;
     width: 150px;
-    background-color: #FFD900;
-    padding: 10px;
-    border-radius: 5px;
-    color: #000;
-    font-size: 24px;
-    font-weight: bold;
   }
   .heading {
     color: #FFD900;
@@ -37,7 +31,7 @@ const emailStyles = `
   .content {
     font-size: 16px;
     line-height: 1.6;
-    color: #555;
+    color: #000; /* Ensure content text is black */
     margin-bottom: 20px;
   }
   .otp-box {
@@ -73,7 +67,7 @@ const createAccount = (values: ICreateAccount) => {
       </head>
       <body>
         <div class="container">
-          <div class="logo">Rent-Me</div>
+          <img src="https://i.ibb.co.com/fYjBNJtt/image.png" alt="Rent-Me Logo" class="logo" />
           <h2 class="heading">Hey ${values.name}, Welcome to Rent-Me!</h2>
           <p class="content">
             Thank you for joining Rent-Me! To complete your registration, please verify your email address by using the one-time code below:
@@ -101,7 +95,7 @@ const resetPassword = (values: IResetPassword) => {
       </head>
       <body>
         <div class="container">
-          <div class="logo">Rent-Me</div>
+          <img src="https://i.ibb.co.com/fYjBNJtt/image.png" alt="Rent-Me Logo" class="logo" />
           <h2 class="heading">Password Reset Request</h2>
           <p class="content">
             We received a request to reset your Rent-Me account password. Use the following one-time code to proceed:
