@@ -642,7 +642,7 @@ const socialLogin = async (socialId: string,deviceId: string) => {
   session.startTransaction();
 
   try {
-    const isUserExist = await User.findOne({ appid: socialId, status: { $in: ['active', 'restricted'] } , role: USER_ROLES.CUSTOMER}).session(session);
+    const isUserExist = await User.findOne({ appId: socialId, status: { $in: ['active', 'restricted'] } , role: USER_ROLES.CUSTOMER}).session(session);
 
     if (isUserExist) {
       const tokens = createTokens(isUserExist._id, isUserExist?.customer as Types.ObjectId);
@@ -654,7 +654,7 @@ const socialLogin = async (socialId: string,deviceId: string) => {
       const newCustomer = await Customer.create([{ id: id, deviceId: deviceId }], { session });
       
       
-      const newUser = await User.create([{ id: id, appid: socialId, role: USER_ROLES.CUSTOMER,password:"hello-world!", customer: newCustomer[0]._id }], { session });
+      const newUser = await User.create([{ id: id, appId: socialId, role: USER_ROLES.CUSTOMER,password:"hello-world!", customer: newCustomer[0]._id }], { session });
 
       if (!newUser || !newCustomer) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'User or Customer creation failed');
