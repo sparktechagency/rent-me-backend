@@ -25,7 +25,7 @@ export const sendPushNotification = async (
     data: data, // Optional data payload
     android: {
       notification: {
-        icon: icon || 'https://res.cloudinary.com/di2erk78w/image/upload/v1739447789/B694F238-61D7-490D-9F1B-3B88CD6DD094_1_1_kpjwlx.png',
+        icon: icon ,
       },
     },
     apns: {

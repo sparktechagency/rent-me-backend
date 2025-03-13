@@ -21,12 +21,18 @@ const emailStyles = `
     display: block;
     margin: 0 auto 20px;
     width: 150px;
+    background-color: #FFD900;
+    padding: 10px;
+    border-radius: 5px;
+    color: #000;
+    font-size: 24px;
+    font-weight: bold;
   }
   .heading {
     color: #FFD900;
-    font-size: 22px;
+    font-size: 24px;
     font-weight: bold;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
   }
   .content {
     font-size: 16px;
@@ -51,6 +57,10 @@ const emailStyles = `
     color: #777;
     margin-top: 20px;
   }
+  .footer a {
+    color: #FFD900;
+    text-decoration: none;
+  }
 `;
 
 const createAccount = (values: ICreateAccount) => {
@@ -63,7 +73,7 @@ const createAccount = (values: ICreateAccount) => {
       </head>
       <body>
         <div class="container">
-          <img src="https://ibb.co.com/Brm4px4" alt="Rent-Me Logo" class="logo" />
+          <div class="logo">Rent-Me</div>
           <h2 class="heading">Hey ${values.name}, Welcome to Rent-Me!</h2>
           <p class="content">
             Thank you for joining Rent-Me! To complete your registration, please verify your email address by using the one-time code below:
@@ -73,7 +83,7 @@ const createAccount = (values: ICreateAccount) => {
             This code is valid for <strong>5 minutes</strong>. Please enter it in the app to verify your account.
           </p>
           <p class="footer">
-            If you didn't sign up for Rent-Me, please ignore this email or contact support.
+            If you didn't sign up for Rent-Me, please ignore this email or <a href="mailto:support@rentmeus.com">contact support</a>.
           </p>
         </div>
       </body>
@@ -91,7 +101,7 @@ const resetPassword = (values: IResetPassword) => {
       </head>
       <body>
         <div class="container">
-          <img src="https://ibb.co.com/Brm4px4" alt="Rent-Me Logo" class="logo" />
+          <div class="logo">Rent-Me</div>
           <h2 class="heading">Password Reset Request</h2>
           <p class="content">
             We received a request to reset your Rent-Me account password. Use the following one-time code to proceed:
@@ -101,7 +111,7 @@ const resetPassword = (values: IResetPassword) => {
             This code is valid for <strong>5 minutes</strong>. If you did not request a password reset, please ignore this email.
           </p>
           <p class="footer">
-            Need help? <a href="mailto:support@rentmeus.com" style="color: #FFD900; text-decoration: none;">Contact our support team</a>.
+            Need help? <a href="mailto:support@rentmeus.com">Contact our support team</a>.
           </p>
         </div>
       </body>
