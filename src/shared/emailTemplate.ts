@@ -5,7 +5,7 @@ const emailStyles = `
     font-family: Arial, sans-serif;
     background-color: #f9f9f9;
     padding: 20px;
-    color: #000; /* Set text color to black */
+    color: #000; /* Ensure all text is black */
     text-align: center;
   }
   .container {
@@ -15,15 +15,18 @@ const emailStyles = `
     padding: 30px;
     background-color: #ffffff;
     border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
   }
   .logo {
     display: block;
     margin: 0 auto 20px;
     width: 150px;
+    height: 150px;
+    border-radius: 50%; /* Round the logo */
+    border: 3px solid #FFD900; /* Optional: Add a yellow border around the logo */
   }
   .heading {
-    color: #FFD900;
+    color: #000; /* Keep the heading black */
     font-size: 24px;
     font-weight: bold;
     margin-bottom: 15px;
@@ -40,7 +43,7 @@ const emailStyles = `
     padding: 12px;
     text-align: center;
     border-radius: 8px;
-    color: #333;
+    color: #000; /* Keep OTP text black */
     font-size: 26px;
     font-weight: bold;
     letter-spacing: 3px;
