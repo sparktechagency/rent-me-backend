@@ -10,6 +10,7 @@ export type IPayment = {
   stripePaymentSessionId: string;
   stripePaymentIntentId: string;
   stripeTransferId: string;
+  stripePayoutId: string;
   applicationFee: number;
   isInstantTransfer: boolean;
 };

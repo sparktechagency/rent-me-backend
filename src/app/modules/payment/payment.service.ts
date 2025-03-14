@@ -188,16 +188,18 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
         select: {
           name: 1},
         },
-      ),
+      ).lean(),
       Payment.findOne(
         { orderId: orderId, status: 'succeeded' },
         { amount: 1, stripePaymentIntentId: 1 }
-      ),
+      ).lean(),
       User.findById(user.id).populate({
         path: 'vendor',
         select: 'stripeId deviceId',
-      }),
+      }).lean(),
     ]);
+
+
 
     if (!isOrderExists)
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Order does not exist');
@@ -206,6 +208,15 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
 
     if (!isUserExists)
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Vendor does not exist');
+
+
+    //prevent vendor from transferring the money before the delivery time is passed
+    // if (isOrderExists.deliveryDateAndTime && new Date() < new Date(isOrderExists.deliveryDateAndTime)) {
+    //   throw new ApiError(
+    //     StatusCodes.BAD_REQUEST,
+    //     'Delivery time has not passed, please wait until the delivery time is passed'
+    //   );
+    // }
 
     // Calculate fees and remaining amount
     const applicationFeePercentage = isOrderExists.isInstantTransfer
@@ -287,6 +298,8 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
       {
         applicationFee,
         isInstantTransfer: isOrderExists.isInstantTransfer,
+        stripeTransferId: transfer.id,
+        stripePayoutId: payout.id
       },
       { new: true }
     );
@@ -305,8 +318,8 @@ const transferToVendor = async (user: JwtPayload, orderId: string) => {
 
 
     //TODO test this
-    const notificationData = { title: `Payment request received for order ${isOrderExists.id}`,
-      message: `The payment for order ${isOrderExists.id} has been successfully processed, ${isOrderExists.isInstantTransfer ? 'please check your bank account' : 'it will be available in 2-3 business days'}`
+    const notificationData = { title: `Payment request received for order ${isOrderExists.orderId}`,
+      message: `The payment for order ${isOrderExists.orderId} has been successfully processed, ${isOrderExists.isInstantTransfer ? 'please check your bank account' : 'it will be available in 2-3 business days'}`
 
     }
 

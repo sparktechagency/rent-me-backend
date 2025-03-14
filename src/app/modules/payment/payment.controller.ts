@@ -200,6 +200,8 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         );
         break;
       }
+
+
       case 'account.external_account.created': {
         const createdAccount = event.data.object;
         const result = await Vendor.findOneAndUpdate(
