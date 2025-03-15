@@ -8,7 +8,6 @@ import { Morgan } from './shared/morgen';
 import { PaymentController } from './app/modules/payment/payment.controller';
 import { largeBodyParser } from './app/middlewares/largeBodyParser';
 import { OthersRoutes } from './app/modules/others/others.route';
-import { twilioStatusCallback } from './helpers/twilioHelper';
 
 
 const app = express();
@@ -29,9 +28,7 @@ app.post(
   PaymentController.webhooks
 );
 
-app.post('/twilio-status-callback', (req: Request, res: Response) => {
-  twilioStatusCallback(req.body);
-});
+
 
 app.use('/api/v1/others', largeBodyParser, OthersRoutes);
 

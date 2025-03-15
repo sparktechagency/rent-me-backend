@@ -13,11 +13,6 @@ const twilioPhoneNumber = config.twilio.phone_number;
 const client = twilio(accountSid, authToken);
 import crypto from 'crypto';
 import ApiError from '../errors/ApiError';
-import mongoose from 'mongoose';
-import { User } from '../app/modules/user/user.model';
-import { USER_ROLES } from '../enums/user';
-import { Customer } from '../app/modules/customer/customer.model';
-import { Vendor } from '../app/modules/vendor/vendor.model';
 
 // Helper function to hash OTP
 const hashOtp = (otp: string): string => {
@@ -84,6 +79,7 @@ export const sendOtp = async (phoneNumber: string): Promise<void> => {
      
     // Send the OTP using Twilio
 
+
     await client.messages.create({
       body: `Your OTP code is ${otp}. It will expire in 5 minutes.`,
       from: twilioPhoneNumber,
@@ -142,45 +138,3 @@ export const verifyOtp = async (
 
 
 
-export const twilioStatusCallback = async (payload: any) => {
-  if (payload.Level === 'ERROR' || payload.Payload.error_code === '30008') {
-    
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-      const parsedData = JSON.parse(payload.Payload)
-      
-      // Find and delete the OTP, user, and professional in a single transaction
-      const otp = await Otp.findOneAndDelete({ sid: parsedData.service_sid  }, { session });
-
-      if (!otp) {
-        throw new ApiError(StatusCodes.NOT_FOUND, 'OTP not found.');
-      }
-      const user = await User.findOneAndDelete({ contact: otp.phoneNumber }, { session });
-
-      
-      if (user?.role === USER_ROLES.CUSTOMER) {
-        await Customer.findOneAndDelete({ auth: user._id }, { session });
-      } else if (user?.role === USER_ROLES.VENDOR) {
-        await Vendor.findOneAndDelete({ auth: user._id }, { session });
-      }
-
-      await session.commitTransaction();
-    } catch (error) {
-      await session.abortTransaction();
-
-      if (error instanceof ApiError) {
-        throw error; // Re-throw known ApiError
-      }
-
-      throw new ApiError(
-        StatusCodes.INTERNAL_SERVER_ERROR,
-        'Failed to process Twilio status callback.',
-      );
-    } finally {
-      await session.endSession();
-    }
-  
-  }
-};

@@ -1,3 +1,5 @@
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getEvenlyDistributedData = (data: any, numPoints: number) => {
   // If there are fewer data points than the requested points, return all
   if (data.length <= numPoints) {
