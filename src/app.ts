@@ -29,9 +29,7 @@ app.post(
   PaymentController.webhooks
 );
 
-app.post('/twilio-status-callback', (req: Request, res: Response) => {
-  twilioStatusCallback(req.body);
-});
+
 
 app.use('/api/v1/others', largeBodyParser, OthersRoutes);
 
@@ -40,6 +38,12 @@ app.use(express.urlencoded({ extended: true }));
 
 //file retrieve
 app.use(express.static('uploads'));
+
+//twilio
+app.post('/twilio-status-callback', (req: Request, res: Response) => {
+  twilioStatusCallback(req.body);
+});
+
 
 //router
 app.use('/api/v1', router);
