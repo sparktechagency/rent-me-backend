@@ -138,3 +138,6 @@ export const verifyOtp = async (
 
 
 
+export const twilioStatusCallback = async (payload: any) => {
+  console.log(payload);
+};
