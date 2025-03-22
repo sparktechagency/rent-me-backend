@@ -13,6 +13,7 @@ const updateAddressSchema = z
 
 const updateCustomerProfileZodSchema = z.object({
   name: z.string().optional(),
+  email: z.string().optional(),
   contact: z.string().optional(),
   profileImg: z.string().optional(),
   address: updateAddressSchema,

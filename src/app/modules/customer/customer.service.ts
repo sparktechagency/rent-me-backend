@@ -13,10 +13,7 @@ import { calculateCustomerProfileCompletion } from './customer.utils';
 const getCustomerProfile = async (id: Types.ObjectId) => {
   const customerId = new Types.ObjectId(id);
 
-  const isUserExist = await User.findOne({
-    customer: customerId,
-    status: 'active',
-  }).populate('customer');
+  const isUserExist = await User.findOne({ customer: customerId }).select('+appId').populate<{customer:ICustomer}>('customer').lean();
 
   if (!isUserExist) {
     throw new ApiError(
@@ -25,21 +22,33 @@ const getCustomerProfile = async (id: Types.ObjectId) => {
     );
   }
 
-  return isUserExist.customer as ICustomer;
+  return {...isUserExist.customer, appId: isUserExist.appId} as ICustomer;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const updateCustomerProfile = async (id: Types.ObjectId, payload: any) => {
-  const { address, ...restData } = payload;
+  const { address,email, ...restData } = payload;
+
+
+  
   let updatedData = { ...restData };
   if (address && Object.keys(address).length > 0) {
     updatedData = handleObjectUpdate(address, restData, 'address');
   }
 
-  const isUserExist = await Customer.findById(id);
+  const [isUserExist, isEmailExist] = await Promise.all([
+    Customer.findById(id),
+    email ? User.findOne({ email: email, status: ['active', 'restricted'], verified: true }) : Promise.resolve(null)
+]);
+
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
   }
+
+  if (isEmailExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'An account with this email already exists. Please use a different email.');
+  }
+
   const customer = await Customer.findOneAndUpdate(
     { _id: id },
     { $set: updatedData },
@@ -51,9 +60,11 @@ const updateCustomerProfile = async (id: Types.ObjectId, payload: any) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to update customer');
   }
 
+
   const profileCompletion = calculateCustomerProfileCompletion(customer);
   await User.findByIdAndUpdate(customer._id, {
     profileCompletion: profileCompletion,
+    ...(email && {email:email}),
     verifiedFlag: customer.verifiedFlag
       ? customer.verifiedFlag // Keep it as is if already true
       : profileCompletion === 100, // Update to true only if completion is 100%

@@ -12,7 +12,7 @@ export const sendPushNotification = async (
   deviceToken: string,
   title: string,
   body: string,
-  data = {},
+  data: {role: string, destination: string, id: string},
   icon?: string // Optional: Add an icon parameter
 ) => {
 
@@ -21,8 +21,12 @@ export const sendPushNotification = async (
     notification: {
       title: title,
       body: body,
+      sound: 'default',
     },
-    data: data, // Optional data payload
+    data: {
+      type: 'screen',
+      id: data.id,
+    }, // Optional data payload
     android: {
       notification: {
         icon: icon ,

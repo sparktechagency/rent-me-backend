@@ -8,20 +8,10 @@ const createProductZodSchema = z.object({
   hourlyRate: z.number({
     required_error: 'Hourly rate is required',
   }),
-  minHours: z.number({
-    required_error: 'Minimum hours is required',
-  }),
-  dailyRate: z.number({
-    required_error: 'Daily rate is required',
-  }),
-  minDays: z.number({
-    required_error: 'Minimum days is required',
-  }),
-
+  minHours: z.number().optional(),
+  dailyRate: z.number(),
+  minDays: z.number().optional(),
   quantity: z.number().optional(),
-  // categories: z.array(z.string(), {
-  //   required_error: 'Categories are required',
-  // }),
 });
 
 const updateProductZodSchema = z.object({

@@ -20,6 +20,7 @@ const paymentSchema = new Schema<IPayment, PaymentModel>(
     stripePaymentSessionId: { type: String },
     stripePaymentIntentId: { type: String },
     stripeTransferId: { type: String },
+    stripePayoutId: { type: String },
     applicationFee: { type: Number, default: 0 },
     isInstantTransfer: { type: Boolean, default: false },
   },

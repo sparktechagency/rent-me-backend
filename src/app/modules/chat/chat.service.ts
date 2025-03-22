@@ -7,6 +7,8 @@ import { Types } from 'mongoose';
 import { USER_ROLES } from '../../../enums/user';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
+import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import { logger } from '../../../shared/logger';
 
 // Define types and interfaces
 type AccessChatPayload = {
@@ -15,8 +17,8 @@ type AccessChatPayload = {
 
 type PopulatedParticipant = {
   _id: Types.ObjectId;
-  customer?: { name: string; profileImg: string };
-  vendor?: { name: string; profileImg: string };
+  customer?: { name: string; profileImg: string, deviceId: string };
+  vendor?: { name: string; profileImg: string, deviceId: string };
 }
 
 type PopulatedChat = {
@@ -112,12 +114,12 @@ const accessChat = async (
     participants: {
       $all: [getRequestUserAuthId, isParticipantExists._id],
     },
-  }).populate({
+  }).populate<{ participants: PopulatedParticipant[] }>({
     path: 'participants',
     select: { vendor: 1, customer: 1 },
     populate: [
-      { path: 'customer', select: 'name profileImg' },
-      { path: 'vendor', select: 'name profileImg' },
+      { path: 'customer', select: 'name profileImg deviceId' },
+      { path: 'vendor', select: 'name profileImg deviceId' },
     ],
   }) as PopulatedChat | null;
 
@@ -139,6 +141,32 @@ const accessChat = async (
     latestMessageTime: newChat.latestMessageTime,
     
   };
+
+  const creatorName = user.role === USER_ROLES.CUSTOMER
+    ? participantData.customer?.name
+    : participantData.vendor?.name;
+
+  //send notification and also push notification
+  try {
+    await sendNotification(
+      'notification',
+      participantData._id,
+      {
+        title: `New chat created`,
+        message: `You have a new chat with ${creatorName}`,
+        userId: participantData._id,
+        type: 'CHAT',
+      },
+      {
+        deviceId: participantData.customer?.deviceId || participantData.vendor!.deviceId,
+        role: isParticipantExists.role,
+        destination: 'chat',
+        id: newChat._id.toString(),
+      }
+    );
+  } catch (error) {
+    logger.error('Error sending push notification:', error);
+  }
 
 
 //@ts-expect-error global This

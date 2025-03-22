@@ -8,12 +8,14 @@ import { Message } from './message.model';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
 import { USER_ROLES } from '../../../enums/user';
+import { sendNotification } from '../../../helpers/sendNotificationHelper';
+import { logger } from '../../../shared/logger';
 
 
 type PopulatedParticipant = {
   _id: Types.ObjectId;
-  customer?: { name: string; profileImg: string };
-  vendor?: { name: string; profileImg: string };
+  customer?: { name: string; profileImg: string, deviceId: string };
+  vendor?: { name: string; profileImg: string, deviceId: string };
 }
 
 type PopulatedChat = {
@@ -31,8 +33,8 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
     path: 'participants',
     select: { vendor: 1, customer: 1 },
     populate: [
-      { path: 'customer', select: 'name profileImg' },
-      { path: 'vendor', select: 'name profileImg' },
+      { path: 'customer', select: 'name profileImg deviceId' },
+      { path: 'vendor', select: 'name profileImg deviceId' },
     ],
   }).lean() as PopulatedChat | null;
 
@@ -61,7 +63,7 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
 
   // Populate the message with sender and receiver details
   const populatedMessage = await Message.findById(message._id)
-    .populate({
+    .populate<{ sender: PopulatedParticipant; }>({
       path: 'sender',
       select: 'name',
       populate: [
@@ -69,7 +71,7 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
         { path: 'vendor', select: 'name profileImg' },
       ],
     })
-    .populate({
+    .populate<{ receiver: PopulatedParticipant }>({
       path: 'receiver',
       select: 'name',
       populate: [
@@ -98,6 +100,35 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
     latestMessageTime: updatedChat.latestMessageTime,
   };
 
+  const senderName = user.role === USER_ROLES.CUSTOMER
+    ? populatedMessage?.sender?.customer?.name
+    : populatedMessage?.sender?.vendor?.name;
+
+
+    const timeBetweenLastMessage = new Date().getTime() - updatedChat.latestMessageTime.getTime();
+
+    if(timeBetweenLastMessage > 21600000) {
+      try {
+        await sendNotification(
+          'notification',
+          receiver._id,
+          {
+            title: `New message from ${senderName }`,
+            message: payload.message,
+            userId: receiver._id,
+            type: 'CHAT',
+          },
+          {
+            deviceId: receiver.customer?.deviceId || receiver.vendor!.deviceId,
+            role: user.role,
+            destination: 'chat',
+            id: chat._id.toString(),
+          }
+        );
+      } catch (error) {
+        logger.error('Error sending push notification:', error);
+      }
+    }
   // Emit socket events
   //@ts-expect-error socket
   global.io.emit(`messageReceived::${payload.chatId}`, populatedMessage);
