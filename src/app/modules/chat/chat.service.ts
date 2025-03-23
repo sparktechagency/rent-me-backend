@@ -17,8 +17,8 @@ type AccessChatPayload = {
 
 type PopulatedParticipant = {
   _id: Types.ObjectId;
-  customer?: { name: string; profileImg: string, deviceId: string };
-  vendor?: { name: string; profileImg: string, deviceId: string };
+  customer?: { name: string; profileImg: string, deviceId: string, _id: Types.ObjectId };
+  vendor?: { name: string; profileImg: string, deviceId: string, _id: Types.ObjectId };
 }
 
 type PopulatedChat = {
@@ -31,6 +31,7 @@ type FilteredChat = {
   _id: Types.ObjectId;
   participants: PopulatedParticipant[];
   latestMessageTime?: Date;
+  latestMessage?: string;
 }
 
 type ChatResult = {
@@ -100,8 +101,8 @@ const accessChat = async (
 
     return {
       chatId: isChatExists._id,
-      name: result.customer?.name || result.vendor?.name,
-      profileImg: result.customer?.profileImg || result.vendor?.profileImg,
+      name: result.customer?.name || result.vendor?.name || '',
+      profileImg: result.customer?.profileImg || result.vendor?.profileImg || '',
       latestMessageTime: isChatExists.latestMessageTime,
     };
   }
@@ -131,35 +132,39 @@ const accessChat = async (
     participant => participant._id.toString() !== user.id
   );
 
+  const requestedUserData = newChat.participants.find(
+    participant => participant._id.toString() === user.id
+  );
+
   if (!participantData) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Participant not found in chat.');
   }
   const returnData = {
     chatId: newChat._id,
-    name: participantData.customer?.name || participantData.vendor?.name,
-    profileImg: participantData.customer?.profileImg || participantData.vendor?.profileImg,
+    name: participantData.customer?.name || participantData.vendor?.name || '',
+    profileImg: participantData.customer?.profileImg || participantData.vendor?.profileImg || '',
     latestMessageTime: newChat.latestMessageTime,
     
   };
 
   const creatorName = user.role === USER_ROLES.CUSTOMER
-    ? participantData.customer?.name
-    : participantData.vendor?.name;
+    ? requestedUserData?.customer?.name
+    : requestedUserData?.vendor?.name;
 
   //send notification and also push notification
   try {
     await sendNotification(
-      'notification',
-      participantData._id,
+      'getNotification',
+      participantData.customer?._id?.toString() || participantData.vendor?._id?.toString() as string,
       {
         title: `New chat created`,
         message: `You have a new chat with ${creatorName}`,
-        userId: participantData._id,
-        type: 'CHAT',
+        userId: participantData.customer?._id || participantData.vendor?._id as Types.ObjectId,
+        type: participantData.customer?._id ? USER_ROLES.CUSTOMER : USER_ROLES.VENDOR,
       },
       {
-        deviceId: participantData.customer?.deviceId || participantData.vendor!.deviceId,
-        role: isParticipantExists.role,
+        deviceId: participantData.customer?.deviceId || participantData.vendor?.deviceId as string,
+        role: participantData.customer?._id ? USER_ROLES.CUSTOMER : USER_ROLES.VENDOR,
         destination: 'chat',
         id: newChat._id.toString(),
       }
@@ -171,7 +176,7 @@ const accessChat = async (
 
 //@ts-expect-error global This
   const socket = global.io;
-  socket.emit(`newChat::${isParticipantExists.role === USER_ROLES.CUSTOMER ? isParticipantExists.customer : isParticipantExists.vendor}`, returnData)
+  socket.emit(`newChat::${participantData.customer?._id?.toString() || participantData.vendor?._id?.toString() as string}`, returnData)
 
   return returnData;
 };
@@ -229,6 +234,9 @@ const getChatListByUserId = async (
         { path: 'customer', select: 'name' },
         { path: 'vendor', select: 'name' },
       ],
+    }).populate({
+      path: 'latestMessage',
+      select: 'message'
     })
     .lean()
     .then(
@@ -273,7 +281,8 @@ const getChatListByUserId = async (
     return {
       chatId: chat._id,
       name,
-      image,
+      profileImage:image,
+      latestMessage: chat.latestMessage,
       latestMessageTime: chat.latestMessageTime,
     };
 

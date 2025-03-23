@@ -6,8 +6,8 @@ const chatSchema = new Schema<IChat, ChatModel>(
     participants: [
       { type: Schema.Types.ObjectId, ref: 'User', required: true },
     ],
-    latestMessage: { type: Schema.Types.ObjectId, ref: 'Message' },
-    latestMessageTime: { type: Date },
+    latestMessage: { type: String },
+    latestMessageTime: { type: Date, default: new Date() },
   },
 
   {

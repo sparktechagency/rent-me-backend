@@ -32,7 +32,7 @@ const getNotifications = async (
   if (user.role === USER_ROLES.ADMIN) {
     query = { type: user.role };
   } else {
-    query = { userId: user.id };
+    query = { userId: user.userId };
   }
 
   const result = await Notification.find(query)
@@ -42,7 +42,7 @@ const getNotifications = async (
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to get notifications');
   }
-  const total = await Notification.countDocuments({ userId: user.id });
+  const total = await Notification.countDocuments(query);
   return {
     meta: {
       page,

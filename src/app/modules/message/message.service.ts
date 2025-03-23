@@ -14,8 +14,8 @@ import { logger } from '../../../shared/logger';
 
 type PopulatedParticipant = {
   _id: Types.ObjectId;
-  customer?: { name: string; profileImg: string, deviceId: string };
-  vendor?: { name: string; profileImg: string, deviceId: string };
+  customer?: { name: string; profileImg: string, deviceId: string, _id: Types.ObjectId };
+  vendor?: { name: string; profileImg: string, deviceId: string, _id: Types.ObjectId };
 }
 
 type PopulatedChat = {
@@ -67,16 +67,16 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
       path: 'sender',
       select: 'name',
       populate: [
-        { path: 'customer', select: 'name profileImg' },
-        { path: 'vendor', select: 'name profileImg' },
+        { path: 'customer', select: 'name profileImg _id deviceId' },
+        { path: 'vendor', select: 'name profileImg _id deviceId' },
       ],
     })
     .populate<{ receiver: PopulatedParticipant }>({
       path: 'receiver',
       select: 'name',
       populate: [
-        { path: 'customer', select: 'name profileImg' },
-        { path: 'vendor', select: 'name profileImg' },
+        { path: 'customer', select: 'name profileImg _id deviceId' },
+        { path: 'vendor', select: 'name profileImg _id deviceId' },
       ],
     })
     .lean();
@@ -84,7 +84,7 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   // Update the chat with the latest message details
   const updatedChat = await Chat.findOneAndUpdate(
     { _id: payload.chatId },
-    { latestMessage: message._id, latestMessageTime: new Date() },
+    { $set: {latestMessage: payload.message, latestMessageTime: new Date()} },
     { new: true }
   ).lean();
 
@@ -93,12 +93,13 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   }
 
   // Prepare socket data
-  const socketChatListData = {
-    chatId: chat._id,
-    name: receiver.customer?.name || receiver.vendor?.name,
-    profileImg: receiver.customer?.profileImg || receiver.vendor?.profileImg,
-    latestMessageTime: updatedChat.latestMessageTime,
-  };
+  // const socketChatListData = {
+  //   chatId: chat._id,
+  //   name: receiver.customer?.name || receiver.vendor?.name,
+  //   profileImg: receiver.customer?.profileImg || receiver.vendor?.profileImg || '',
+  //   latestMessage: updatedChat.latestMessage,
+  //   latestMessageTime: updatedChat.latestMessageTime,
+  // };
 
   const senderName = user.role === USER_ROLES.CUSTOMER
     ? populatedMessage?.sender?.customer?.name
@@ -108,19 +109,20 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
     const timeBetweenLastMessage = new Date().getTime() - updatedChat.latestMessageTime.getTime();
 
     if(timeBetweenLastMessage > 21600000) {
+
       try {
         await sendNotification(
-          'notification',
-          receiver._id,
+          'getNotification',
+          (receiver.customer?._id || receiver.vendor?._id) as Types.ObjectId,
           {
             title: `New message from ${senderName }`,
             message: payload.message,
-            userId: receiver._id,
-            type: 'CHAT',
+            userId: receiver.customer?._id || receiver.vendor?._id as Types.ObjectId,
+            type: receiver.customer ? USER_ROLES.CUSTOMER : USER_ROLES.VENDOR,
           },
           {
-            deviceId: receiver.customer?.deviceId || receiver.vendor!.deviceId,
-            role: user.role,
+            deviceId: receiver.customer?.deviceId || receiver.vendor?.deviceId as string,
+            role: receiver.customer ? USER_ROLES.CUSTOMER : USER_ROLES.VENDOR,
             destination: 'chat',
             id: chat._id.toString(),
           }
@@ -132,8 +134,8 @@ const sendMessage = async (user: JwtPayload, payload: IMessage) => {
   // Emit socket events
   //@ts-expect-error socket
   global.io.emit(`messageReceived::${payload.chatId}`, populatedMessage);
-  //@ts-expect-error socket
-  global.io.emit(`newChat::${user.role === USER_ROLES.CUSTOMER ? receiver.customer : receiver.vendor}`, socketChatListData);
+  
+  // global.io.emit(`newChat::${user.role === USER_ROLES.CUSTOMER ? receiver.customer : receiver.vendor}`, socketChatListData);
 
   return populatedMessage;
 };
