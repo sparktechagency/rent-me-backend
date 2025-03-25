@@ -12,7 +12,8 @@ export const sendPushNotification = async (
   deviceToken: string,
   title: string,
   body: string,
-  data: {role: string, destination: string, id: string},
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any,
   icon?: string // Optional: Add an icon parameter
 ) => {
 
@@ -21,15 +22,12 @@ export const sendPushNotification = async (
     notification: {
       title: title,
       body: body,
-      sound: 'default',
+      // sound: 'default',
     },
-    data: {
-      type: 'screen',
-      id: data.id,
-    }, // Optional data payload
+    data: data,
     android: {
       notification: {
-        icon: icon ,
+        icon: icon || '',
       },
     },
     apns: {
