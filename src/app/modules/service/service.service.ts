@@ -134,7 +134,7 @@ const getAllPackageByServiceId = async (id: string): Promise<IPackage[]> => {
 };
 
 const getAllServiceByVendorId = async (id: string): Promise<IService[]> => {
-  const result = await Service.find({ vendorId: id, isDeleted: false })
+  const result = await Service.find({ vendorId: new Types.ObjectId(id), isDeleted: false })
     .populate('packages', {
       title: 1,
       features: 1,
@@ -155,7 +155,7 @@ const deleteService = async (
 
   try {
     session.startTransaction();
-    const service = await Service.findOne({ _id: id });
+    const service = await Service.findOne({ _id: new Types.ObjectId(id) });
 
     if (!service) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Service does not exists');
@@ -170,11 +170,11 @@ const deleteService = async (
 
     const [deletedPackages, deletedService] = await Promise.all([
       Package.updateMany(
-        { serviceId: id },
+        { serviceId: new Types.ObjectId(id) },
         { $set: { isDeleted: true } },
         { new: true, session }
       ),
-      Service.findByIdAndUpdate(id, { $set: { isDeleted: true } }, { new: true, session }),
+      Service.findByIdAndUpdate(new Types.ObjectId(id), { $set: { isDeleted: true } }, { new: true, session }),
     ]);
 
     if (!deletedService) {
