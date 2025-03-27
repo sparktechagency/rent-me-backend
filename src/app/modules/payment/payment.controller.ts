@@ -226,6 +226,48 @@ const webhooks = catchAsync(async (req: Request, res: Response) => {
         break;
       }
 
+      case 'account.external_account.updated': {
+        const updatedAccount = event.data.object;
+        updatedAccount.available_payout_methods
+        const result = await Vendor.findOneAndUpdate(
+          { stripeId: updatedAccount.account },
+          { $set: { stripeConnected: true } },
+          { new: true }
+        );
+
+        const profileCompletion = calculateProfileCompletion(result!);
+
+        await Vendor.findOneAndUpdate(
+          { stripeId: updatedAccount.account },
+          {
+            $set: {
+              profileCompletion: profileCompletion,
+              verifiedFlag: profileCompletion === 100,
+            },
+          },
+          { new: true }
+        );
+
+        break;
+      }
+
+      case 'payout.created': {
+        const payout = event.data.object;
+        logger.info(`Payout created: ${payout.id}`);
+        break;
+      }
+      
+      case 'payout.failed': {
+        const payout = event.data.object;
+        logger.info(`Payout failed: ${payout.id}`);
+        break;
+      }
+      case 'payout.paid': {
+        const payout = event.data.object;
+        logger.info(`Payout paid: ${payout.id}`);
+        break;
+      }
+
       default:
         // Handle unexpected event types
         logger.warn(`Received unexpected event type: ${event.type}`);
