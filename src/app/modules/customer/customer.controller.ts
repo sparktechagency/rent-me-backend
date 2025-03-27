@@ -25,7 +25,7 @@ const getCustomerProfile = catchAsync(async (req: Request, res: Response) => {
 const updateCustomerProfile = catchAsync(
   async (req: Request, res: Response) => {
     const { userId } = req.user;
-    console.log(req.body.user);
+    console.log(req.user,"👍👍👍👍👍");
     const customerData = req.body;
 
     let profileImg;
