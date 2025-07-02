@@ -101,18 +101,18 @@ const createFaQs = async (payload: IFaQs): Promise<IFaQs | null> => {
 //need to update
 const getPrivacyPolicy = async (
   type: string
-): Promise<IPrivacyPolicy | null> => {
+) => {
   const result = await PrivacyPolicy.findOne({ userType: type });
 
-  return result;
+  return result || {};
 };
 
 const getTermsAndConditions = async (
   type: string
-): Promise<ITermsAndConditions | null> => {
+) => {
   const result = await TermsAndCondition.findOne({ userType: type });
 
-  return result;
+  return result || {};
 };
 
 const getFaQs = async (type: string) => {

@@ -56,8 +56,8 @@ class StripeService {
         },
       ],
       mode: 'payment',
-      success_url: 'https://yourapp.com/success',
-      cancel_url: 'https://yourapp.com/cancel',
+      success_url: 'https://admin.rentmeus.com/public/payment-success',
+      cancel_url: 'https://admin.rentmeus.com/public/payment-cancel',
       payment_intent_data: {},
       metadata: {
         customer_email: customerEmail,

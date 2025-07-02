@@ -29,9 +29,6 @@ const getCustomerProfile = async (id: Types.ObjectId) => {
 const updateCustomerProfile = async (id: Types.ObjectId, payload: any) => {
   const { address,email, ...restData } = payload;
 
-
-  console.log(payload);
-  
   let updatedData = { ...restData };
   if (address && Object.keys(address).length > 0) {
     updatedData = handleObjectUpdate(address, restData, 'address');
