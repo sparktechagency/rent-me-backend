@@ -45,8 +45,8 @@ const onboardVendor = async (user: JwtPayload) => {
 
     const onboardingUrl = await StripeService.createAccountLink(
       newStripeId || stripeId,
-      'https://yourapp.com/onboarding-success', // Replace with your URL
-      'https://yourapp.com/onboarding-failed' // Replace with your URL
+      'https://admin.rentmeus.com/public/onboard-success', // Replace with your URL
+      'https://admin.rentmeus.com/public/onboard-cancel' // Replace with your URL
     );
 
     return onboardingUrl;
